@@ -32,3 +32,22 @@ window.addEventListener("load", initSupabase);
 window.addEventListener("error", (e) => {
   console.error("JS ERROR:", e.message);
 });
+async function getUser() {
+  const { data } = await supabaseClient.auth.getUser();
+  return data?.user;
+}
+
+async function requireAuth() {
+  const user = await getUser();
+
+  if (!user) {
+    window.location.href = "login.html";
+  }
+
+  return user;
+}
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+  window.location.href = "login.html";
+}

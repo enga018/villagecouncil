@@ -180,7 +180,84 @@
         <h2 class="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-3">Pending Approval</h2>
         <div id="ad_pendingList" class="space-y-2"></div>
       </div>
+
+      <!-- Number Ranges -->
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Property Number Ranges</h2>
+        <button onclick="openRangeModal()"
+          class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+          + Assign Range
+        </button>
+      </div>
+      <div id="ad_rangeList" class="space-y-2 mb-8">
+        <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
+      </div>
+
+      <!-- Council Settings -->
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Council Settings</h2>
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Property Prefix</label>
+            <input id="ad_prefix" type="text" maxlength="6" placeholder="e.g. NSN"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+              oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); updateAdminPrefixPreview()">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Digit Length</label>
+            <select id="ad_digitLength" onchange="updateAdminPrefixPreview()"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="3">3 digits (001)</option>
+              <option value="4" selected>4 digits (0001)</option>
+              <option value="5">5 digits (00001)</option>
+            </select>
+          </div>
+        </div>
+        <div id="ad_prefixPreview" class="hidden p-3 bg-blue-50 rounded-lg border border-blue-100">
+          <p class="text-xs text-blue-500 mb-0.5">Example property code</p>
+          <p class="text-base font-bold font-mono text-blue-800" id="ad_prefixPreviewVal"></p>
+        </div>
+        <button onclick="saveCouncilSettings()"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">
+          Save Settings
+        </button>
+        <p id="ad_settingsMsg" class="text-xs text-center min-h-4"></p>
+      </div>
     </main>
+
+    <!-- Range Modal -->
+    <div id="rangeModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div class="p-5 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900">Assign Number Range</h3>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Worker</label>
+            <select id="rm_worker" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">Select worker…</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Range Start</label>
+              <input id="rm_start" type="number" inputmode="numeric" min="1" placeholder="1"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs text-gray-500 mb-1">Range End</label>
+              <input id="rm_end" type="number" inputmode="numeric" min="1" placeholder="100"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+          <p id="rm_err" class="text-xs text-red-500 min-h-4"></p>
+        </div>
+        <div class="p-5 border-t border-gray-100 flex gap-2">
+          <button onclick="closeRangeModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onclick="saveRange()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Assign</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Worker Module Modal -->
     <div id="workerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -468,7 +545,14 @@ async function loadAdmin({ profile, tenant }) {
   document.getElementById('ad_statProperties').textContent = propRes.count ?? '—';
   document.getElementById('ad_statHouseholds').textContent = famRes.count ?? '—';
 
-  await refreshWorkerList(tenantId);
+  await Promise.all([refreshWorkerList(tenantId), loadRanges(tenantId)]);
+
+  // Pre-fill settings
+  if (tenant?.property_prefix) {
+    document.getElementById('ad_prefix').value = tenant.property_prefix;
+    document.getElementById('ad_digitLength').value = tenant.id_digit_length || 4;
+    updateAdminPrefixPreview();
+  }
 }
 
 async function refreshWorkerList(tenantId) {
@@ -531,6 +615,112 @@ async function refreshWorkerList(tenantId) {
   } else {
     pendingSection.classList.add('hidden');
   }
+}
+
+// ─── COUNCIL SETTINGS ───────────────────────────────────────
+function updateAdminPrefixPreview() {
+  const prefix = document.getElementById('ad_prefix').value;
+  const digits = parseInt(document.getElementById('ad_digitLength').value) || 4;
+  const previewEl = document.getElementById('ad_prefixPreview');
+  if (prefix) {
+    document.getElementById('ad_prefixPreviewVal').textContent = formatPropertyCode(1, prefix, digits);
+    previewEl.classList.remove('hidden');
+  } else {
+    previewEl.classList.add('hidden');
+  }
+}
+
+async function saveCouncilSettings() {
+  const prefix = document.getElementById('ad_prefix').value.trim();
+  const digitLength = parseInt(document.getElementById('ad_digitLength').value);
+  const msgEl = document.getElementById('ad_settingsMsg');
+
+  if (!prefix) { msgEl.textContent = 'Enter a property prefix.'; msgEl.className = 'text-xs text-center text-red-500 min-h-4'; return; }
+
+  const { error } = await supabaseClient.from('tenants')
+    .update({ property_prefix: prefix, id_digit_length: digitLength })
+    .eq('id', _profile.tenant_id);
+
+  if (error) {
+    msgEl.textContent = error.message;
+    msgEl.className = 'text-xs text-center text-red-500 min-h-4';
+  } else {
+    msgEl.textContent = 'Settings saved.';
+    msgEl.className = 'text-xs text-center text-green-600 min-h-4';
+    setTimeout(() => { msgEl.textContent = ''; }, 2500);
+  }
+}
+
+// ─── RANGES ─────────────────────────────────────────────────
+async function loadRanges(tenantId) {
+  const { data } = await supabaseClient
+    .from('property_number_ranges')
+    .select('id, range_start, range_end, worker:profiles(full_name)')
+    .eq('tenant_id', tenantId)
+    .order('range_start');
+
+  const el = document.getElementById('ad_rangeList');
+  if (!data?.length) {
+    el.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No ranges assigned yet.</div>';
+    return;
+  }
+  el.innerHTML = data.map(r => `
+    <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+      <div>
+        <div class="text-sm font-semibold text-gray-900">${r.worker?.full_name || '—'}</div>
+        <div class="text-xs text-gray-400 font-mono mt-0.5">${r.range_start} – ${r.range_end}
+          <span class="text-gray-300 ml-1">(${r.range_end - r.range_start + 1} numbers)</span>
+        </div>
+      </div>
+      <button onclick="deleteRange('${r.id}')" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
+    </div>
+  `).join('');
+}
+
+async function deleteRange(id) {
+  await supabaseClient.from('property_number_ranges').delete().eq('id', id);
+  await loadRanges(_profile.tenant_id);
+}
+
+async function openRangeModal() {
+  document.getElementById('rm_start').value = '';
+  document.getElementById('rm_end').value = '';
+  document.getElementById('rm_err').textContent = '';
+
+  // Populate workers
+  const workers = await getTenantWorkers(_profile.tenant_id);
+  document.getElementById('rm_worker').innerHTML =
+    '<option value="">Select worker…</option>' +
+    workers.map(w => `<option value="${w.id}">${w.full_name}</option>`).join('');
+
+  document.getElementById('rangeModal').classList.remove('hidden');
+}
+
+function closeRangeModal() {
+  document.getElementById('rangeModal').classList.add('hidden');
+}
+
+async function saveRange() {
+  const workerId = document.getElementById('rm_worker').value;
+  const start = parseInt(document.getElementById('rm_start').value);
+  const end = parseInt(document.getElementById('rm_end').value);
+  const errEl = document.getElementById('rm_err');
+
+  if (!workerId) { errEl.textContent = 'Select a worker.'; return; }
+  if (!start || start < 1) { errEl.textContent = 'Enter a valid range start.'; return; }
+  if (!end || end <= start) { errEl.textContent = 'Range end must be greater than start.'; return; }
+
+  const { error } = await supabaseClient.from('property_number_ranges').insert({
+    tenant_id: _profile.tenant_id,
+    worker_id: workerId,
+    range_start: start,
+    range_end: end,
+    current_number: 0,
+  });
+
+  if (error) { errEl.textContent = error.message; return; }
+  closeRangeModal();
+  await loadRanges(_profile.tenant_id);
 }
 
 async function approveWorker(workerId) {

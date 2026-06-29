@@ -2,8 +2,9 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ENGA Admin Login</title>
+  <title>ENGA Platform Login</title>
 
+  <!-- Supabase JS (MUST load first) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
@@ -21,13 +22,13 @@
       background: #16213e;
       padding: 30px;
       border-radius: 10px;
-      width: 300px;
+      width: 320px;
     }
 
     input {
       width: 100%;
       padding: 10px;
-      margin: 10px 0;
+      margin: 8px 0;
     }
 
     button {
@@ -59,30 +60,57 @@
 </div>
 
 <script>
+console.log("Login page loaded");
+
+// IMPORTANT: replace these
 const supabase = window.supabase.createClient(
   "https://ebfasxnaabcutcrpwpxp.supabase.co",
   "sb_publishable_-vezxvTfAsS1e2xilOq5Bw_aPqsomZr"
 );
 
 async function login() {
+  console.log("LOGIN CLICKED");
+
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
   const msg = document.getElementById("msg");
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
-
-  if (error) {
-    msg.innerText = "Login failed";
+  if (!email || !password) {
+    msg.innerText = "Enter email and password";
     return;
   }
 
-  msg.innerText = "Login success...";
+  msg.innerText = "Logging in...";
 
-  // redirect to admin
-  window.location.href = "/admin.html";
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    console.log("DATA:", data);
+    console.log("ERROR:", error);
+
+    if (error) {
+      msg.innerText = "Login failed: " + error.message;
+      return;
+    }
+
+    if (!data || !data.user) {
+      msg.innerText = "Login failed: No user returned";
+      return;
+    }
+
+    msg.innerText = "Login successful";
+
+    setTimeout(() => {
+      window.location.href = "/admin.html";
+    }, 500);
+
+  } catch (e) {
+    console.error("CRASH:", e);
+    msg.innerText = "System error: " + e.message;
+  }
 }
 </script>
 

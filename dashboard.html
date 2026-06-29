@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — enga.in</title>
+  <script src="subdomain-context.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js?v=4"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50">
+
+  <!-- Loading -->
+  <div id="loadingScreen" class="fixed inset-0 bg-gray-50 flex items-center justify-center z-50">
+    <div class="text-center">
+      <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+      <p class="text-sm text-gray-500">Loading…</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SUPER ADMIN DASHBOARD  (enga.in/dashboard)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="superAdminSection" class="hidden">
+    <header class="bg-indigo-900 text-white shadow-lg">
+      <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-indigo-700 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-bold text-sm leading-none">enga.in</div>
+            <div class="text-indigo-300 text-xs mt-0.5">Super Admin</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <span id="sa_userName" class="text-indigo-200 text-sm"></span>
+          <button onclick="logout()" class="text-indigo-300 hover:text-white text-sm transition-colors">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sa_statTenants">—</div>
+          <div class="text-xs text-gray-500 mt-1">Village Councils</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sa_statUsers">—</div>
+          <div class="text-xs text-gray-500 mt-1">Total Users</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sa_statProperties">—</div>
+          <div class="text-xs text-gray-500 mt-1">Properties Surveyed</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sa_statHouseholds">—</div>
+          <div class="text-xs text-gray-500 mt-1">Households Registered</div>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Management</h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <a href="super-admin.html"
+          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
+          <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Village Councils</div>
+            <div class="text-xs text-gray-500 mt-1">Create and manage councils</div>
+          </div>
+        </a>
+
+        <a href="super-admin.html#users"
+          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
+          <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Users</div>
+            <div class="text-xs text-gray-500 mt-1">Manage all platform users</div>
+          </div>
+        </a>
+
+        <a href="super-admin.html#ranges"
+          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
+          <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Number Ranges</div>
+            <div class="text-xs text-gray-500 mt-1">Assign property ranges to workers</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Tenants List -->
+      <div class="mt-8">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Village Councils</h2>
+        <div id="sa_tenantList" class="space-y-2">
+          <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ADMIN DASHBOARD  (subdomain.enga.in/dashboard)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="adminSection" class="hidden">
+    <header class="bg-blue-800 text-white shadow-lg">
+      <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-bold text-sm leading-none" id="ad_tenantName">—</div>
+            <div class="text-blue-300 text-xs mt-0.5" id="ad_userName">—</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs bg-blue-700 text-blue-100 px-2 py-1 rounded-full">Admin</span>
+          <button onclick="logout()" class="text-blue-200 hover:text-white text-sm transition-colors">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-3 mb-8">
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="ad_statWorkers">—</div>
+          <div class="text-xs text-gray-500 mt-1">Workers</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="ad_statProperties">—</div>
+          <div class="text-xs text-gray-500 mt-1">Properties</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="ad_statHouseholds">—</div>
+          <div class="text-xs text-gray-500 mt-1">Households</div>
+        </div>
+      </div>
+
+      <!-- Workers -->
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Workers</h2>
+        <button onclick="openAddWorkerModal()"
+          class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+          + Add Worker
+        </button>
+      </div>
+      <div id="ad_workerList" class="space-y-2 mb-8">
+        <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
+      </div>
+
+      <!-- Pending approvals -->
+      <div id="ad_pendingSection" class="hidden mb-8">
+        <h2 class="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-3">Pending Approval</h2>
+        <div id="ad_pendingList" class="space-y-2"></div>
+      </div>
+    </main>
+
+    <!-- Worker Module Modal -->
+    <div id="workerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div class="p-5 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900" id="workerModalTitle">Worker Details</h3>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <p class="text-xs text-gray-500 mb-1">Name</p>
+            <p class="text-sm font-medium text-gray-900" id="wm_name"></p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-2">Module Access</p>
+            <div class="space-y-2" id="wm_modules"></div>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 mb-1">Status</p>
+            <select id="wm_status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="active">Active</option>
+              <option value="pending">Pending</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="p-5 border-t border-gray-100 flex gap-2">
+          <button onclick="closeWorkerModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onclick="saveWorkerChanges()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Worker Modal -->
+    <div id="addWorkerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div class="p-5 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900">Add Worker by Email</h3>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Worker Email</label>
+            <input id="aw_email" type="email" placeholder="worker@example.com"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <p class="text-xs text-gray-400">Worker must already have an account. They will be assigned to this council.</p>
+          <p id="aw_msg" class="text-xs min-h-4"></p>
+        </div>
+        <div class="p-5 border-t border-gray-100 flex gap-2">
+          <button onclick="closeAddWorkerModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onclick="addWorkerByEmail()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Add Worker</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       WORKER DASHBOARD  (subdomain.enga.in/dashboard)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="workerSection" class="hidden">
+    <header class="bg-blue-800 text-white shadow-lg">
+      <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-bold text-sm leading-none" id="wk_tenantName">—</div>
+            <div class="text-blue-300 text-xs mt-0.5" id="wk_userName">—</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs bg-blue-700 text-blue-100 px-2 py-1 rounded-full" id="wk_roleBadge">Worker</span>
+          <button onclick="logout()" class="text-blue-200 hover:text-white text-sm transition-colors">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <!-- Stats -->
+      <div class="grid grid-cols-2 gap-3 mb-8">
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="wk_statProperties">—</div>
+          <div class="text-xs text-gray-500 mt-1">Properties Surveyed</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="wk_statHouseholds">—</div>
+          <div class="text-xs text-gray-500 mt-1">Households Registered</div>
+        </div>
+      </div>
+
+      <!-- Assigned Modules -->
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Your Modules</h2>
+      <div id="wk_moduleCards" class="grid gap-4 sm:grid-cols-2">
+        <div class="text-sm text-gray-400 py-4 text-center col-span-2">Loading…</div>
+      </div>
+
+      <!-- No modules message -->
+      <div id="wk_noModules" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
+        <p class="text-sm text-amber-800 font-medium">No modules assigned yet.</p>
+        <p class="text-xs text-amber-600 mt-1">Contact your admin to get access to modules.</p>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="mt-8">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Recent Surveys</h2>
+        <div id="wk_recentList" class="space-y-2">
+          <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SUPERVISOR DASHBOARD  (future)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="supervisorSection" class="hidden">
+    <header class="bg-teal-800 text-white shadow-lg">
+      <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 bg-teal-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="font-bold text-sm leading-none" id="sv_tenantName">—</div>
+            <div class="text-teal-300 text-xs mt-0.5" id="sv_userName">—</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs bg-teal-700 text-teal-100 px-2 py-1 rounded-full">Supervisor</span>
+          <button onclick="logout()" class="text-teal-200 hover:text-white text-sm transition-colors">Logout</button>
+        </div>
+      </div>
+    </header>
+    <main class="max-w-4xl mx-auto px-4 py-6">
+      <div class="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
+        <p class="text-gray-500 text-sm">Supervisor dashboard coming soon.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Access Denied -->
+  <div id="deniedSection" class="hidden min-h-screen flex items-center justify-center">
+    <div class="text-center">
+      <p class="text-gray-700 font-medium">Access Denied</p>
+      <p class="text-sm text-gray-400 mt-1">You don't have permission to view this page.</p>
+      <button onclick="logout()" class="mt-4 text-sm text-blue-600 hover:underline">Sign out</button>
+    </div>
+  </div>
+
+<script>
+const MODULE_META = {
+  property: {
+    label: 'Property Survey',
+    desc: 'Record building details, ownership, GPS, and photos.',
+    href: 'survey.html',
+    cta: 'Start Survey →',
+    color: 'blue',
+  },
+  family: {
+    label: 'Household Register',
+    desc: 'Register households and family members.',
+    href: 'household.html',
+    cta: 'Add Household →',
+    color: 'green',
+  },
+  property_tax: {
+    label: 'Property Tax',
+    desc: 'Tax assessment and collection.',
+    href: '#',
+    cta: 'Coming Soon',
+    color: 'amber',
+  },
+};
+
+const colorMap = {
+  blue:  { bg: 'bg-blue-50',  hover: 'hover:bg-blue-100',  icon: 'text-blue-600',  border: 'hover:border-blue-300',  cta: 'text-blue-600'  },
+  green: { bg: 'bg-green-50', hover: 'hover:bg-green-100', icon: 'text-green-600', border: 'hover:border-green-300', cta: 'text-green-600' },
+  amber: { bg: 'bg-amber-50', hover: 'hover:bg-amber-100', icon: 'text-amber-600', border: 'hover:border-amber-300', cta: 'text-amber-600' },
+};
+
+// ─── shared state ───────────────────────────────────────────
+let _profile = null;
+let _tenant  = null;
+
+// ─── boot ───────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  await waitForSupabase();
+
+  const ctx = await getProfile();
+  if (!ctx) { window.location.href = 'login.html'; return; }
+
+  _profile = ctx.profile;
+  _tenant  = ctx.tenant;
+
+  const role    = _profile?.role;
+  const subCtx  = window.tenantContext;
+
+  // Tenant match guard for non-super_admin on subdomains
+  if (subCtx.type === 'tenant') {
+    const ok = await assertTenantMatch(_profile);
+    if (!ok) return;
+  }
+
+  // Route
+  if (role === 'super_admin' && (subCtx.type === 'root' || subCtx.type === 'super-admin')) {
+    await loadSuperAdmin(ctx);
+  } else if (role === 'admin' && subCtx.type === 'tenant') {
+    await loadAdmin(ctx);
+  } else if (role === 'worker' && subCtx.type === 'tenant') {
+    await loadWorker(ctx);
+  } else if (role === 'supervisor' && subCtx.type === 'tenant') {
+    await loadSupervisor(ctx);
+  } else if (role === 'super_admin' && subCtx.type === 'tenant') {
+    // Super admin visiting a tenant subdomain — show worker-like view with admin badge
+    await loadAdmin(ctx);
+  } else {
+    show('deniedSection');
+  }
+
+  hide('loadingScreen');
+});
+
+// ─── SUPER ADMIN ────────────────────────────────────────────
+async function loadSuperAdmin({ profile }) {
+  document.getElementById('sa_userName').textContent = profile?.full_name || 'Super Admin';
+  show('superAdminSection');
+
+  const [tenantRes, userRes, propRes, famRes] = await Promise.all([
+    supabaseClient.from('tenants').select('id', { count: 'exact', head: true }),
+    supabaseClient.from('profiles').select('id', { count: 'exact', head: true }),
+    supabaseClient.from('properties').select('id', { count: 'exact', head: true }),
+    supabaseClient.from('families').select('id', { count: 'exact', head: true }),
+  ]);
+  document.getElementById('sa_statTenants').textContent     = tenantRes.count ?? '—';
+  document.getElementById('sa_statUsers').textContent       = userRes.count ?? '—';
+  document.getElementById('sa_statProperties').textContent  = propRes.count ?? '—';
+  document.getElementById('sa_statHouseholds').textContent  = famRes.count ?? '—';
+
+  const { data: tenants } = await supabaseClient
+    .from('tenants')
+    .select('id, name, subdomain, property_prefix')
+    .order('name');
+
+  const list = document.getElementById('sa_tenantList');
+  if (!tenants?.length) {
+    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No village councils yet. <a href="super-admin.html" class="text-indigo-600 hover:underline">Create one →</a></div>';
+    return;
+  }
+  list.innerHTML = tenants.map(t => `
+    <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+      <div>
+        <div class="text-sm font-semibold text-gray-900">${t.name}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix}</div>
+      </div>
+      <a href="https://${t.subdomain}.enga.in/dashboard.html"
+        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Visit →</a>
+    </div>
+  `).join('');
+}
+
+// ─── ADMIN ──────────────────────────────────────────────────
+let _editingWorkerId   = null;
+let _editingModuleCodes = [];
+
+async function loadAdmin({ profile, tenant }) {
+  document.getElementById('ad_tenantName').textContent = tenant?.name || 'Council';
+  document.getElementById('ad_userName').textContent   = profile?.full_name || profile?.role || '';
+  show('adminSection');
+
+  const tenantId = profile.tenant_id;
+
+  const [workerRes, propRes, famRes] = await Promise.all([
+    supabaseClient.from('profiles').select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).in('role', ['worker', 'supervisor']),
+    supabaseClient.from('properties').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+    supabaseClient.from('families').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+  ]);
+  document.getElementById('ad_statWorkers').textContent    = workerRes.count ?? '—';
+  document.getElementById('ad_statProperties').textContent = propRes.count ?? '—';
+  document.getElementById('ad_statHouseholds').textContent = famRes.count ?? '—';
+
+  await refreshWorkerList(tenantId);
+}
+
+async function refreshWorkerList(tenantId) {
+  const { data: workers } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, phone, role, status')
+    .eq('tenant_id', tenantId || _profile.tenant_id)
+    .in('role', ['worker', 'supervisor'])
+    .order('full_name');
+
+  // Pending approvals
+  const { data: pending } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, phone, role, status')
+    .eq('tenant_id', tenantId || _profile.tenant_id)
+    .eq('status', 'pending');
+
+  const list = document.getElementById('ad_workerList');
+  const active = (workers || []).filter(w => w.status !== 'pending');
+
+  if (!active.length) {
+    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No workers yet.</div>';
+  } else {
+    list.innerHTML = active.map(w => `
+      <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+        <div>
+          <div class="text-sm font-semibold text-gray-900">${w.full_name}</div>
+          <div class="text-xs text-gray-400 mt-0.5">${w.phone || '—'} &nbsp;·&nbsp;
+            <span class="capitalize">${w.role}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium ${w.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
+            ${w.status}
+          </span>
+          <button onclick="openWorkerModal('${w.id}','${escHtml(w.full_name)}','${w.status}')"
+            class="text-xs text-blue-600 hover:text-blue-800 font-medium">Manage</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Pending section
+  const pendingSection = document.getElementById('ad_pendingSection');
+  const pendingList    = document.getElementById('ad_pendingList');
+  if (pending?.length) {
+    pendingSection.classList.remove('hidden');
+    pendingList.innerHTML = pending.map(w => `
+      <div class="flex items-center justify-between bg-amber-50 rounded-lg px-4 py-3 border border-amber-200">
+        <div>
+          <div class="text-sm font-semibold text-gray-900">${w.full_name}</div>
+          <div class="text-xs text-gray-500">${w.phone || '—'}</div>
+        </div>
+        <button onclick="approveWorker('${w.id}')"
+          class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors">
+          Approve
+        </button>
+      </div>
+    `).join('');
+  } else {
+    pendingSection.classList.add('hidden');
+  }
+}
+
+async function approveWorker(workerId) {
+  await supabaseClient.from('profiles').update({ status: 'active' }).eq('id', workerId);
+  await refreshWorkerList();
+}
+
+async function openWorkerModal(workerId, name, status) {
+  _editingWorkerId = workerId;
+  document.getElementById('workerModalTitle').textContent = 'Manage Worker';
+  document.getElementById('wm_name').textContent = name;
+  document.getElementById('wm_status').value = status;
+
+  // Load current module assignments
+  const assigned = await getWorkerModules(_profile.tenant_id, workerId);
+  _editingModuleCodes = [...assigned];
+
+  const mods = document.getElementById('wm_modules');
+  mods.innerHTML = ['property', 'family'].map(code => {
+    const meta = MODULE_META[code];
+    const checked = assigned.includes(code);
+    return `
+      <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
+        <input type="checkbox" value="${code}" ${checked ? 'checked' : ''}
+          onchange="toggleModuleCheck('${code}', this.checked)"
+          class="w-4 h-4 text-blue-600 rounded">
+        <span class="text-sm text-gray-700">${meta.label}</span>
+      </label>
+    `;
+  }).join('');
+
+  document.getElementById('workerModal').classList.remove('hidden');
+}
+
+function toggleModuleCheck(code, checked) {
+  if (checked && !_editingModuleCodes.includes(code)) _editingModuleCodes.push(code);
+  if (!checked) _editingModuleCodes = _editingModuleCodes.filter(c => c !== code);
+}
+
+function closeWorkerModal() {
+  document.getElementById('workerModal').classList.add('hidden');
+  _editingWorkerId = null;
+  _editingModuleCodes = [];
+}
+
+async function saveWorkerChanges() {
+  if (!_editingWorkerId) return;
+  const newStatus = document.getElementById('wm_status').value;
+  const tenantId  = _profile.tenant_id;
+
+  // Update status
+  await supabaseClient.from('profiles').update({ status: newStatus }).eq('id', _editingWorkerId);
+
+  // Sync module assignments: remove all then re-insert checked
+  await supabaseClient.from('worker_module_assignments')
+    .delete().eq('tenant_id', tenantId).eq('worker_id', _editingWorkerId);
+
+  if (_editingModuleCodes.length) {
+    await supabaseClient.from('worker_module_assignments').insert(
+      _editingModuleCodes.map(code => ({
+        tenant_id: tenantId, worker_id: _editingWorkerId, app_code: code,
+        assigned_by: _profile.id,
+      }))
+    );
+  }
+
+  closeWorkerModal();
+  await refreshWorkerList(tenantId);
+}
+
+function openAddWorkerModal() {
+  document.getElementById('aw_email').value = '';
+  document.getElementById('aw_msg').textContent = '';
+  document.getElementById('aw_msg').className = 'text-xs min-h-4';
+  document.getElementById('addWorkerModal').classList.remove('hidden');
+}
+function closeAddWorkerModal() {
+  document.getElementById('addWorkerModal').classList.add('hidden');
+}
+
+async function addWorkerByEmail() {
+  const email = document.getElementById('aw_email').value.trim();
+  const msgEl = document.getElementById('aw_msg');
+  if (!email) { msgEl.textContent = 'Enter an email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+
+  // Find profile by email via auth — look up in profiles by joining auth
+  // We search profiles table; email is on auth.users not profiles, so use user_profiles or fallback
+  // Look up by checking if any user registered with this email has no tenant yet
+  const { data: match } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, tenant_id, role')
+    .is('tenant_id', null)
+    .limit(50);
+
+  // Since we can't query by email directly on profiles, we use the auth admin API
+  // which isn't available client-side. Instead, we show instructions.
+  msgEl.textContent = 'Ask the worker to register at ' + (window.tenantContext.subdomain || '') + '.enga.in/register.html — they will appear in Pending Approval once registered.';
+  msgEl.className = 'text-xs text-blue-600 min-h-4';
+}
+
+// ─── WORKER ─────────────────────────────────────────────────
+async function loadWorker({ profile, tenant }) {
+  const roleLabel = { worker: 'Field Worker', supervisor: 'Supervisor' };
+  document.getElementById('wk_tenantName').textContent = tenant?.name || 'Council';
+  document.getElementById('wk_userName').textContent   = profile?.full_name || '';
+  document.getElementById('wk_roleBadge').textContent  = roleLabel[profile?.role] || profile?.role;
+  show('workerSection');
+
+  const tenantId = profile.tenant_id;
+
+  const [propRes, famRes, modules] = await Promise.all([
+    supabaseClient.from('properties').select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).eq('worker_id', profile.id),
+    supabaseClient.from('families').select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId),
+    getWorkerModules(tenantId, profile.id),
+  ]);
+
+  document.getElementById('wk_statProperties').textContent = propRes.count ?? '—';
+  document.getElementById('wk_statHouseholds').textContent = famRes.count ?? '—';
+
+  const cards = document.getElementById('wk_moduleCards');
+  if (!modules.length) {
+    cards.innerHTML = '';
+    document.getElementById('wk_noModules').classList.remove('hidden');
+  } else {
+    document.getElementById('wk_noModules').classList.add('hidden');
+    cards.innerHTML = modules.map(code => {
+      const m = MODULE_META[code];
+      if (!m) return '';
+      const c = colorMap[m.color];
+      return `
+        <a href="${m.href}"
+          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 ${c.border} hover:shadow-md transition-all flex items-start gap-4">
+          <div class="w-12 h-12 ${c.bg} ${c.hover} rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+            <svg class="w-6 h-6 ${c.icon}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              ${moduleIcon(code)}
+            </svg>
+          </div>
+          <div class="flex-1">
+            <div class="font-semibold text-gray-900 text-sm">${m.label}</div>
+            <div class="text-xs text-gray-500 mt-1">${m.desc}</div>
+            <div class="mt-3 text-xs font-medium ${c.cta}">${m.cta}</div>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  // Recent surveys
+  const { data: recent } = await supabaseClient
+    .from('properties')
+    .select('id, property_code, building_type, status, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('worker_id', profile.id)
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  const recentEl = document.getElementById('wk_recentList');
+  if (!recent?.length) {
+    recentEl.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No surveys yet.</div>';
+  } else {
+    recentEl.innerHTML = recent.map(p => `
+      <a href="survey.html?id=${p.id}" class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100 hover:border-blue-200 transition-colors">
+        <div>
+          <div class="text-sm font-semibold text-gray-900">${p.property_code}</div>
+          <div class="text-xs text-gray-500 mt-0.5">${p.building_type || '—'}</div>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full font-medium ${p.status === 'complete' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+          ${p.status === 'complete' ? 'Complete' : 'Incomplete'}
+        </span>
+      </a>
+    `).join('');
+  }
+}
+
+// ─── SUPERVISOR ─────────────────────────────────────────────
+async function loadSupervisor({ profile, tenant }) {
+  document.getElementById('sv_tenantName').textContent = tenant?.name || 'Council';
+  document.getElementById('sv_userName').textContent   = profile?.full_name || '';
+  show('supervisorSection');
+}
+
+// ─── helpers ────────────────────────────────────────────────
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function escHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function moduleIcon(code) {
+  if (code === 'property') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>`;
+  if (code === 'family') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>`;
+  return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>`;
+}
+</script>
+</body>
+</html>

@@ -2,9 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ENGA Platform Login</title>
+  <title>Login</title>
 
+  <!-- Supabase CDN (must load first) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Your app -->
   <script src="app.js"></script>
 
   <style>
@@ -20,7 +23,7 @@
 
     .box {
       background: #16213e;
-      padding: 30px;
+      padding: 25px;
       border-radius: 10px;
       width: 320px;
     }
@@ -49,7 +52,7 @@
 <body>
 
 <div class="box">
-  <h2>Platform Admin Login</h2>
+  <h2>Login</h2>
 
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
@@ -60,35 +63,40 @@
 </div>
 
 <script>
-console.log("Login page loaded");
+function waitForSupabase() {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (window.supabaseClient) return resolve();
+      setTimeout(check, 50);
+    };
+    check();
+  });
+}
 
 async function login() {
-  console.log("LOGIN CLICKED");
-
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
   const msg = document.getElementById("msg");
 
-  if (!email || !password) {
-    msg.innerText = "Enter email and password";
-    return;
-  }
-
-  msg.innerText = "Logging in...";
-
   try {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password
-    });
+    await waitForSupabase();
 
-    if (error) {
-      msg.innerText = "Login failed: " + error.message;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    if (!email || !password) {
+      msg.innerText = "Enter email and password";
       return;
     }
 
-    if (!data || !data.user) {
-      msg.innerText = "Login failed: No user returned";
+    msg.innerText = "Logging in...";
+
+    const { data, error } =
+      await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
+
+    if (error) {
+      msg.innerText = error.message;
       return;
     }
 

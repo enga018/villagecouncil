@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ENGA Admin Login</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0b1220;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      background: #16213e;
+      padding: 30px;
+      border-radius: 10px;
+      width: 300px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #4f7cff;
+      border: none;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #3b66ff;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Platform Admin Login</h2>
+
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+
+  <button onclick="login()">Login</button>
+
+  <p id="msg"></p>
+</div>
+
+<script>
+const supabase = window.supabase.createClient(
+  "https://ebfasxnaabcutcrpwpxp.supabase.co",
+  "sb_publishable_-vezxvTfAsS1e2xilOq5Bw_aPqsomZr"
+);
+
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const msg = document.getElementById("msg");
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    msg.innerText = "Login failed";
+    return;
+  }
+
+  msg.innerText = "Login success...";
+
+  // redirect to admin
+  window.location.href = "/admin.html";
+}
+</script>
+
+</body>
+</html>

@@ -3,77 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ENGA Platform</title>
+
+  <title>Admin Dashboard</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+  <script src="core.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #0b1220;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      flex-direction: column;
+    body { font-family: Arial; margin: 0; background:#0b1220; color:#fff; }
+
+    header {
+      display:flex; justify-content:space-between;
+      padding:15px; background:#111a2e;
     }
 
-    h1 {
-      font-size: 40px;
-      margin-bottom: 10px;
+    .container { padding:20px; }
+
+    .grid { display:flex; gap:10px; flex-wrap:wrap; }
+
+    .card {
+      flex:1; min-width:120px;
+      background:#16213e; padding:15px; border-radius:8px;
     }
 
-    p {
-      color: #aaa;
-      margin-bottom: 30px;
+    .tabs button {
+      margin:5px; padding:10px;
+      background:#4f7cff; border:none; color:#fff;
     }
 
-    .btn {
-      padding: 12px 20px;
-      margin: 10px;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 6px;
+    #moduleArea {
+      margin-top:15px;
+      background:#16213e;
+      padding:15px;
+      border-radius:8px;
     }
 
-    .login {
-      background: #4f7cff;
-      color: white;
+    input {
+      width:100%;
+      padding:10px;
+      margin:5px 0;
     }
 
-    .login:hover {
-      background: #3b66ff;
+    button.action {
+      padding:10px;
+      background:#4f7cff;
+      border:none;
+      color:#fff;
+      margin:5px 0;
+      width:100%;
     }
 
-    .admin {
-      background: transparent;
-      border: 1px solid #4f7cff;
-      color: white;
-    }
-
-    .admin:hover {
-      background: #1a2a4a;
+    @media(max-width:768px){
+      .grid { flex-direction:column; }
     }
   </style>
 </head>
 
 <body>
 
-<h1>ENGA Platform</h1>
-<p>Village Council Management System</p>
+<header>
+  <div>Village Dashboard</div>
+  <button onclick="logout()">Logout</button>
+</header>
 
-<button class="btn login" onclick="goLogin()">Login</button>
-<button class="btn admin" onclick="goAdmin()">Admin</button>
+<div class="container">
+
+  <div class="grid">
+    <div class="card">Properties: <span id="totalProperties">0</span></div>
+    <div class="card">Families: <span id="totalFamilies">0</span></div>
+    <div class="card">Pending Tax: <span id="pendingTax">₹0</span></div>
+  </div>
+
+  <div class="tabs">
+    <button onclick="show('property')">Property</button>
+    <button onclick="show('family')">Family</button>
+    <button onclick="show('tax')">Tax</button>
+  </div>
+
+  <div id="moduleArea">Select module</div>
+
+</div>
 
 <script>
-function goLogin() {
-  window.location.href = "/login.html";
+
+// AUTH
+async function checkAuth(){
+  const { data } = await supabaseClient.auth.getUser();
+  if(!data.user) location.href="login.html";
+}
+checkAuth();
+
+async function logout(){
+  await supabaseClient.auth.signOut();
+  location.href="login.html";
 }
 
-function goAdmin() {
-  window.location.href = "/admin.html";
+// MODULE UI
+function show(m){
+  const a=document.getElementById("moduleArea");
+
+  if(m==="property"){
+    a.innerHTML=`
+      <input placeholder="House Number">
+      <input placeholder="Location">
+      <button class="action" onclick="handleProperty()">Add Property</button>
+    `;
+  }
+
+  if(m==="family"){
+    a.innerHTML=`
+      <input placeholder="Head Name">
+      <input placeholder="Property ID">
+      <button class="action" onclick="handleFamily()">Add Family</button>
+    `;
+  }
+
+  if(m==="tax"){
+    a.innerHTML=`
+      <button class="action" onclick="handleTax()">Generate Tax</button>
+    `;
+  }
 }
+
+// HANDLERS
+async function handleProperty(){
+  const i=document.querySelectorAll("#moduleArea input");
+  await addProperty(i[0].value,i[1].value);
+  refreshDashboard();
+}
+
+async function handleFamily(){
+  const i=document.querySelectorAll("#moduleArea input");
+  await addFamily(i[0].value,i[1].value);
+  refreshDashboard();
+}
+
+async function handleTax(){
+  const pid=prompt("Property ID");
+  const fid=prompt("Family ID");
+  const y=prompt("Year");
+  const amt=prompt("Amount");
+  await generateTax(pid,fid,y,amt);
+  refreshDashboard();
+}
+
 </script>
 
 </body>

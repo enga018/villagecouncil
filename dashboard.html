@@ -67,7 +67,7 @@
 
       <!-- Quick Links -->
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Management</h2>
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div class="grid gap-4 sm:grid-cols-1">
         <a href="#superAdminSection"
           class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
           <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
@@ -79,34 +79,6 @@
           <div>
             <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Village Councils</div>
             <div class="text-xs text-gray-500 mt-1">Create and manage councils</div>
-          </div>
-        </a>
-
-        <a href="#usersSection"
-          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
-          <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
-            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/>
-            </svg>
-          </div>
-          <div>
-            <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Users</div>
-            <div class="text-xs text-gray-500 mt-1">Manage all platform users</div>
-          </div>
-        </a>
-
-        <a href="#rangesSection"
-          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
-          <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
-            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
-            </svg>
-          </div>
-          <div>
-            <div class="font-semibold text-gray-900 group-hover:text-indigo-700 transition-colors text-sm">Number Ranges</div>
-            <div class="text-xs text-gray-500 mt-1">Assign property ranges to workers</div>
           </div>
         </a>
       </div>
@@ -188,35 +160,6 @@
       </div>
 
       <!-- Workers -->
-      <div id="usersSection" class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Workers</h2>
-        <button onclick="openAddWorkerModal()"
-          class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
-          + Add Worker
-        </button>
-      </div>
-      <div id="ad_workerList" class="space-y-2 mb-8">
-        <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
-      </div>
-
-      <!-- Pending approvals -->
-      <div id="ad_pendingSection" class="hidden mb-8">
-        <h2 class="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-3">Pending Approval</h2>
-        <div id="ad_pendingList" class="space-y-2"></div>
-      </div>
-
-      <!-- Number Ranges -->
-      <div id="rangesSection" class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Property Number Ranges</h2>
-        <button onclick="openRangeModal()"
-          class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
-          + Assign Range
-        </button>
-      </div>
-      <div id="ad_rangeList" class="space-y-2 mb-8">
-        <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
-      </div>
-
       <!-- Council Settings -->
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Council Settings</h2>
       <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
@@ -628,19 +571,20 @@ async function loadSuperAdmin({ profile }) {
 
   renderModuleCatalog('sa_moduleCards');
 
-  const { data: adminProfiles } = await supabaseClient
-    .from('profiles')
-    .select('tenant_id, email, tenant:tenants(id, name, subdomain, property_prefix)')
-    .eq('role', 'admin')
-    .order('full_name');
+  const [tenantListRes, adminProfilesRes] = await Promise.all([
+    supabaseClient.from('tenants').select('id, name, subdomain, property_prefix').order('name'),
+    supabaseClient.from('profiles')
+      .select('tenant_id, email')
+      .eq('role', 'admin'),
+  ]);
 
-  const tenants = (adminProfiles || []).map(p => ({
-    id: p.tenant?.id,
-    name: p.tenant?.name,
-    subdomain: p.tenant?.subdomain,
-    property_prefix: p.tenant?.property_prefix,
-    admin_email: p.email,
-  })).filter(t => t.id);
+  const tenants = (tenantListRes.data || []).map(t => ({
+    id: t.id,
+    name: t.name,
+    subdomain: t.subdomain,
+    property_prefix: t.property_prefix,
+    admin_email: (adminProfilesRes.data || []).find(p => p.tenant_id === t.id)?.email || '—',
+  }));
 
   const list = document.getElementById('sa_tenantList');
   if (!tenants?.length) {
@@ -651,7 +595,7 @@ async function loadSuperAdmin({ profile }) {
     <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
       <div>
         <div class="text-sm font-semibold text-gray-900">${t.name}</div>
-        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix} &nbsp;·&nbsp; Admin: ${t.admin_email || '—'}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix} &nbsp;·&nbsp; Admin: ${t.admin_email}</div>
       </div>
       <div class="flex items-center gap-3">
         <a href="https://${t.subdomain}.enga.in/dashboard.html"

@@ -509,11 +509,6 @@
           <p class="text-xs text-gray-400 mt-1">Admin can change this after signing in</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">LGD Code</label>
-          <input id="vc_lgd_code" type="text" placeholder="e.g. LGD001"
-            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">Property Prefix</label>
           <input id="vc_prefix" type="text" maxlength="6" placeholder="e.g. NSN"
             class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -633,10 +628,19 @@ async function loadSuperAdmin({ profile }) {
 
   renderModuleCatalog('sa_moduleCards');
 
-  const { data: tenants } = await supabaseClient
-    .from('tenants')
-    .select('id, name, subdomain, property_prefix, lgd_code')
-    .order('name');
+  const { data: adminProfiles } = await supabaseClient
+    .from('profiles')
+    .select('tenant_id, email, tenant:tenants(id, name, subdomain, property_prefix)')
+    .eq('role', 'admin')
+    .order('full_name');
+
+  const tenants = (adminProfiles || []).map(p => ({
+    id: p.tenant?.id,
+    name: p.tenant?.name,
+    subdomain: p.tenant?.subdomain,
+    property_prefix: p.tenant?.property_prefix,
+    admin_email: p.email,
+  })).filter(t => t.id);
 
   const list = document.getElementById('sa_tenantList');
   if (!tenants?.length) {
@@ -647,7 +651,7 @@ async function loadSuperAdmin({ profile }) {
     <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
       <div>
         <div class="text-sm font-semibold text-gray-900">${t.name}</div>
-        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix} &nbsp;·&nbsp; LGD: ${t.lgd_code || '—'}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix} &nbsp;·&nbsp; Admin: ${t.admin_email || '—'}</div>
       </div>
       <div class="flex items-center gap-3">
         <a href="https://${t.subdomain}.enga.in/dashboard.html"
@@ -1192,7 +1196,6 @@ async function openVcModal(vcId = null) {
   document.getElementById('vc_subdomain').value = '';
   document.getElementById('vc_email').value = '';
   document.getElementById('vc_password').value = '';
-  document.getElementById('vc_lgd_code').value = '';
   document.getElementById('vc_prefix').value = '';
   document.getElementById('vc_msg').textContent = '';
   document.getElementById('vc_msg').className = 'text-xs min-h-4';
@@ -1224,7 +1227,6 @@ async function openVcModal(vcId = null) {
     if (vc) {
       document.getElementById('vc_name').value = vc.name || '';
       document.getElementById('vc_subdomain').value = vc.subdomain || '';
-      document.getElementById('vc_lgd_code').value = vc.lgd_code || '';
       document.getElementById('vc_prefix').value = vc.property_prefix || '';
 
       // Load assigned modules
@@ -1263,7 +1265,6 @@ async function saveVc() {
   const subdomain = document.getElementById('vc_subdomain').value.trim();
   const email = document.getElementById('vc_email').value.trim();
   const password = document.getElementById('vc_password').value;
-  const lgdCode = document.getElementById('vc_lgd_code').value.trim();
   const prefix = document.getElementById('vc_prefix').value.trim();
   const msgEl = document.getElementById('vc_msg');
 
@@ -1271,7 +1272,6 @@ async function saveVc() {
   if (!subdomain) { msgEl.textContent = 'Enter subdomain.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!vcId && !email) { msgEl.textContent = 'Enter admin email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!vcId && !password) { msgEl.textContent = 'Enter admin password.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
-  if (!lgdCode) { msgEl.textContent = 'Enter LGD code.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!prefix) { msgEl.textContent = 'Enter property prefix.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
 
   if (vcId) {
@@ -1280,7 +1280,6 @@ async function saveVc() {
       .update({
         name,
         subdomain,
-        lgd_code: lgdCode,
         property_prefix: prefix,
       })
       .eq('id', vcId);
@@ -1326,7 +1325,6 @@ async function saveVc() {
       .insert({
         name,
         subdomain,
-        lgd_code: lgdCode,
         property_prefix: prefix,
         id_digit_length: 4,
       })

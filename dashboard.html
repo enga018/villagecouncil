@@ -124,7 +124,13 @@
 
       <!-- Tenants List -->
       <div class="mt-8">
-        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Village Councils</h2>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Village Councils</h2>
+          <button onclick="openVcModal()"
+            class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+            + Add VC
+          </button>
+        </div>
         <div id="sa_tenantList" class="space-y-2">
           <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
         </div>
@@ -466,6 +472,70 @@
     </div>
   </div>
 
+  <!-- VC Modal -->
+  <div id="vcModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
+      <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900" id="vcModalTitle">Add Village Council</h3>
+        <button onclick="closeVcModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <input type="hidden" id="vc_id">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">VC Name</label>
+          <input id="vc_name" type="text" placeholder="e.g. North Village Council"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Subdomain</label>
+          <input id="vc_subdomain" type="text" placeholder="e.g. north"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+          <p class="text-xs text-gray-400 mt-1">Will be used as: subdomain.enga.in</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Admin Email</label>
+          <input id="vc_email" type="email" placeholder="admin@example.com"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div id="vc_passwordGroup">
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Admin Password</label>
+          <input id="vc_password" type="password" placeholder="••••••••"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p class="text-xs text-gray-400 mt-1">Admin can change this after signing in</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">LGD Code</label>
+          <input id="vc_lgd_code" type="text" placeholder="e.g. LGD001"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Property Prefix</label>
+          <input id="vc_prefix" type="text" maxlength="6" placeholder="e.g. NSN"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Assign Modules</label>
+          <div id="vc_modules" class="space-y-1 rounded-xl border border-gray-100 p-3 bg-gray-50"></div>
+        </div>
+        <p id="vc_msg" class="text-xs min-h-4"></p>
+      </div>
+      <div class="p-5 pt-0 flex gap-3">
+        <button onclick="closeVcModal()" class="flex-1 border border-gray-200 text-gray-700 font-medium py-2.5 rounded-lg hover:bg-gray-50 text-sm">
+          Cancel
+        </button>
+        <button onclick="saveVc()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const MODULE_META = {
   property: {
@@ -505,6 +575,7 @@ let _tenant  = null;
 let _moduleAccessUsers = [];
 let _moduleAccessUser = null;
 let _moduleAccessCodes = [];
+let _vcModuleCodes = [];
 
 // ─── boot ───────────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -564,22 +635,25 @@ async function loadSuperAdmin({ profile }) {
 
   const { data: tenants } = await supabaseClient
     .from('tenants')
-    .select('id, name, subdomain, property_prefix')
+    .select('id, name, subdomain, property_prefix, lgd_code')
     .order('name');
 
   const list = document.getElementById('sa_tenantList');
   if (!tenants?.length) {
-    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No village councils yet. <a href="#superAdminSection" class="text-indigo-600 hover:underline">Create one →</a></div>';
+    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No village councils yet. <a href="#" onclick="openVcModal()" class="text-indigo-600 hover:underline">Create one →</a></div>';
     return;
   }
   list.innerHTML = tenants.map(t => `
     <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
       <div>
         <div class="text-sm font-semibold text-gray-900">${t.name}</div>
-        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix} &nbsp;·&nbsp; LGD: ${t.lgd_code || '—'}</div>
       </div>
-      <a href="https://${t.subdomain}.enga.in/dashboard.html"
-        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Visit →</a>
+      <div class="flex items-center gap-3">
+        <a href="https://${t.subdomain}.enga.in/dashboard.html"
+          class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Visit →</a>
+        <button onclick="openVcModal('${t.id}')" class="text-xs text-gray-500 hover:text-gray-700 transition-colors">Edit</button>
+      </div>
     </div>
   `).join('');
 }
@@ -591,7 +665,7 @@ function renderModuleCatalog(containerId) {
     const m = MODULE_META[code];
     const c = colorMap[m.color];
     return `
-      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 ${c.border} transition-all flex items-start gap-4">
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 transition-all flex items-start gap-4">
         <div class="w-11 h-11 ${c.bg} rounded-xl flex items-center justify-center flex-shrink-0">
           <svg class="w-5 h-5 ${c.icon}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             ${moduleIcon(code)}
@@ -600,6 +674,7 @@ function renderModuleCatalog(containerId) {
         <div class="flex-1">
           <div class="font-semibold text-gray-900 text-sm">${m.label}</div>
           <div class="text-xs text-gray-500 mt-1">${m.desc}</div>
+          <div class="mt-3 text-xs text-gray-400">View only - no data entry</div>
         </div>
       </div>
     `;
@@ -615,7 +690,8 @@ async function loadAdmin({ profile, tenant }) {
   document.getElementById('ad_userName').textContent   = profile?.full_name || profile?.role || '';
   show('adminSection');
 
-  const tenantId = profile.tenant_id;
+  // If superadmin visiting tenant subdomain, use the tenant from context
+  const tenantId = profile.role === 'super_admin' ? tenant?.id : profile.tenant_id;
 
   const [workerRes, propRes, famRes] = await Promise.all([
     supabaseClient.from('profiles').select('id', { count: 'exact', head: true })
@@ -627,7 +703,7 @@ async function loadAdmin({ profile, tenant }) {
   document.getElementById('ad_statProperties').textContent = propRes.count ?? '—';
   document.getElementById('ad_statHouseholds').textContent = famRes.count ?? '—';
 
-  const assigned = await getWorkerModules(tenantId, profile.id);
+  const assigned = await getTenantModules(tenantId);
   renderAssignedModules('ad_moduleCards', 'ad_noModules', assigned);
 
   await Promise.all([refreshWorkerList(tenantId), loadRanges(tenantId)]);
@@ -1107,6 +1183,198 @@ function moduleIcon(code) {
   if (code === 'property') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>`;
   if (code === 'family') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>`;
   return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>`;
+}
+
+// ─── VC MANAGEMENT ─────────────────────────────────────────────
+async function openVcModal(vcId = null) {
+  document.getElementById('vc_id').value = vcId || '';
+  document.getElementById('vc_name').value = '';
+  document.getElementById('vc_subdomain').value = '';
+  document.getElementById('vc_email').value = '';
+  document.getElementById('vc_password').value = '';
+  document.getElementById('vc_lgd_code').value = '';
+  document.getElementById('vc_prefix').value = '';
+  document.getElementById('vc_msg').textContent = '';
+  document.getElementById('vc_msg').className = 'text-xs min-h-4';
+  _vcModuleCodes = [];
+
+  const passwordGroup = document.getElementById('vc_passwordGroup');
+  const title = document.getElementById('vcModalTitle');
+
+  // Populate module checkboxes
+  const modsEl = document.getElementById('vc_modules');
+  modsEl.innerHTML = ALL_MODULE_CODES.map(code => `
+    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
+      <input type="checkbox" value="${code}" onchange="toggleVcModuleCheck('${code}', this.checked)"
+        class="w-4 h-4 text-indigo-600 rounded">
+      <span class="text-sm text-gray-700">${MODULE_META[code].label}</span>
+    </label>
+  `).join('');
+
+  if (vcId) {
+    title.textContent = 'Edit Village Council';
+    passwordGroup.classList.add('hidden');
+
+    const { data: vc } = await supabaseClient
+      .from('tenants')
+      .select('*')
+      .eq('id', vcId)
+      .single();
+
+    if (vc) {
+      document.getElementById('vc_name').value = vc.name || '';
+      document.getElementById('vc_subdomain').value = vc.subdomain || '';
+      document.getElementById('vc_lgd_code').value = vc.lgd_code || '';
+      document.getElementById('vc_prefix').value = vc.property_prefix || '';
+
+      // Load assigned modules
+      const { data: assignments } = await supabaseClient
+        .from('tenant_module_assignments')
+        .select('app_code')
+        .eq('tenant_id', vcId);
+
+      _vcModuleCodes = (assignments || []).map(a => a.app_code);
+      document.querySelectorAll('#vc_modules input[type="checkbox"]').forEach(cb => {
+        cb.checked = _vcModuleCodes.includes(cb.value);
+      });
+    }
+  } else {
+    title.textContent = 'Add Village Council';
+    passwordGroup.classList.remove('hidden');
+  }
+
+  document.getElementById('vcModal').classList.remove('hidden');
+  document.getElementById('vcModal').classList.add('flex');
+}
+
+function closeVcModal() {
+  document.getElementById('vcModal').classList.add('hidden');
+  document.getElementById('vcModal').classList.remove('flex');
+}
+
+function toggleVcModuleCheck(code, checked) {
+  if (checked && !_vcModuleCodes.includes(code)) _vcModuleCodes.push(code);
+  if (!checked) _vcModuleCodes = _vcModuleCodes.filter(c => c !== code);
+}
+
+async function saveVc() {
+  const vcId = document.getElementById('vc_id').value;
+  const name = document.getElementById('vc_name').value.trim();
+  const subdomain = document.getElementById('vc_subdomain').value.trim();
+  const email = document.getElementById('vc_email').value.trim();
+  const password = document.getElementById('vc_password').value;
+  const lgdCode = document.getElementById('vc_lgd_code').value.trim();
+  const prefix = document.getElementById('vc_prefix').value.trim();
+  const msgEl = document.getElementById('vc_msg');
+
+  if (!name) { msgEl.textContent = 'Enter VC name.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!subdomain) { msgEl.textContent = 'Enter subdomain.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!vcId && !email) { msgEl.textContent = 'Enter admin email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!vcId && !password) { msgEl.textContent = 'Enter admin password.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!lgdCode) { msgEl.textContent = 'Enter LGD code.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!prefix) { msgEl.textContent = 'Enter property prefix.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+
+  if (vcId) {
+    const { error } = await supabaseClient
+      .from('tenants')
+      .update({
+        name,
+        subdomain,
+        lgd_code: lgdCode,
+        property_prefix: prefix,
+      })
+      .eq('id', vcId);
+
+    if (error) {
+      msgEl.textContent = error.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    // Update module assignments
+    await supabaseClient
+      .from('tenant_module_assignments')
+      .delete()
+      .eq('tenant_id', vcId);
+
+    if (_vcModuleCodes.length) {
+      await supabaseClient
+        .from('tenant_module_assignments')
+        .insert(_vcModuleCodes.map(code => ({
+          tenant_id: vcId,
+          app_code: code,
+          assigned_by: _profile?.id || null,
+        })));
+    }
+
+    msgEl.textContent = 'VC updated successfully.';
+    msgEl.className = 'text-xs text-green-600 min-h-4';
+  } else {
+    const { data: { user }, error: authError } = await supabaseClient.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      msgEl.textContent = authError.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    const { data: tenant, error: tenantError } = await supabaseClient
+      .from('tenants')
+      .insert({
+        name,
+        subdomain,
+        lgd_code: lgdCode,
+        property_prefix: prefix,
+        id_digit_length: 4,
+      })
+      .select()
+      .single();
+
+    if (tenantError) {
+      msgEl.textContent = tenantError.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email,
+        full_name: name + ' Admin',
+        role: 'admin',
+        tenant_id: tenant.id,
+        status: 'active',
+      });
+
+    if (profileError) {
+      msgEl.textContent = profileError.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    // Assign modules to tenant
+    if (_vcModuleCodes.length) {
+      await supabaseClient
+        .from('tenant_module_assignments')
+        .insert(_vcModuleCodes.map(code => ({
+          tenant_id: tenant.id,
+          app_code: code,
+          assigned_by: _profile?.id || null,
+        })));
+    }
+
+    msgEl.textContent = 'VC created successfully.';
+    msgEl.className = 'text-xs text-green-600 min-h-4';
+  }
+
+  setTimeout(() => {
+    closeVcModal();
+    loadSuperAdmin({ profile: _profile });
+  }, 1000);
 }
 </script>
 </body>

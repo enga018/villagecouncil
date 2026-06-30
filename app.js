@@ -108,6 +108,15 @@ async function getWorkerModules(tenantId, workerId) {
   return (data || []).map(r => r.app_code);
 }
 
+// Get app codes assigned to a tenant (e.g. ['property', 'family'])
+async function getTenantModules(tenantId) {
+  const { data } = await supabaseClient
+    .from("tenant_module_assignments")
+    .select("app_code")
+    .eq("tenant_id", tenantId);
+  return (data || []).map(r => r.app_code);
+}
+
 // Assign a module to a worker
 async function assignModuleToWorker(tenantId, workerId, appCode) {
   const { error } = await supabaseClient

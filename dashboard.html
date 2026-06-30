@@ -68,7 +68,7 @@
       <!-- Quick Links -->
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Management</h2>
       <div class="grid gap-4 sm:grid-cols-3">
-        <a href="super-admin.html"
+        <a href="#superAdminSection"
           class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
           <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
             <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,7 +82,7 @@
           </div>
         </a>
 
-        <a href="super-admin.html#users"
+        <a href="#usersSection"
           class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
           <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
             <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -96,7 +96,7 @@
           </div>
         </a>
 
-        <a href="super-admin.html#ranges"
+        <a href="#rangesSection"
           class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:border-indigo-300 hover:shadow-md transition-all flex items-start gap-4">
           <div class="w-11 h-11 bg-indigo-50 group-hover:bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
             <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -109,6 +109,17 @@
             <div class="text-xs text-gray-500 mt-1">Assign property ranges to workers</div>
           </div>
         </a>
+      </div>
+
+      <div class="mt-8">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">All Modules</h2>
+          <button onclick="openModuleAccessModal()"
+            class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+            Assign Access
+          </button>
+        </div>
+        <div id="sa_moduleCards" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
       </div>
 
       <!-- Tenants List -->
@@ -163,8 +174,15 @@
         </div>
       </div>
 
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">My Modules</h2>
+      <div id="ad_moduleCards" class="grid gap-4 sm:grid-cols-2 mb-8"></div>
+      <div id="ad_noModules" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-5 text-center mb-8">
+        <p class="text-sm text-amber-800 font-medium">No modules assigned yet.</p>
+        <p class="text-xs text-amber-600 mt-1">Ask super admin to assign the modules you need.</p>
+      </div>
+
       <!-- Workers -->
-      <div class="flex items-center justify-between mb-3">
+      <div id="usersSection" class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Workers</h2>
         <button onclick="openAddWorkerModal()"
           class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
@@ -182,7 +200,7 @@
       </div>
 
       <!-- Number Ranges -->
-      <div class="flex items-center justify-between mb-3">
+      <div id="rangesSection" class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Property Number Ranges</h2>
         <button onclick="openRangeModal()"
           class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
@@ -413,6 +431,41 @@
     </div>
   </div>
 
+  <div id="moduleAccessModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
+      <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">Assign Module Access</h3>
+        <button onclick="closeModuleAccessModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">User</label>
+          <select id="ma_user" onchange="onModuleAccessUserChange()"
+            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Select user…</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Modules</label>
+          <div id="ma_modules" class="space-y-1 rounded-xl border border-gray-100 p-3 bg-gray-50"></div>
+        </div>
+        <p id="ma_msg" class="text-xs text-gray-500 min-h-4"></p>
+      </div>
+      <div class="p-5 pt-0 flex gap-3">
+        <button onclick="closeModuleAccessModal()" class="flex-1 border border-gray-200 text-gray-700 font-medium py-2.5 rounded-lg hover:bg-gray-50 text-sm">
+          Cancel
+        </button>
+        <button onclick="saveModuleAccess()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script>
 const MODULE_META = {
   property: {
@@ -438,6 +491,8 @@ const MODULE_META = {
   },
 };
 
+const ALL_MODULE_CODES = Object.keys(MODULE_META);
+
 const colorMap = {
   blue:  { bg: 'bg-blue-50',  hover: 'hover:bg-blue-100',  icon: 'text-blue-600',  border: 'hover:border-blue-300',  cta: 'text-blue-600'  },
   green: { bg: 'bg-green-50', hover: 'hover:bg-green-100', icon: 'text-green-600', border: 'hover:border-green-300', cta: 'text-green-600' },
@@ -447,6 +502,9 @@ const colorMap = {
 // ─── shared state ───────────────────────────────────────────
 let _profile = null;
 let _tenant  = null;
+let _moduleAccessUsers = [];
+let _moduleAccessUser = null;
+let _moduleAccessCodes = [];
 
 // ─── boot ───────────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -502,6 +560,8 @@ async function loadSuperAdmin({ profile }) {
   document.getElementById('sa_statProperties').textContent  = propRes.count ?? '—';
   document.getElementById('sa_statHouseholds').textContent  = famRes.count ?? '—';
 
+  renderModuleCatalog('sa_moduleCards');
+
   const { data: tenants } = await supabaseClient
     .from('tenants')
     .select('id, name, subdomain, property_prefix')
@@ -509,7 +569,7 @@ async function loadSuperAdmin({ profile }) {
 
   const list = document.getElementById('sa_tenantList');
   if (!tenants?.length) {
-    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No village councils yet. <a href="super-admin.html" class="text-indigo-600 hover:underline">Create one →</a></div>';
+    list.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No village councils yet. <a href="#superAdminSection" class="text-indigo-600 hover:underline">Create one →</a></div>';
     return;
   }
   list.innerHTML = tenants.map(t => `
@@ -522,6 +582,28 @@ async function loadSuperAdmin({ profile }) {
         class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Visit →</a>
     </div>
   `).join('');
+}
+
+function renderModuleCatalog(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = ALL_MODULE_CODES.map(code => {
+    const m = MODULE_META[code];
+    const c = colorMap[m.color];
+    return `
+      <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 ${c.border} transition-all flex items-start gap-4">
+        <div class="w-11 h-11 ${c.bg} rounded-xl flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 ${c.icon}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            ${moduleIcon(code)}
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="font-semibold text-gray-900 text-sm">${m.label}</div>
+          <div class="text-xs text-gray-500 mt-1">${m.desc}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // ─── ADMIN ──────────────────────────────────────────────────
@@ -544,6 +626,9 @@ async function loadAdmin({ profile, tenant }) {
   document.getElementById('ad_statWorkers').textContent    = workerRes.count ?? '—';
   document.getElementById('ad_statProperties').textContent = propRes.count ?? '—';
   document.getElementById('ad_statHouseholds').textContent = famRes.count ?? '—';
+
+  const assigned = await getWorkerModules(tenantId, profile.id);
+  renderAssignedModules('ad_moduleCards', 'ad_noModules', assigned);
 
   await Promise.all([refreshWorkerList(tenantId), loadRanges(tenantId)]);
 
@@ -739,7 +824,7 @@ async function openWorkerModal(workerId, name, status) {
   _editingModuleCodes = [...assigned];
 
   const mods = document.getElementById('wm_modules');
-  mods.innerHTML = ['property', 'family'].map(code => {
+  mods.innerHTML = ALL_MODULE_CODES.map(code => {
     const meta = MODULE_META[code];
     const checked = assigned.includes(code);
     return `
@@ -753,6 +838,107 @@ async function openWorkerModal(workerId, name, status) {
   }).join('');
 
   document.getElementById('workerModal').classList.remove('hidden');
+}
+
+async function openModuleAccessModal() {
+  _moduleAccessUsers = [];
+  _moduleAccessUser = null;
+  _moduleAccessCodes = [];
+
+  const { data: users } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, role, status, tenant_id, tenant:tenants(name)')
+    .in('role', ['admin', 'worker', 'supervisor'])
+    .order('full_name');
+
+  _moduleAccessUsers = users || [];
+
+  const userSel = document.getElementById('ma_user');
+  userSel.innerHTML = '<option value="">Select user…</option>' + _moduleAccessUsers.map(u => {
+    const tenantName = u.tenant?.name || 'Unassigned';
+    return `<option value="${u.id}">${u.full_name || 'Unnamed'} · ${u.role} · ${tenantName}</option>`;
+  }).join('');
+
+  document.getElementById('ma_modules').innerHTML = ALL_MODULE_CODES.map(code => `
+    <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
+      <input type="checkbox" value="${code}" onchange="toggleModuleAccessCheck('${code}', this.checked)"
+        class="w-4 h-4 text-indigo-600 rounded">
+      <span class="text-sm text-gray-700">${MODULE_META[code].label}</span>
+    </label>
+  `).join('');
+
+  document.getElementById('moduleAccessModal').classList.remove('hidden');
+  document.getElementById('moduleAccessModal').classList.add('flex');
+}
+
+function closeModuleAccessModal() {
+  document.getElementById('moduleAccessModal').classList.add('hidden');
+  document.getElementById('moduleAccessModal').classList.remove('flex');
+}
+
+async function onModuleAccessUserChange() {
+  const userId = document.getElementById('ma_user').value;
+  const user = _moduleAccessUsers.find(u => u.id === userId);
+  _moduleAccessUser = user || null;
+  _moduleAccessCodes = [];
+
+  if (!user) {
+    document.getElementById('ma_msg').textContent = '';
+    document.querySelectorAll('#ma_modules input[type="checkbox"]').forEach(cb => cb.checked = false);
+    return;
+  }
+
+  const assigned = await getWorkerModules(user.tenant_id, user.id);
+  _moduleAccessCodes = [...assigned];
+  document.querySelectorAll('#ma_modules input[type="checkbox"]').forEach(cb => {
+    cb.checked = assigned.includes(cb.value);
+  });
+  document.getElementById('ma_msg').textContent = `${user.full_name || user.role} is currently assigned ${assigned.length} module(s).`;
+}
+
+function toggleModuleAccessCheck(code, checked) {
+  if (checked && !_moduleAccessCodes.includes(code)) _moduleAccessCodes.push(code);
+  if (!checked) _moduleAccessCodes = _moduleAccessCodes.filter(c => c !== code);
+}
+
+async function saveModuleAccess() {
+  const userId = document.getElementById('ma_user').value;
+  const msg = document.getElementById('ma_msg');
+  if (!userId || !_moduleAccessUser) {
+    msg.textContent = 'Select a user first.';
+    return;
+  }
+
+  const tenantId = _moduleAccessUser.tenant_id;
+  const { error: deleteError } = await supabaseClient
+    .from('worker_module_assignments')
+    .delete()
+    .eq('tenant_id', tenantId)
+    .eq('worker_id', userId);
+
+  if (deleteError) {
+    msg.textContent = deleteError.message;
+    return;
+  }
+
+  if (_moduleAccessCodes.length) {
+    const { error: insertError } = await supabaseClient
+      .from('worker_module_assignments')
+      .insert(_moduleAccessCodes.map(code => ({
+        tenant_id: tenantId,
+        worker_id: userId,
+        app_code: code,
+        assigned_by: _profile?.id || null,
+      })));
+
+    if (insertError) {
+      msg.textContent = insertError.message;
+      return;
+    }
+  }
+
+  msg.textContent = 'Module access saved.';
+  setTimeout(() => closeModuleAccessModal(), 600);
 }
 
 function toggleModuleCheck(code, checked) {
@@ -842,33 +1028,7 @@ async function loadWorker({ profile, tenant }) {
   document.getElementById('wk_statProperties').textContent = propRes.count ?? '—';
   document.getElementById('wk_statHouseholds').textContent = famRes.count ?? '—';
 
-  const cards = document.getElementById('wk_moduleCards');
-  if (!modules.length) {
-    cards.innerHTML = '';
-    document.getElementById('wk_noModules').classList.remove('hidden');
-  } else {
-    document.getElementById('wk_noModules').classList.add('hidden');
-    cards.innerHTML = modules.map(code => {
-      const m = MODULE_META[code];
-      if (!m) return '';
-      const c = colorMap[m.color];
-      return `
-        <a href="${m.href}"
-          class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 ${c.border} hover:shadow-md transition-all flex items-start gap-4">
-          <div class="w-12 h-12 ${c.bg} ${c.hover} rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
-            <svg class="w-6 h-6 ${c.icon}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              ${moduleIcon(code)}
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="font-semibold text-gray-900 text-sm">${m.label}</div>
-            <div class="text-xs text-gray-500 mt-1">${m.desc}</div>
-            <div class="mt-3 text-xs font-medium ${c.cta}">${m.cta}</div>
-          </div>
-        </a>
-      `;
-    }).join('');
-  }
+  renderAssignedModules('wk_moduleCards', 'wk_noModules', modules);
 
   // Recent surveys
   const { data: recent } = await supabaseClient
@@ -908,6 +1068,40 @@ async function loadSupervisor({ profile, tenant }) {
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 function escHtml(s) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function renderAssignedModules(containerId, emptyId, codes) {
+  const cards = document.getElementById(containerId);
+  const empty = document.getElementById(emptyId);
+  if (!cards) return;
+
+  if (!codes.length) {
+    cards.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+
+  if (empty) empty.classList.add('hidden');
+  cards.innerHTML = codes.map(code => {
+    const m = MODULE_META[code];
+    if (!m) return '';
+    const c = colorMap[m.color];
+    return `
+      <a href="${m.href}"
+        class="group bg-white rounded-xl p-5 shadow-sm border border-gray-100 ${c.border} hover:shadow-md transition-all flex items-start gap-4">
+        <div class="w-12 h-12 ${c.bg} ${c.hover} rounded-xl flex items-center justify-center flex-shrink-0 transition-colors">
+          <svg class="w-6 h-6 ${c.icon}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            ${moduleIcon(code)}
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="font-semibold text-gray-900 text-sm">${m.label}</div>
+          <div class="text-xs text-gray-500 mt-1">${m.desc}</div>
+          <div class="mt-3 text-xs font-medium ${c.cta}">${m.cta}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
 
 function moduleIcon(code) {
   if (code === 'property') return `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>`;

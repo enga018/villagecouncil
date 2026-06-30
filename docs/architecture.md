@@ -25,7 +25,8 @@ Existing entry points include:
 - `household.html`
 - `admin.html`
 - `register.html`
-- `super-admin.html`
+
+The `dashboard.html` file serves the super admin entry point on `enga.in`.
 
 Shared logic lives in:
 
@@ -98,4 +99,3 @@ The current code also indicates support for:
 - worker module assignments
 - property number ranges
 - dashboard stats
-

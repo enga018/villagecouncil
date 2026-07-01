@@ -95,7 +95,7 @@ async function login() {
 
     msg.textContent = "Login successful. Redirecting…";
     msg.className = "mt-4 text-sm text-center text-green-400 min-h-5";
-    setTimeout(() => { window.location.href = "dashboard.html"; }, 400);
+    setTimeout(() => { window.location.replace("dashboard.html"); }, 400);
 
   } catch (e) {
     msg.textContent = "System error: " + e.message;
@@ -109,9 +109,13 @@ document.getElementById("email").addEventListener("keydown", (e) => { if (e.key 
 document.getElementById("password").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
 
 window.addEventListener("load", async () => {
-  await waitForSupabase();
-  const { data } = await supabaseClient.auth.getSession();
-  if (data.session) window.location.href = "dashboard.html";
+  try {
+    await waitForSupabase();
+    const { data } = await supabaseClient.auth.getSession();
+    if (data.session) window.location.replace("dashboard.html");
+  } catch (err) {
+    console.error('Login bootstrap failed:', err);
+  }
 });
 </script>
 </body>

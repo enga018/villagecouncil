@@ -9,8 +9,12 @@ const AUTH_COOKIE_NAME = 'sb:auth.token';
 const AUTH_COOKIE_DOMAIN = window.location.hostname.endsWith('enga.in') ? '.enga.in' : undefined;
 
 function getCookie(name) {
-  const cookie = document.cookie.split('; ').find(c => c.startsWith(name + '='));
-  return cookie ? decodeURIComponent(cookie.split('=')[1]) : null;
+  const cookie = document.cookie
+    .split(';')
+    .map(part => part.trim())
+    .find(part => part.startsWith(name + '='));
+  if (!cookie) return null;
+  return decodeURIComponent(cookie.slice(name.length + 1));
 }
 
 function setCookie(name, value) {
@@ -67,8 +71,13 @@ window.addEventListener("error", (e) => {
 
 async function getUser() {
   if (!supabaseClient?.auth?.getSession) return null;
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  return session?.user ?? null;
+  try {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    return session?.user ?? null;
+  } catch (err) {
+    console.error('getUser failed:', err);
+    return null;
+  }
 }
 
 async function requireAuth() {

@@ -127,6 +127,24 @@
       </div>
 
       <!-- Workers -->
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Workers</h2>
+        <div class="flex items-center gap-3">
+          <button onclick="openRangeModal()" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Assign Range</button>
+          <button onclick="openAddWorkerModal()" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Add Worker</button>
+        </div>
+      </div>
+
+      <div id="ad_pendingSection" class="hidden mb-4">
+        <h3 class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Pending Approval</h3>
+        <div id="ad_pendingList" class="space-y-2"></div>
+      </div>
+
+      <div id="ad_workerList" class="space-y-2 mb-8"></div>
+
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Number Ranges</h2>
+      <div id="ad_rangeList" class="space-y-2 mb-8"></div>
+
       <!-- Council Settings -->
       <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Council Settings</h2>
       <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">

@@ -10,6 +10,16 @@
       "slug": "create-worker-session",
       "import_map": "",
       "verify_jwt": true
+    },
+    {
+      "slug": "update-user-profile",
+      "import_map": "",
+      "verify_jwt": true
+    },
+    {
+      "slug": "update-tenant-admin",
+      "import_map": "",
+      "verify_jwt": true
     }
   ]
 }

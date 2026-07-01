@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard — enga.in</title>
-  <script src="subdomain-context.js?v=8"></script>
+  <script src="subdomain-context.js?v=9"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-gray-50">
@@ -1579,22 +1579,21 @@ async function saveVc() {
       .single();
 
     if (adminProfile) {
-      // Update email in profiles
-      if (email !== adminProfile.email) {
-        await supabaseClient
-          .from('profiles')
-          .update({ email })
-          .eq('id', adminProfile.id);
-      }
+      const emailChanged = email !== adminProfile.email;
+      const passwordChanged = !!password;
 
-      // Update password via Edge Function if provided
-      if (password) {
-        const { error: pwError } = await supabaseClient.functions.invoke('update-admin-password', {
-          body: { admin_user_id: adminProfile.id, new_password: password },
+      // Update email and/or password via Edge Function if changed
+      if (emailChanged || passwordChanged) {
+        const { error: updateError } = await supabaseClient.functions.invoke('update-tenant-admin', {
+          body: {
+            admin_user_id: adminProfile.id,
+            new_email: emailChanged ? email : null,
+            new_password: passwordChanged ? password : null,
+          },
         });
-        if (pwError) {
-          console.error('Password update failed:', pwError);
-          msgEl.textContent = 'VC updated but password change failed. ' + (pwError.message || '');
+        if (updateError) {
+          console.error('Tenant admin update failed:', updateError);
+          msgEl.textContent = 'VC updated but credentials change failed. ' + (updateError.message || '');
           msgEl.className = 'text-xs text-amber-600 min-h-4';
           return;
         }
@@ -1751,35 +1750,31 @@ async function saveProfileChanges() {
     return;
   }
 
+  const emailChanged = email !== _profile.email;
+  const passwordChanged = !!password;
+
+  if (!emailChanged && !passwordChanged) {
+    msgEl.textContent = 'No changes made.';
+    msgEl.className = 'text-xs text-gray-500 min-h-4';
+    return;
+  }
+
   msgEl.textContent = 'Saving changes…';
   msgEl.className = 'text-xs text-gray-500 min-h-4';
 
   try {
-    // Update email in profiles if changed
-    if (email !== _profile.email) {
-      const { error: emailError } = await supabaseClient
-        .from('profiles')
-        .update({ email })
-        .eq('id', _profile.id);
+    // Update profile via Edge Function (updates both auth and profiles table)
+    const { error } = await supabaseClient.functions.invoke('update-user-profile', {
+      body: {
+        new_email: emailChanged ? email : null,
+        new_password: passwordChanged ? password : null,
+      },
+    });
 
-      if (emailError) {
-        msgEl.textContent = emailError.message;
-        msgEl.className = 'text-xs text-red-500 min-h-4';
-        return;
-      }
-    }
-
-    // Update password via Edge Function if provided
-    if (password) {
-      const { error: pwError } = await supabaseClient.functions.invoke('update-admin-password', {
-        body: { admin_user_id: _profile.id, new_password: password },
-      });
-
-      if (pwError) {
-        msgEl.textContent = 'Email updated but password change failed. ' + (pwError.message || '');
-        msgEl.className = 'text-xs text-amber-600 min-h-4';
-        return;
-      }
+    if (error) {
+      msgEl.textContent = error.message || 'Failed to update profile.';
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
     }
 
     msgEl.textContent = 'Profile saved successfully.';

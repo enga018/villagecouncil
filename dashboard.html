@@ -772,6 +772,7 @@ async function loadRanges(tenantId) {
     .order('range_start');
 
   const el = document.getElementById('ad_rangeList');
+  if (!el) return;
   if (!data?.length) {
     el.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No ranges assigned yet.</div>';
     return;

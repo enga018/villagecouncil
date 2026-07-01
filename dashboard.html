@@ -256,7 +256,7 @@
     <div id="addWorkerModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl">
         <div class="p-5 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-900">Add Worker by Email</h3>
+          <h3 class="font-semibold text-gray-900">Add Worker</h3>
         </div>
         <div class="p-5 space-y-4">
           <div>
@@ -264,12 +264,29 @@
             <input id="aw_email" type="email" placeholder="worker@example.com"
               class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
           </div>
-          <p class="text-xs text-gray-400">Worker must already have an account. They will be assigned to this council.</p>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Full Name</label>
+            <input id="aw_name" type="text" placeholder="John Doe"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Password</label>
+            <input id="aw_password" type="password" placeholder="••••••••"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Role</label>
+            <select id="aw_role" class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="worker">Worker</option>
+              <option value="supervisor">Supervisor</option>
+            </select>
+          </div>
+          <p class="text-xs text-gray-400">Create a new worker account for this council.</p>
           <p id="aw_msg" class="text-xs min-h-4"></p>
         </div>
         <div class="p-5 border-t border-gray-100 flex gap-2">
           <button onclick="closeAddWorkerModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onclick="addWorkerByEmail()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Add Worker</button>
+          <button onclick="createWorker()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Create Worker</button>
         </div>
       </div>
     </div>
@@ -1020,6 +1037,8 @@ async function refreshWorkerList(tenantId) {
           <span class="text-xs px-2 py-0.5 rounded-full font-medium ${w.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
             ${w.status}
           </span>
+          <button onclick="impersonateWorker('${w.id}')"
+            class="text-xs text-amber-600 hover:text-amber-800 font-medium">Impersonate</button>
           <button onclick="openWorkerModal('${w.id}','${escHtml(w.full_name)}','${w.status}')"
             class="text-xs text-blue-600 hover:text-blue-800 font-medium">Manage</button>
         </div>
@@ -1227,32 +1246,107 @@ async function saveWorkerChanges() {
 
 function openAddWorkerModal() {
   document.getElementById('aw_email').value = '';
+  document.getElementById('aw_name').value = '';
+  document.getElementById('aw_password').value = '';
+  document.getElementById('aw_role').value = 'worker';
   document.getElementById('aw_msg').textContent = '';
   document.getElementById('aw_msg').className = 'text-xs min-h-4';
   document.getElementById('addWorkerModal').classList.remove('hidden');
 }
+
 function closeAddWorkerModal() {
   document.getElementById('addWorkerModal').classList.add('hidden');
 }
 
-async function addWorkerByEmail() {
+async function createWorker() {
   const email = document.getElementById('aw_email').value.trim();
+  const name = document.getElementById('aw_name').value.trim();
+  const password = document.getElementById('aw_password').value;
+  const role = document.getElementById('aw_role').value;
   const msgEl = document.getElementById('aw_msg');
-  if (!email) { msgEl.textContent = 'Enter an email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
 
-  // Find profile by email via auth — look up in profiles by joining auth
-  // We search profiles table; email is on auth.users not profiles, so use user_profiles or fallback
-  // Look up by checking if any user registered with this email has no tenant yet
-  const { data: match } = await supabaseClient
-    .from('profiles')
-    .select('id, full_name, tenant_id, role')
-    .is('tenant_id', null)
-    .limit(50);
+  if (!email) { msgEl.textContent = 'Enter email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!name) { msgEl.textContent = 'Enter full name.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
+  if (!password) { msgEl.textContent = 'Enter password.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
 
-  // Since we can't query by email directly on profiles, we use the auth admin API
-  // which isn't available client-side. Instead, we show instructions.
-  msgEl.textContent = 'Ask the worker to register at ' + (window.tenantContext.subdomain || '') + '.enga.in/register.html — they will appear in Pending Approval once registered.';
-  msgEl.className = 'text-xs text-blue-600 min-h-4';
+  try {
+    msgEl.textContent = 'Creating worker account…';
+    msgEl.className = 'text-xs text-gray-500 min-h-4';
+
+    // Create auth user
+    const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      msgEl.textContent = authError.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    // Create profile
+    const { error: profileError } = await supabaseClient
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email,
+        full_name: name,
+        role,
+        tenant_id: _profile.tenant_id,
+        status: 'pending',
+      });
+
+    if (profileError) {
+      msgEl.textContent = profileError.message;
+      msgEl.className = 'text-xs text-red-500 min-h-4';
+      return;
+    }
+
+    msgEl.textContent = 'Worker created successfully.';
+    msgEl.className = 'text-xs text-green-600 min-h-4';
+    setTimeout(() => {
+      closeAddWorkerModal();
+      refreshWorkerList(_profile.tenant_id);
+    }, 800);
+  } catch (err) {
+    msgEl.textContent = err.message;
+    msgEl.className = 'text-xs text-red-500 min-h-4';
+  }
+}
+
+async function impersonateWorker(workerId) {
+  try {
+    const { data: worker } = await supabaseClient
+      .from('profiles')
+      .select('full_name')
+      .eq('id', workerId)
+      .single();
+
+    if (!worker) {
+      alert('Worker not found.');
+      return;
+    }
+
+    // Generate a magic link for the worker using Edge Function
+    const { data: result, error } = await supabaseClient.functions.invoke('create-worker-session', {
+      body: { worker_id: workerId },
+    });
+
+    if (error) {
+      alert('Failed to impersonate worker: ' + (error.message || ''));
+      return;
+    }
+
+    if (result?.link) {
+      // Open the magic link to automatically log in as the worker
+      window.location.href = result.link;
+    } else {
+      alert('Failed to generate login link for worker.');
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
 }
 
 // ─── WORKER ─────────────────────────────────────────────────

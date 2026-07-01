@@ -5,6 +5,11 @@
       "slug": "update-admin-password",
       "import_map": "",
       "verify_jwt": true
+    },
+    {
+      "slug": "create-worker-session",
+      "import_map": "",
+      "verify_jwt": true
     }
   ]
 }

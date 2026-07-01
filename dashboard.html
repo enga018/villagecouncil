@@ -86,6 +86,10 @@
        ADMIN DASHBOARD  (subdomain.enga.in/dashboard)
   ═══════════════════════════════════════════════════════════ -->
   <div id="adminSection" class="hidden">
+    <div id="supersedeBanner" class="hidden bg-amber-500 text-amber-950 text-sm font-medium px-4 py-2 flex items-center justify-between">
+      <span>⚠ Acting as Admin for <span id="sb_tenantName" class="font-semibold"></span> (Super Admin supersede mode)</span>
+      <button onclick="exitSupersedeMode()" class="bg-amber-950 text-amber-50 text-xs px-3 py-1 rounded-lg hover:bg-amber-900 transition-colors">Exit</button>
+    </div>
     <header class="bg-blue-800 text-white shadow-lg">
       <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
@@ -156,7 +160,7 @@
       <div id="ad_rangeList" class="space-y-2 mb-8"></div>
 
       <!-- Council Settings -->
-      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Council Settings</h2>
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-8">Council Settings</h2>
       <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
@@ -184,6 +188,14 @@
           Save Settings
         </button>
         <p id="ad_settingsMsg" class="text-xs text-center min-h-4"></p>
+      </div>
+
+      <!-- Surveys Pending Review -->
+      <div class="mt-8">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Surveys Pending Review</h2>
+        <div id="ad_reviewList" class="space-y-2">
+          <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
+        </div>
       </div>
     </main>
 
@@ -290,6 +302,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Reject Survey Modal -->
+    <div id="rejectModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl">
+        <div class="p-5 border-b border-gray-100">
+          <h3 class="font-semibold text-gray-900">Reject Survey</h3>
+          <p class="text-xs text-gray-400 mt-1" id="rj_propertyCode"></p>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Reason for rejection (required)</label>
+            <textarea id="rj_note" rows="3" placeholder="What needs to be corrected?"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"></textarea>
+          </div>
+          <p id="rj_err" class="text-xs text-red-500 min-h-4"></p>
+        </div>
+        <div class="p-5 border-t border-gray-100 flex gap-2">
+          <button onclick="closeRejectModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+          <button onclick="submitReject()" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">Reject</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
@@ -387,10 +421,52 @@
       </div>
     </header>
     <main class="max-w-4xl mx-auto px-4 py-6">
-      <div class="bg-white rounded-xl p-8 shadow-sm border border-gray-100 text-center">
-        <p class="text-gray-500 text-sm">Supervisor dashboard coming soon.</p>
+      <p class="text-xs text-gray-400 mb-6">Read-only oversight — you can view all surveys in this council, but cannot submit, edit, approve, or reject them.</p>
+
+      <div class="grid grid-cols-4 gap-3 mb-8">
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sv_statTotal">—</div>
+          <div class="text-xs text-gray-500 mt-1">Total</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sv_statSubmitted">—</div>
+          <div class="text-xs text-gray-500 mt-1">Submitted</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sv_statApproved">—</div>
+          <div class="text-xs text-gray-500 mt-1">Approved</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div class="text-2xl font-bold text-gray-900" id="sv_statRejected">—</div>
+          <div class="text-xs text-gray-500 mt-1">Rejected</div>
+        </div>
+      </div>
+
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">All Surveys</h2>
+      <div id="sv_surveyList" class="space-y-2">
+        <div class="text-sm text-gray-400 py-4 text-center">Loading…</div>
       </div>
     </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       SUPERSEDE GATE  (Super Admin visiting a tenant subdomain)
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="supersedeGateSection" class="hidden min-h-screen flex items-center justify-center">
+    <div class="text-center max-w-sm px-4">
+      <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <p class="text-gray-900 font-semibold" id="sg_tenantName">—</p>
+      <p class="text-sm text-gray-500 mt-1">You're signed in as Super Admin. Entering this council's Admin dashboard will be logged as a supersede action.</p>
+      <button onclick="enterSupersedeMode()"
+        class="mt-5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+        Act as Admin for this Council
+      </button>
+      <p class="mt-3"><a href="https://enga.in/dashboard.html" class="text-xs text-gray-400 hover:text-gray-600">← Back to Super Admin dashboard</a></p>
+    </div>
   </div>
 
   <!-- Access Denied -->
@@ -597,6 +673,7 @@ const colorMap = {
 let _profile = null;
 let _tenant  = null;
 let _vcModuleCodes = [];
+let _activeTenantId = null; // resolved tenant id for admin actions (handles super_admin supersede, whose own profile.tenant_id is null)
 
 // ─── boot ───────────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -661,8 +738,15 @@ window.addEventListener('load', async () => {
     if (role === 'super_admin' && (subCtx.type === 'root' || subCtx.type === 'super-admin')) {
       await loadSuperAdmin(ctx);
     } else if (role === 'super_admin' && subCtx.type === 'tenant') {
-      // Super admin visiting a tenant subdomain — show admin dashboard with full access
-      await loadAdmin({ profile: _profile, tenant: _tenant || ctx.tenant });
+      // Super admin visiting a tenant subdomain — require explicit supersede confirmation
+      const activeTenant = _tenant || ctx.tenant;
+      if (activeTenant && sessionStorage.getItem('supersede_' + activeTenant.id) === 'true') {
+        await loadAdmin({ profile: _profile, tenant: activeTenant });
+        showSupersedeBanner(activeTenant);
+      } else {
+        document.getElementById('sg_tenantName').textContent = activeTenant?.name || 'this council';
+        show('supersedeGateSection');
+      }
     } else if (role === 'admin' && subCtx.type === 'tenant') {
       await loadAdmin(ctx);
     } else if (role === 'worker' && subCtx.type === 'tenant') {
@@ -958,6 +1042,7 @@ async function loadAdmin({ profile, tenant }) {
 
   // If superadmin visiting tenant subdomain, use the tenant from context
   const tenantId = profile.role === 'super_admin' ? tenant?.id : profile.tenant_id;
+  _activeTenantId = tenantId;
 
   const [workerRes, propRes, famRes] = await Promise.all([
     supabaseClient.from('profiles').select('id', { count: 'exact', head: true })
@@ -991,7 +1076,7 @@ async function loadAdmin({ profile, tenant }) {
 
   renderAssignedModules('ad_moduleCards', 'ad_noModules', assigned, workersByModule);
 
-  await Promise.all([refreshWorkerList(tenantId), loadRanges(tenantId)]);
+  await Promise.all([refreshWorkerList(tenantId), loadRanges(tenantId), loadReviewQueue(tenantId)]);
 
   // Pre-fill settings
   if (tenant?.property_prefix) {
@@ -1005,7 +1090,7 @@ async function refreshWorkerList(tenantId) {
   const { data: workers } = await supabaseClient
     .from('profiles')
     .select('id, full_name, phone, role, status')
-    .eq('tenant_id', tenantId || _profile.tenant_id)
+    .eq('tenant_id', tenantId || _activeTenantId)
     .in('role', ['worker', 'supervisor'])
     .order('full_name');
 
@@ -1013,7 +1098,7 @@ async function refreshWorkerList(tenantId) {
   const { data: pending } = await supabaseClient
     .from('profiles')
     .select('id, full_name, phone, role, status')
-    .eq('tenant_id', tenantId || _profile.tenant_id)
+    .eq('tenant_id', tenantId || _activeTenantId)
     .eq('status', 'pending');
 
   const list = document.getElementById('ad_workerList');
@@ -1089,7 +1174,7 @@ async function saveCouncilSettings() {
 
   const { error } = await supabaseClient.from('tenants')
     .update({ property_prefix: prefix, id_digit_length: digitLength })
-    .eq('id', _profile.tenant_id);
+    .eq('id', _activeTenantId);
 
   if (error) {
     msgEl.textContent = error.message;
@@ -1105,7 +1190,7 @@ async function saveCouncilSettings() {
 async function loadRanges(tenantId) {
   const { data } = await supabaseClient
     .from('property_number_ranges')
-    .select('id, range_start, range_end, worker:profiles(full_name)')
+    .select('id, range_start, range_end, worker:profiles!worker_id(full_name)')
     .eq('tenant_id', tenantId)
     .order('range_start');
 
@@ -1130,7 +1215,7 @@ async function loadRanges(tenantId) {
 
 async function deleteRange(id) {
   await supabaseClient.from('property_number_ranges').delete().eq('id', id);
-  await loadRanges(_profile.tenant_id);
+  await loadRanges(_activeTenantId);
 }
 
 async function openRangeModal() {
@@ -1139,7 +1224,7 @@ async function openRangeModal() {
   document.getElementById('rm_err').textContent = '';
 
   // Populate workers
-  const workers = await getTenantWorkers(_profile.tenant_id);
+  const workers = await getTenantWorkers(_activeTenantId);
   document.getElementById('rm_worker').innerHTML =
     '<option value="">Select worker…</option>' +
     workers.map(w => `<option value="${w.id}">${w.full_name}</option>`).join('');
@@ -1162,7 +1247,7 @@ async function saveRange() {
   if (!end || end <= start) { errEl.textContent = 'Range end must be greater than start.'; return; }
 
   const { error } = await supabaseClient.from('property_number_ranges').insert({
-    tenant_id: _profile.tenant_id,
+    tenant_id: _activeTenantId,
     worker_id: workerId,
     range_start: start,
     range_end: end,
@@ -1171,7 +1256,140 @@ async function saveRange() {
 
   if (error) { errEl.textContent = error.message; return; }
   closeRangeModal();
-  await loadRanges(_profile.tenant_id);
+  await loadRanges(_activeTenantId);
+}
+
+// ─── SURVEY REVIEW ──────────────────────────────────────────
+let _rejectPropertyId = null;
+
+// ─── SUPERSEDE MODE ─────────────────────────────────────────
+function showSupersedeBanner(tenant) {
+  document.getElementById('sb_tenantName').textContent = tenant?.name || '';
+  document.getElementById('supersedeBanner').classList.remove('hidden');
+}
+
+async function enterSupersedeMode() {
+  const tenant = _tenant;
+  if (!tenant) return;
+  hide('supersedeGateSection');
+  sessionStorage.setItem('supersede_' + tenant.id, 'true');
+  await writeAuditLog(tenant.id, 'supersede_enter', 'tenant', tenant.id, { actor_name: _profile.full_name });
+  await loadAdmin({ profile: _profile, tenant });
+  showSupersedeBanner(tenant);
+}
+
+async function exitSupersedeMode() {
+  const tenant = _tenant;
+  if (tenant) {
+    await writeAuditLog(tenant.id, 'supersede_exit', 'tenant', tenant.id, { actor_name: _profile.full_name });
+    sessionStorage.removeItem('supersede_' + tenant.id);
+  }
+  window.location.href = 'https://enga.in/dashboard.html';
+}
+
+function isSuperseding(tenantId) {
+  return _profile?.role === 'super_admin' && sessionStorage.getItem('supersede_' + tenantId) === 'true';
+}
+
+async function writeAuditLog(tenantId, action, entityType, entityId, details = null) {
+  await supabaseClient.from('audit_log').insert({
+    tenant_id: tenantId,
+    actor_id: _profile.id,
+    acting_as: isSuperseding(tenantId) ? 'super_admin_supersede' : null,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    details,
+  });
+}
+
+async function loadReviewQueue(tenantId) {
+  const { data } = await supabaseClient
+    .from('properties')
+    .select('id, property_code, survey_state, submitted_at, rejection_note, worker:profiles!worker_id(full_name)')
+    .eq('tenant_id', tenantId)
+    .in('survey_state', ['submitted', 'rejected'])
+    .order('submitted_at', { ascending: true });
+
+  const el = document.getElementById('ad_reviewList');
+  if (!el) return;
+  if (!data?.length) {
+    el.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No surveys awaiting review.</div>';
+    return;
+  }
+  el.innerHTML = data.map(p => `
+    <div class="bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-semibold text-gray-900 font-mono">${p.property_code}</div>
+          <div class="text-xs text-gray-400 mt-0.5">${p.worker?.full_name || '—'}</div>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${p.survey_state === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">
+          ${p.survey_state}
+        </span>
+      </div>
+      ${p.survey_state === 'rejected' && p.rejection_note ? `<div class="text-xs text-red-600 mt-2 bg-red-50 rounded px-2 py-1.5">${escHtml(p.rejection_note)}</div>` : ''}
+      <div class="flex gap-2 mt-3">
+        ${p.survey_state === 'submitted' ? `
+          <button onclick="approveSurvey('${p.id}')" class="flex-1 text-xs bg-green-600 hover:bg-green-700 text-white py-1.5 rounded-lg font-medium transition-colors">Approve</button>
+          <button onclick="openRejectModal('${p.id}','${escHtml(p.property_code)}')" class="flex-1 text-xs bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg font-medium transition-colors">Reject</button>
+        ` : `
+          <button onclick="reopenSurvey('${p.id}')" class="flex-1 text-xs bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded-lg font-medium transition-colors">Reopen for Worker</button>
+        `}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveSurvey(id) {
+  const { error } = await supabaseClient.from('properties').update({
+    survey_state: 'approved',
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: _profile.id,
+  }).eq('id', id);
+  if (error) { alert(error.message); return; }
+  await writeAuditLog(_activeTenantId, 'survey_approved', 'property', id);
+  await loadReviewQueue(_activeTenantId);
+}
+
+function openRejectModal(id, propertyCode) {
+  _rejectPropertyId = id;
+  document.getElementById('rj_propertyCode').textContent = propertyCode;
+  document.getElementById('rj_note').value = '';
+  document.getElementById('rj_err').textContent = '';
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.add('hidden');
+  _rejectPropertyId = null;
+}
+
+async function submitReject() {
+  const note = document.getElementById('rj_note').value.trim();
+  const errEl = document.getElementById('rj_err');
+  if (!note) { errEl.textContent = 'A rejection reason is required.'; return; }
+
+  const { error } = await supabaseClient.from('properties').update({
+    survey_state: 'rejected',
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: _profile.id,
+    rejection_note: note,
+  }).eq('id', _rejectPropertyId);
+  if (error) { errEl.textContent = error.message; return; }
+
+  await writeAuditLog(_activeTenantId, 'survey_rejected', 'property', _rejectPropertyId, { note });
+  closeRejectModal();
+  await loadReviewQueue(_activeTenantId);
+}
+
+async function reopenSurvey(id) {
+  const { error } = await supabaseClient.from('properties').update({
+    survey_state: 'in_progress',
+  }).eq('id', id);
+  if (error) { alert(error.message); return; }
+  await writeAuditLog(_activeTenantId, 'survey_reopened', 'property', id);
+  await loadReviewQueue(_activeTenantId);
 }
 
 async function approveWorker(workerId) {
@@ -1186,7 +1404,7 @@ async function openWorkerModal(workerId, name, status) {
   document.getElementById('wm_status').value = status;
 
   // Load current module assignments
-  const assigned = await getWorkerModules(_profile.tenant_id, workerId);
+  const assigned = await getWorkerModules(_activeTenantId, workerId);
   _editingModuleCodes = [...assigned];
 
   const mods = document.getElementById('wm_modules');
@@ -1220,7 +1438,7 @@ function closeWorkerModal() {
 async function saveWorkerChanges() {
   if (!_editingWorkerId) return;
   const newStatus = document.getElementById('wm_status').value;
-  const tenantId  = _profile.tenant_id;
+  const tenantId  = _activeTenantId;
 
   // Update status
   await supabaseClient.from('profiles').update({ status: newStatus }).eq('id', _editingWorkerId);
@@ -1291,7 +1509,7 @@ async function createWorker() {
         email,
         full_name: name,
         role,
-        tenant_id: _profile.tenant_id,
+        tenant_id: _activeTenantId,
         status: 'pending',
       });
 
@@ -1305,7 +1523,7 @@ async function createWorker() {
     msgEl.className = 'text-xs text-green-600 min-h-4';
     setTimeout(() => {
       closeAddWorkerModal();
-      refreshWorkerList(_profile.tenant_id);
+      refreshWorkerList(_activeTenantId);
     }, 800);
   } catch (err) {
     msgEl.textContent = err.message;
@@ -1402,6 +1620,44 @@ async function loadSupervisor({ profile, tenant }) {
   document.getElementById('sv_tenantName').textContent = tenant?.name || 'Council';
   document.getElementById('sv_userName').textContent   = profile?.full_name || '';
   show('supervisorSection');
+
+  const tenantId = profile.tenant_id;
+  const { data } = await supabaseClient
+    .from('properties')
+    .select('id, property_code, survey_state, submitted_at, worker:profiles!worker_id(full_name)')
+    .eq('tenant_id', tenantId)
+    .order('submitted_at', { ascending: false, nullsFirst: false });
+
+  const rows = data || [];
+  document.getElementById('sv_statTotal').textContent     = rows.length;
+  document.getElementById('sv_statSubmitted').textContent = rows.filter(r => r.survey_state === 'submitted').length;
+  document.getElementById('sv_statApproved').textContent  = rows.filter(r => r.survey_state === 'approved').length;
+  document.getElementById('sv_statRejected').textContent  = rows.filter(r => r.survey_state === 'rejected').length;
+
+  const stateColors = {
+    assigned: 'bg-gray-100 text-gray-600',
+    in_progress: 'bg-blue-100 text-blue-700',
+    submitted: 'bg-amber-100 text-amber-700',
+    approved: 'bg-green-100 text-green-700',
+    rejected: 'bg-red-100 text-red-700',
+  };
+
+  const el = document.getElementById('sv_surveyList');
+  if (!rows.length) {
+    el.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No surveys yet.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(p => `
+    <div class="flex items-center justify-between bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
+      <div>
+        <div class="text-sm font-semibold text-gray-900 font-mono">${p.property_code}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${p.worker?.full_name || '—'}</div>
+      </div>
+      <span class="text-xs px-2 py-0.5 rounded-full font-medium ${stateColors[p.survey_state] || 'bg-gray-100 text-gray-600'}">
+        ${p.survey_state}
+      </span>
+    </div>
+  `).join('');
 }
 
 // ─── helpers ────────────────────────────────────────────────

@@ -460,6 +460,74 @@ const state = {
 
 const STEP_LABELS = ['Property Number', 'Property Details', 'Ownership', 'Units', 'GPS', 'Photo', 'Review'];
 
+// ─── Draft autosave (localStorage, resilience against closed tab / crash) ──
+// Excludes photoBlob/photoDataUrl: not worth persisting a large binary across
+// reloads, worker just retakes the photo if resuming.
+const DRAFT_FIELDS = ['step','rawNumber','propertyCode','buildingType','address','landmark','remarks',
+  'ownerType','ownerName','ownerMobile','ownerAddress','institutionName','contactPerson','contactMobile',
+  'institutionAddress','units','gps'];
+
+function draftKey() { return `survey_draft_${state.tenantId}_${state.workerId}`; }
+
+function saveDraft() {
+  if (!state.workerId) return;
+  const snapshot = {};
+  DRAFT_FIELDS.forEach(f => { snapshot[f] = state[f]; });
+  try { localStorage.setItem(draftKey(), JSON.stringify(snapshot)); } catch (e) { /* storage full/unavailable, ignore */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(draftKey());
+    if (!raw) return;
+    const snapshot = JSON.parse(raw);
+    DRAFT_FIELDS.forEach(f => { if (f in snapshot) state[f] = snapshot[f]; });
+  } catch (e) { /* corrupt draft, ignore */ }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(draftKey()); } catch (e) { /* ignore */ }
+}
+
+// Inputs aren't bound to `state` on render (only read from on validate/submit),
+// so a restored draft needs to be pushed back into the DOM explicitly or the
+// fields would look blank while state secretly holds old values.
+function populateFormFromState() {
+  if (state.rawNumber) document.getElementById('rawNumber').value = state.rawNumber;
+  if (state.buildingType) {
+    const radio = document.querySelector(`input[name="buildingType"][value="${state.buildingType}"]`);
+    if (radio) radio.checked = true;
+  }
+  document.getElementById('address').value = state.address || '';
+  document.getElementById('landmark').value = state.landmark || '';
+  document.getElementById('remarks').value = state.remarks || '';
+
+  toggleOwnerFields(state.ownerType || 'Individual');
+  const ownerRadio = document.querySelector(`input[name="ownerType"][value="${state.ownerType || 'Individual'}"]`);
+  if (ownerRadio) ownerRadio.checked = true;
+  document.getElementById('ownerName').value = state.ownerName || '';
+  document.getElementById('ownerMobile').value = state.ownerMobile || '';
+  document.getElementById('ownerAddress').value = state.ownerAddress || '';
+  document.getElementById('institutionName').value = state.institutionName || '';
+  document.getElementById('contactPerson').value = state.contactPerson || '';
+  document.getElementById('contactMobile').value = state.contactMobile || '';
+  document.getElementById('institutionAddress').value = state.institutionAddress || '';
+
+  if (state.gps) {
+    document.getElementById('gpsStatus').classList.add('hidden');
+    document.getElementById('gpsResult').classList.remove('hidden');
+    document.getElementById('gpsLat').textContent = state.gps.lat.toFixed(6);
+    document.getElementById('gpsLng').textContent = state.gps.lng.toFixed(6);
+    document.getElementById('gpsAccuracy').textContent = `±${state.gps.accuracy.toFixed(1)} m`;
+    const info = accuracyInfo(state.gps.accuracy);
+    document.getElementById('accuracyDot').className = `w-3 h-3 rounded-full flex-shrink-0 ${info.dotClass}`;
+    document.getElementById('accuracyLabel').textContent = info.label;
+    document.getElementById('accuracyBadge').textContent = `±${state.gps.accuracy.toFixed(0)}m`;
+    document.getElementById('accuracyBadge').className = `ml-auto text-xs px-2.5 py-1 rounded-full font-medium ${info.badgeClass}`;
+    document.getElementById('gpsPoorWarning').classList.toggle('hidden', state.gps.accuracy <= 30);
+  }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
   await waitForSupabase();
@@ -485,6 +553,8 @@ window.addEventListener('load', async () => {
     state.numberRange = await getWorkerNumberRange(state.tenantId, state.workerId);
   }
 
+  loadDraft();
+  populateFormFromState();
   renderStep();
   renderStepDots();
 });
@@ -506,6 +576,8 @@ function renderStep() {
 
   if (state.step === 7) buildReview();
   if (state.step === 4) renderUnits();
+
+  saveDraft();
 }
 
 function renderStepDots() {
@@ -714,11 +786,13 @@ function saveUnit() {
 
   closeUnitModal();
   renderUnits();
+  saveDraft();
 }
 
 function deleteUnit(index) {
   state.units.splice(index, 1);
   renderUnits();
+  saveDraft();
 }
 
 // ─── Step 5: GPS ──────────────────────────────────────────────────────
@@ -759,6 +833,7 @@ function captureGPS() {
       btn.textContent = 'Recapture GPS';
       btn.disabled = false;
       document.getElementById('gpsBtnLabel').textContent = 'Recapture GPS';
+      saveDraft();
     },
     (err) => {
       showToast('GPS failed: ' + err.message, 'error');
@@ -982,7 +1057,9 @@ async function submitSurvey() {
       is_incomplete: !isComplete,
       latitude: state.gps?.lat ?? null,
       longitude: state.gps?.lng ?? null,
-      gps_accuracy: state.gps?.accuracy ?? null
+      gps_accuracy: state.gps?.accuracy ?? null,
+      survey_state: 'submitted',
+      submitted_at: new Date().toISOString()
     };
 
     if (state.ownerType === 'Individual') {
@@ -1072,6 +1149,7 @@ async function submitSurvey() {
     }
 
     // Success
+    clearDraft();
     document.getElementById('submitSuccess').classList.remove('hidden');
     document.getElementById('submitSuccessCode').textContent = `${state.propertyCode} — ${status === 'complete' ? 'Complete' : 'Saved as Incomplete'}`;
     document.getElementById('submitBtn').classList.add('hidden');

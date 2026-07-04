@@ -6,33 +6,30 @@ The application uses a single codebase with a shared frontend and a Supabase bac
 
 ## Deployment Model
 
-- `https://enga.in` is the Super Admin portal
-- `https://<subdomain>.enga.in` is the Village Council portal
+All users access the same URL: `https://villagecouncil.enga.in`
 
-The subdomain determines the tenant automatically.
-Workers do not choose a Village Council manually.
+- Tenant isolation is handled by Supabase RLS (Row Level Security)
+- Workers do not choose a Village Council manually
 
 ## Application Shape
 
-The app currently follows a static page structure with shared JavaScript modules.
+The app follows a static page structure with shared JavaScript modules.
 
 Existing entry points include:
 
-- `index.html`
-- `login.html`
-- `dashboard.html`
-- `survey.html`
-- `household.html`
-- `admin.html`
-- `register.html`
+- `index.html` - Landing page
+- `login.html` - Authentication
+- `dashboard.html` - Main dashboard (role-based views)
+- `survey.html` - Property survey form
+- `household.html` - Household registration form
+- `admin.html` - Legacy admin dashboard
+- `register.html` - Worker registration
 
-The `dashboard.html` file serves the super admin entry point on `enga.in`.
+The `dashboard.html` file serves all roles based on the user's profile.
 
 Shared logic lives in:
 
-- `app.js`
-- `core.js`
-- `subdomain-context.js`
+- `app.js` - Authentication, Supabase client, data helpers
 
 ## Backend
 
@@ -50,7 +47,7 @@ Supabase is used for:
 
 ### Super Admin
 
-Accessed from `enga.in`.
+Accessed from `villagecouncil.enga.in`.
 
 Responsibilities:
 
@@ -63,7 +60,7 @@ Responsibilities:
 
 ### Admin
 
-Accessed through a Village Council subdomain.
+Accessed from `villagecouncil.enga.in`.
 
 Responsibilities:
 
@@ -74,7 +71,7 @@ Responsibilities:
 
 ### Worker
 
-Accessed through a Village Council subdomain.
+Accessed from `villagecouncil.enga.in`.
 
 Main menu:
 

@@ -1,6 +1,6 @@
 # Project Goal
 
-`enga.in` is a production-grade Village Council Management System.
+Village Council is a production-grade Village Council Management System.
 
 ## Current Priority
 

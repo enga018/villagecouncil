@@ -1,15 +1,10 @@
-# villagecouncil.enga.in
+# Village Council
 
-Official website and digital platform of **Enga Hrahsel**.
+Production-grade Village Council Management Platform.
 
-This repository hosts the frontend website for:
+## Live Site
 
-- Personal digital presence
-- Civic and administrative tools
-- Future dashboards and web applications
-- Experimental web systems (tax collection, data management, etc.)
-
----
+https://villagecouncil.enga.in
 
 ## Project Docs
 
@@ -17,14 +12,16 @@ This repository hosts the frontend website for:
 - [Architecture](docs/architecture.md)
 - [Project Memory](docs/project-memory.md)
 
----
-
-## Live Site
-
-Once GitHub Pages is enabled:
-
-https://enga018.github.io/villagecouncil/
-
----
-
 ## Project Structure
+
+- `index.html` - Landing page
+- `login.html` - Authentication
+- `dashboard.html` - Main dashboard (role-based views)
+- `survey.html` - Property survey form (7-step wizard)
+- `household.html` - Household registration form (5-step wizard)
+- `register.html` - Worker registration
+- `admin.html` - Legacy admin dashboard
+- `app.js` - Core application logic
+- `modules.sql` - Module definitions
+- `tenant_module_assignments.sql` - Module assignments per tenant
+- `supabase/functions/` - Edge Functions

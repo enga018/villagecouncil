@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard — enga.in</title>
-  <script src="subdomain-context.js?v=10"></script>
+  <title>Dashboard — Village Council</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js?v=10"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,7 +19,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-       SUPER ADMIN DASHBOARD  (enga.in/dashboard)
+       SUPER ADMIN DASHBOARD
   ═══════════════════════════════════════════════════════════ -->
   <div id="superAdminSection" class="hidden">
     <header class="bg-indigo-900 text-white shadow-lg">
@@ -33,7 +32,7 @@
             </svg>
           </div>
           <div>
-            <div class="font-bold text-sm leading-none">enga.in</div>
+            <div class="font-bold text-sm leading-none">Village Council</div>
             <div class="text-indigo-300 text-xs mt-0.5">Super Admin</div>
           </div>
         </div>
@@ -83,7 +82,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-       ADMIN DASHBOARD  (subdomain.enga.in/dashboard)
+       ADMIN DASHBOARD
   ═══════════════════════════════════════════════════════════ -->
   <div id="adminSection" class="hidden">
     <div id="supersedeBanner" class="hidden bg-amber-500 text-amber-950 text-sm font-medium px-4 py-2 flex items-center justify-between">
@@ -327,7 +326,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-       WORKER DASHBOARD  (subdomain.enga.in/dashboard)
+       WORKER DASHBOARD
   ═══════════════════════════════════════════════════════════ -->
   <div id="workerSection" class="hidden">
     <header class="bg-blue-800 text-white shadow-lg">
@@ -450,7 +449,7 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
-       SUPERSEDE GATE  (Super Admin visiting a tenant subdomain)
+       SUPERSEDE GATE  (Super Admin acting as Admin)
   ═══════════════════════════════════════════════════════════ -->
   <div id="supersedeGateSection" class="hidden min-h-screen flex items-center justify-center">
     <div class="text-center max-w-sm px-4">
@@ -465,7 +464,7 @@
         class="mt-5 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
         Act as Admin for this Council
       </button>
-      <p class="mt-3"><a href="https://enga.in/dashboard.html" class="text-xs text-gray-400 hover:text-gray-600">← Back to Super Admin dashboard</a></p>
+      <p class="mt-3"><a href="dashboard.html" class="text-xs text-gray-400 hover:text-gray-600">← Back to Super Admin dashboard</a></p>
     </div>
   </div>
 
@@ -474,7 +473,6 @@
     <div class="text-center">
       <p class="text-gray-700 font-medium">Unable to load dashboard</p>
       <p class="text-sm text-gray-400 mt-1">You don't have permission to view this page, or your profile could not be loaded.</p>
-      <p class="text-xs text-gray-400 mt-2">If you are a tenant user, make sure you are visiting your correct subdomain (e.g. <em>yourvillage.enga.in</em>).</p>
       <button onclick="logout()" class="mt-4 text-sm text-blue-600 hover:underline">Sign out</button>
     </div>
   </div>
@@ -595,13 +593,6 @@
             class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Subdomain</label>
-          <input id="vc_subdomain" type="text" placeholder="e.g. north"
-            class="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
-          <p class="text-xs text-gray-400 mt-1">Will be used as: subdomain.enga.in</p>
-        </div>
-        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">Admin Email</label>
           <p id="vc_currentEmail" class="text-xs text-gray-500 mb-2"></p>
           <input id="vc_email" type="email" placeholder="admin@example.com"
@@ -684,10 +675,6 @@ window.addEventListener('load', async () => {
       return;
     }
 
-    // Session handoff from a cross-subdomain link (super admin "Visit →",
-    // or login.html redirecting a tenant user to their own subdomain)
-    await consumeSessionHandoff();
-
     // Try to get profile; if null on first try, wait and retry once
     let ctx = await getProfile();
     if (!ctx) {
@@ -709,49 +696,16 @@ window.addEventListener('load', async () => {
     _profile = ctx.profile;
     _tenant  = ctx.tenant;
 
-    const role    = _profile?.role;
-    const subCtx  = window.tenantContext;
+    const role = _profile?.role;
 
-    // Tenant match guard for non-super_admin on subdomains
-    if (subCtx.type === 'tenant') {
-      const ok = await assertTenantMatch(_profile);
-      if (!ok) {
-        // assertTenantMatch already redirects itself for a real tenant
-        // mismatch; if we're still here, there's just no tenant to show
-        // (e.g. account registered but not yet assigned by an admin).
-        // Show that in place rather than bouncing to another domain.
-        const deniedText = document.querySelector('#deniedSection p.text-sm');
-        if (deniedText && role !== 'super_admin' && !_profile?.tenant_id) {
-          deniedText.textContent = 'Your account is registered but not yet assigned to this village council. Please wait for an admin to approve your account.';
-        }
-        show('deniedSection');
-        return;
-      }
-
-      if (role === 'super_admin' && !_tenant) {
-        _tenant = window.tenantContext.tenant || await resolveTenant();
-        ctx.tenant = _tenant;
-      }
-    }
-
-    // Route
-    if (role === 'super_admin' && (subCtx.type === 'root' || subCtx.type === 'super-admin')) {
+    // Route based on role (single domain - no subdomain detection needed)
+    if (role === 'super_admin') {
       await loadSuperAdmin(ctx);
-    } else if (role === 'super_admin' && subCtx.type === 'tenant') {
-      // Super admin visiting a tenant subdomain — require explicit supersede confirmation
-      const activeTenant = _tenant || ctx.tenant;
-      if (activeTenant && sessionStorage.getItem('supersede_' + activeTenant.id) === 'true') {
-        await loadAdmin({ profile: _profile, tenant: activeTenant });
-        showSupersedeBanner(activeTenant);
-      } else {
-        document.getElementById('sg_tenantName').textContent = activeTenant?.name || 'this council';
-        show('supersedeGateSection');
-      }
-    } else if (role === 'admin' && subCtx.type === 'tenant') {
+    } else if (role === 'admin') {
       await loadAdmin(ctx);
-    } else if (role === 'worker' && subCtx.type === 'tenant') {
+    } else if (role === 'worker') {
       await loadWorker(ctx);
-    } else if (role === 'supervisor' && subCtx.type === 'tenant') {
+    } else if (role === 'supervisor') {
       await loadSupervisor(ctx);
     } else {
       show('deniedSection');
@@ -777,7 +731,7 @@ async function loadSuperAdmin({ profile }) {
   if (statTenantsEl) statTenantsEl.textContent = tenantRes.count ?? '—';
 
   const [tenantListRes, adminProfilesRes, assignmentRes, modulesRes] = await Promise.all([
-    supabaseClient.from('tenants').select('id, name, subdomain, property_prefix').order('name'),
+    supabaseClient.from('tenants').select('id, name, property_prefix').order('name'),
     supabaseClient.from('profiles')
       .select('tenant_id, email')
       .eq('role', 'admin'),
@@ -835,7 +789,6 @@ async function loadSuperAdmin({ profile }) {
   const tenants = (tenantListRes.data || []).map(t => ({
     id: t.id,
     name: t.name,
-    subdomain: t.subdomain,
     property_prefix: t.property_prefix,
     admin_email: (adminProfilesRes.data || []).find(p => p.tenant_id === t.id)?.email || '—',
     modules: tenantModulesMap[t.id] || [],
@@ -857,28 +810,17 @@ async function loadSuperAdmin({ profile }) {
       <div class="flex items-start justify-between gap-4">
         <div>
           <div class="text-sm font-semibold text-gray-900 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openVcModal('${t.id}')">${t.name}</div>
-          <div class="text-xs text-gray-400 mt-0.5">${t.subdomain}.enga.in &nbsp;·&nbsp; Prefix: ${t.property_prefix}</div>
+          <div class="text-xs text-gray-400 mt-0.5">Prefix: ${t.property_prefix}</div>
           <div class="text-xs text-gray-400 mt-1">Admin: ${t.admin_email}</div>
           <div class="mt-3 flex flex-wrap gap-2">${t.modules.length ? t.modules.map(code => `<span class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium px-2.5 py-1">${MODULE_META[code]?.label || code}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 text-gray-600 text-[11px] font-medium px-2.5 py-1">No modules assigned</span>'}</div>
         </div>
         <div class="flex items-center gap-3">
-          <a href="#" onclick="visitTenant('${t.subdomain}'); return false;"
-            class="text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors">Visit →</a>
           <button onclick="openVcModal('${t.id}')" class="text-xs text-gray-500 hover:text-gray-700 transition-colors">Edit</button>
           <button onclick="deleteVc('${t.id}', '${t.name}')" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
         </div>
       </div>
     </div>
   `).join('');
-}
-
-// Hand the current session off to a tenant subdomain so the super admin
-// lands there already signed in, opened in a new tab so the super admin
-// dashboard stays put.
-async function visitTenant(subdomain) {
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  const url = buildHandoffUrl(`https://${subdomain}.enga.in/dashboard.html`, session);
-  window.open(url, '_blank');
 }
 
 function renderModuleCatalog(containerId, tenantsByModule, tenantsById) {
@@ -1284,7 +1226,7 @@ async function exitSupersedeMode() {
     await writeAuditLog(tenant.id, 'supersede_exit', 'tenant', tenant.id, { actor_name: _profile.full_name });
     sessionStorage.removeItem('supersede_' + tenant.id);
   }
-  window.location.href = 'https://enga.in/dashboard.html';
+  window.location.href = 'dashboard.html';
 }
 
 function isSuperseding(tenantId) {
@@ -1717,7 +1659,6 @@ function moduleIcon(code) {
 async function openVcModal(vcId = null) {
   document.getElementById('vc_id').value = vcId || '';
   document.getElementById('vc_name').value = '';
-  document.getElementById('vc_subdomain').value = '';
   document.getElementById('vc_email').value = '';
   document.getElementById('vc_password').value = '';
   document.getElementById('vc_prefix').value = '';
@@ -1758,7 +1699,6 @@ async function openVcModal(vcId = null) {
 
     if (vc) {
       document.getElementById('vc_name').value = vc.name || '';
-      document.getElementById('vc_subdomain').value = vc.subdomain || '';
       document.getElementById('vc_prefix').value = vc.property_prefix || '';
 
       // Load assigned modules
@@ -1806,14 +1746,12 @@ function toggleVcModuleCheck(code, checked) {
 async function saveVc() {
   const vcId = document.getElementById('vc_id').value;
   const name = document.getElementById('vc_name').value.trim();
-  const subdomain = document.getElementById('vc_subdomain').value.trim();
   const email = document.getElementById('vc_email').value.trim();
   const password = document.getElementById('vc_password').value;
   const prefix = document.getElementById('vc_prefix').value.trim();
   const msgEl = document.getElementById('vc_msg');
 
   if (!name) { msgEl.textContent = 'Enter VC name.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
-  if (!subdomain) { msgEl.textContent = 'Enter subdomain.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!email) { msgEl.textContent = 'Enter admin email.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!vcId && !password) { msgEl.textContent = 'Enter admin password.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
   if (!prefix) { msgEl.textContent = 'Enter property prefix.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
@@ -1824,7 +1762,6 @@ async function saveVc() {
       .from('tenants')
       .update({
         name,
-        subdomain,
         property_prefix: prefix,
       })
       .eq('id', vcId);
@@ -1899,7 +1836,6 @@ async function saveVc() {
       .from('tenants')
       .insert({
         name,
-        subdomain,
         property_prefix: prefix,
         id_digit_length: 4,
       })

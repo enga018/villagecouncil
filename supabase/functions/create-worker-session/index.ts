@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       type: "magiclink",
       email: workerUser.data.user.email,
       options: {
-        redirectTo: `https://${workerProfile.tenant_id}.enga.in/dashboard.html`,
+        redirectTo: `https://villagecouncil.enga.in/dashboard.html`,
       },
     });
 

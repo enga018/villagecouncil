@@ -11,13 +11,6 @@ function initSupabase() {
       console.error("Supabase CDN not loaded");
       return;
     }
-    // Each *.enga.in origin keeps its own session in localStorage (the
-    // supabase-js default). Sessions never need to cross subdomains on
-    // their own — see buildHandoffUrl()/consumeSessionHandoff() below for
-    // the one case that does (super admin "Visit" and post-login redirect
-    // to a tenant's own subdomain). A shared cookie was tried previously
-    // but a single Supabase session easily exceeds the 4KB per-cookie
-    // limit and silently gets dropped, which looked like random logouts.
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       auth: {
         persistSession: true,
@@ -36,35 +29,6 @@ window.addEventListener("load", initSupabase);
 window.addEventListener("error", (e) => {
   console.error("JS ERROR:", e.message);
 });
-
-// Builds a cross-subdomain link that carries the current session in the URL
-// fragment (never sent to the server, so it never hits logs). Use this
-// instead of a plain <a href>/location.href whenever navigation crosses from
-// one *.enga.in origin to another and the destination should already be
-// signed in.
-function buildHandoffUrl(targetUrl, session) {
-  if (!session) return targetUrl;
-  const params = new URLSearchParams({ access_token: session.access_token, refresh_token: session.refresh_token });
-  return `${targetUrl}#${params.toString()}`;
-}
-
-// Establishes the session on this origin from a URL fragment built by
-// buildHandoffUrl(). Returns true if a session was set from the fragment.
-async function consumeSessionHandoff() {
-  if (!window.location.hash.includes('access_token')) return false;
-  const hashParams = new URLSearchParams(window.location.hash.slice(1));
-  const access_token = hashParams.get('access_token');
-  const refresh_token = hashParams.get('refresh_token');
-  history.replaceState(null, '', window.location.pathname + window.location.search);
-  if (!access_token || !refresh_token) return false;
-  try {
-    const { error } = await supabaseClient.auth.setSession({ access_token, refresh_token });
-    return !error;
-  } catch (err) {
-    console.error('consumeSessionHandoff failed:', err);
-    return false;
-  }
-}
 
 async function getUser() {
   if (!supabaseClient?.auth?.getSession) return null;
@@ -195,18 +159,9 @@ async function getTenantWorkers(tenantId) {
   return data || [];
 }
 
-// Redirect to the correct dashboard based on role and subdomain
+// Redirect to dashboard for all roles
 function redirectToDashboard(role) {
-  const ctx = window.tenantContext;
-  if (role === "super_admin" && ctx.type === "root") {
-    window.location.href = "dashboard.html";
-  } else if (["admin", "worker", "supervisor"].includes(role) && ctx.type === "tenant") {
-    window.location.href = "dashboard.html";
-  } else if (role === "super_admin") {
-    window.location.href = "https://enga.in/dashboard.html";
-  } else {
-    window.location.href = "dashboard.html";
-  }
+  window.location.href = "dashboard.html";
 }
 
 function waitForSupabase(timeoutMs = 3000) {

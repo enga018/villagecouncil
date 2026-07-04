@@ -1,6 +1,6 @@
 # Project Memory
 
-This document captures the current design decisions for `enga.in`.
+This document captures the current design decisions for Village Council.
 
 ## Decision Summary
 
@@ -8,8 +8,8 @@ This document captures the current design decisions for `enga.in`.
 - The MVP focuses only on Property Survey and Household Register.
 - The existing layout should be preserved.
 - Workflow improvements are preferred over visual redesign.
-- One codebase should serve both the super admin portal and tenant portals.
-- The subdomain determines the tenant.
+- One codebase serves all portals (single domain).
+- Tenant isolation is handled by Supabase RLS.
 - Workers never choose a Village Council manually.
 - Continue using the existing Supabase tables unless a schema change is truly necessary.
 
@@ -57,4 +57,3 @@ Build features in this order:
 ## Working Principle
 
 Every change should help field workers move faster, type less, and preserve evidence more reliably.
-

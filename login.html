@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — enga.in</title>
-  <script src="subdomain-context.js?v=10"></script>
+  <title>Login — Village Council</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js?v=10"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -30,7 +29,7 @@
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
         </svg>
       </div>
-      <h1 class="text-2xl font-bold text-white">enga.in</h1>
+      <h1 class="text-2xl font-bold text-white">Village Council</h1>
       <p class="text-slate-400 text-sm mt-1">Village Council Management</p>
     </div>
 
@@ -96,31 +95,9 @@ async function login() {
     msg.textContent = "Login successful. Redirecting…";
     msg.className = "mt-4 text-sm text-center text-green-400 min-h-5";
 
-    // Smart redirect based on user role and subdomain context
+    // Redirect to dashboard (single domain - no subdomain redirect needed)
     setTimeout(async () => {
-      try {
-        const { data: profileData } = await supabaseClient
-          .from('profiles')
-          .select('role, tenant_id, tenant:tenants(subdomain)')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profileData && profileData.role !== 'super_admin' && profileData.tenant?.subdomain) {
-          // Tenant user — redirect to their subdomain, carrying the session
-          // over since it lives in this origin's localStorage only
-          const currentHost = window.location.hostname;
-          const targetHost = `${profileData.tenant.subdomain}.enga.in`;
-          if (currentHost !== targetHost) {
-            window.location.replace(buildHandoffUrl(`https://${targetHost}/dashboard.html?from=login`, data.session));
-            return;
-          }
-        }
-        // Super admin or already on correct subdomain
-        window.location.replace("dashboard.html?from=login");
-      } catch (err) {
-        console.error('Profile lookup failed:', err);
-        window.location.replace("dashboard.html?from=login");
-      }
+      window.location.replace("dashboard.html?from=login");
     }, 400);
 
   } catch (e) {
@@ -146,21 +123,7 @@ window.addEventListener("load", async () => {
     await waitForSupabase();
     const { data } = await supabaseClient.auth.getSession();
     if (data.session) {
-      // Already logged in — smart redirect
-      const { data: profileData } = await supabaseClient
-        .from('profiles')
-        .select('role, tenant_id, tenant:tenants(subdomain)')
-        .eq('id', data.session.user.id)
-        .single();
-
-      if (profileData && profileData.role !== 'super_admin' && profileData.tenant?.subdomain) {
-        const currentHost = window.location.hostname;
-        const targetHost = `${profileData.tenant.subdomain}.enga.in`;
-        if (currentHost !== targetHost) {
-          window.location.replace(buildHandoffUrl(`https://${targetHost}/dashboard.html?from=login`, data.session));
-          return;
-        }
-      }
+      // Already logged in — redirect to dashboard
       window.location.replace("dashboard.html?from=login");
     }
   } catch (err) {

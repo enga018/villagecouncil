@@ -485,6 +485,30 @@
     </div>
   </div>
 
+  <!-- Worker Picker Modal (Super Admin View as Worker) -->
+  <div id="workerPickerModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
+      <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">View as Worker</h3>
+        <button onclick="closeWorkerPickerModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="p-5">
+        <p class="text-sm text-gray-500 mb-3">Select a field worker to view their dashboard.</p>
+        <div id="wp_workerList" class="space-y-2 max-h-80 overflow-y-auto">
+          <div class="text-sm text-gray-400 py-4 text-center">Loading workers…</div>
+        </div>
+        <p id="wp_msg" class="text-xs text-red-500 min-h-4 mt-2"></p>
+      </div>
+      <div class="p-5 border-t border-gray-100 flex gap-2">
+        <button onclick="closeWorkerPickerModal()" class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Module Modal -->
   <div id="moduleModal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl w-full max-w-md shadow-xl">
@@ -881,6 +905,7 @@ async function loadSuperAdmin({ profile }) {
         </div>
         <div class="flex items-center gap-3">
           <button onclick="startSupersede('${t.id}', 'admin')" class="text-xs text-amber-600 hover:text-amber-700 transition-colors">View as Admin</button>
+          <button onclick="openWorkerPickerModal('${t.id}', '${escHtml(t.name)}')" class="text-xs text-blue-600 hover:text-blue-700 transition-colors">View as Worker</button>
           <button onclick="startSupersede('${t.id}', 'supervisor')" class="text-xs text-teal-600 hover:text-teal-700 transition-colors">View as Supervisor</button>
           <button onclick="openVcModal('${t.id}')" class="text-xs text-gray-500 hover:text-gray-700 transition-colors">Edit</button>
           <button onclick="deleteVc('${t.id}', '${t.name}')" class="text-xs text-red-400 hover:text-red-600 transition-colors">Delete</button>
@@ -1306,6 +1331,49 @@ function hideAllSupersedeBanners() {
     const banner = document.getElementById(el);
     if (banner) banner.classList.add('hidden');
   });
+}
+
+let _workerPickerTenantId = null;
+
+async function openWorkerPickerModal(tenantId, tenantName) {
+  _workerPickerTenantId = tenantId;
+  document.getElementById('wp_msg').textContent = '';
+  const listEl = document.getElementById('wp_workerList');
+  listEl.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">Loading workers…</div>';
+  show('workerPickerModal');
+
+  const { data: workers, error } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, role, status')
+    .eq('tenant_id', tenantId)
+    .eq('role', 'worker')
+    .order('full_name');
+
+  if (error) {
+    listEl.innerHTML = '<div class="text-sm text-red-500 py-4 text-center">Failed to load workers.</div>';
+    return;
+  }
+
+  if (!workers?.length) {
+    listEl.innerHTML = '<div class="text-sm text-gray-400 py-4 text-center">No workers in this council.</div>';
+    return;
+  }
+
+  listEl.innerHTML = workers.map(w => `
+    <button onclick="closeWorkerPickerModal(); startSupersede('${tenantId}', 'worker', '${w.id}', '${escHtml(w.full_name)}');"
+      class="w-full text-left flex items-center justify-between bg-white rounded-lg px-4 py-3 border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+      <div>
+        <div class="text-sm font-medium text-gray-900">${escHtml(w.full_name)}</div>
+        <div class="text-xs text-gray-500 mt-0.5 capitalize">${w.status}</div>
+      </div>
+      <span class="text-xs text-blue-600 font-medium">Select →</span>
+    </button>
+  `).join('');
+}
+
+function closeWorkerPickerModal() {
+  hide('workerPickerModal');
+  _workerPickerTenantId = null;
 }
 
 async function enterSupersedeMode() {

@@ -729,9 +729,17 @@ window.addEventListener('load', async () => {
     _tenant  = ctx.tenant;
 
     const role = _profile?.role;
+    const urlParams = new URLSearchParams(window.location.search);
+    const qsView = urlParams.get('view');
+    const qsTenantId = urlParams.get('tenant');
 
     // Route based on role (single domain - no subdomain detection needed)
     if (role === 'super_admin') {
+      // If URL asks to view a specific tenant as admin, start supersede
+      if (qsView === 'admin' && qsTenantId) {
+        await startSupersede(qsTenantId);
+        return;
+      }
       await loadSuperAdmin(ctx);
     } else if (role === 'admin') {
       await loadAdmin(ctx);
@@ -1283,7 +1291,11 @@ async function exitSupersedeMode() {
     await writeAuditLog(tenant.id, 'supersede_exit', 'tenant', tenant.id, { actor_name: _profile.full_name });
     sessionStorage.removeItem('supersede_' + tenant.id);
   }
-  window.location.href = 'dashboard.html';
+  // Clear supersede query params and reload clean dashboard
+  const url = new URL(window.location.href);
+  url.searchParams.delete('view');
+  url.searchParams.delete('tenant');
+  window.location.href = url.pathname + url.search;
 }
 
 function isSuperseding(tenantId) {
@@ -1318,6 +1330,12 @@ async function startSupersede(tenantId) {
   document.getElementById('sg_tenantName').textContent = tenant.name;
   hide('superAdminSection');
   show('supersedeGateSection');
+
+  // Update URL to make supersede state shareable/obvious (no page reload)
+  const url = new URL(window.location.href);
+  url.searchParams.set('view', 'admin');
+  url.searchParams.set('tenant', tenant.id);
+  window.history.replaceState({}, '', url);
 }
 
 async function writeAuditLog(tenantId, action, entityType, entityId, details = null) {

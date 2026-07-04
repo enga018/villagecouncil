@@ -627,6 +627,22 @@
           <p class="text-xs text-gray-400 mt-1">Dashboard header color for this council</p>
         </div>
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Logo</label>
+          <div class="flex items-center gap-4">
+            <div id="vc_logoPreview" class="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
+              <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <input id="vc_logoInput" type="file" accept="image/*" onchange="previewLogo(this)"
+                class="w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer">
+              <p class="text-xs text-gray-400 mt-1">Square image recommended. Max 500KB.</p>
+            </div>
+          </div>
+          <input type="hidden" id="vc_logoUrl" value="">
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Assign Modules</label>
           <div id="vc_modules" class="space-y-1 rounded-xl border border-gray-100 p-3 bg-gray-50"></div>
         </div>
@@ -747,7 +763,7 @@ async function loadSuperAdmin({ profile }) {
   if (statTenantsEl) statTenantsEl.textContent = tenantRes.count ?? '—';
 
   const [tenantListRes, adminProfilesRes, assignmentRes, modulesRes] = await Promise.all([
-    supabaseClient.from('tenants').select('id, name, property_prefix, brand_color').order('name'),
+    supabaseClient.from('tenants').select('id, name, property_prefix, brand_color, logo_url').order('name'),
     supabaseClient.from('profiles')
       .select('tenant_id, email')
       .eq('role', 'admin'),
@@ -807,6 +823,7 @@ async function loadSuperAdmin({ profile }) {
     name: t.name,
     property_prefix: t.property_prefix,
     brand_color: t.brand_color || '#1e40af',
+    logo_url: t.logo_url || null,
     admin_email: (adminProfilesRes.data || []).find(p => p.tenant_id === t.id)?.email || '—',
     modules: tenantModulesMap[t.id] || [],
   }));
@@ -827,7 +844,10 @@ async function loadSuperAdmin({ profile }) {
       <div class="flex items-start justify-between gap-4">
         <div>
           <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${t.brand_color}"></div>
+            ${t.logo_url
+              ? `<img src="${t.logo_url}" class="w-5 h-5 object-contain rounded flex-shrink-0">`
+              : `<div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${t.brand_color}"></div>`
+            }
             <div class="text-sm font-semibold text-gray-900 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openVcModal('${t.id}')">${t.name}</div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5">Prefix: ${t.property_prefix}</div>
@@ -1010,6 +1030,10 @@ async function loadAdmin({ profile, tenant }) {
   const adminIcon = document.querySelector('#adminSection header .bg-blue-600');
   if (adminIcon) {
     adminIcon.style.backgroundColor = brandColor;
+    // Show logo if available
+    if (tenant?.logo_url) {
+      adminIcon.innerHTML = `<img src="${tenant.logo_url}" class="w-10 h-10 object-contain">`;
+    }
   }
 
   show('adminSection');
@@ -1555,6 +1579,10 @@ async function loadWorker({ profile, tenant }) {
   const workerIcon = document.querySelector('#workerSection header .bg-blue-600');
   if (workerIcon) {
     workerIcon.style.backgroundColor = brandColor;
+    // Show logo if available
+    if (tenant?.logo_url) {
+      workerIcon.innerHTML = `<img src="${tenant.logo_url}" class="w-10 h-10 object-contain">`;
+    }
   }
 
   show('workerSection');
@@ -1615,6 +1643,10 @@ async function loadSupervisor({ profile, tenant }) {
   const supervisorIcon = document.querySelector('#supervisorSection header .bg-teal-600');
   if (supervisorIcon) {
     supervisorIcon.style.backgroundColor = brandColor;
+    // Show logo if available
+    if (tenant?.logo_url) {
+      supervisorIcon.innerHTML = `<img src="${tenant.logo_url}" class="w-10 h-10 object-contain">`;
+    }
   }
 
   show('supervisorSection');
@@ -1719,6 +1751,9 @@ async function openVcModal(vcId = null) {
   document.getElementById('vc_password').value = '';
   document.getElementById('vc_prefix').value = '';
   document.getElementById('vc_brandColor').value = '#1e40af';
+  document.getElementById('vc_logoUrl').value = '';
+  document.getElementById('vc_logoInput').value = '';
+  document.getElementById('vc_logoPreview').innerHTML = `<svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
   document.getElementById('vc_msg').textContent = '';
   document.getElementById('vc_msg').className = 'text-xs min-h-4';
   _vcModuleCodes = [];
@@ -1758,6 +1793,12 @@ async function openVcModal(vcId = null) {
       document.getElementById('vc_name').value = vc.name || '';
       document.getElementById('vc_prefix').value = vc.property_prefix || '';
       document.getElementById('vc_brandColor').value = vc.brand_color || '#1e40af';
+      document.getElementById('vc_logoUrl').value = vc.logo_url || '';
+      
+      // Show logo preview if exists
+      if (vc.logo_url) {
+        document.getElementById('vc_logoPreview').innerHTML = `<img src="${vc.logo_url}" class="w-full h-full object-contain">`;
+      }
 
       // Load assigned modules
       const { data: assignments } = await supabaseClient
@@ -1805,6 +1846,49 @@ function setBrandColor(hex) {
   document.getElementById('vc_brandColor').value = hex;
 }
 
+async function previewLogo(input) {
+  const preview = document.getElementById('vc_logoPreview');
+  const hiddenInput = document.getElementById('vc_logoUrl');
+  
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    
+    // Validate size (500KB max)
+    if (file.size > 500 * 1024) {
+      alert('Logo must be under 500KB');
+      input.value = '';
+      return;
+    }
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-contain">`;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function uploadLogo(file, tenantId) {
+  const ext = file.name.split('.').pop();
+  const path = `logos/${tenantId}.${ext}`;
+  
+  const { error } = await supabaseClient.storage
+    .from('vc-logos')
+    .upload(path, file, { upsert: true });
+  
+  if (error) {
+    console.error('Logo upload failed:', error);
+    return null;
+  }
+  
+  const { data } = supabaseClient.storage
+    .from('vc-logos')
+    .getPublicUrl(path);
+  
+  return data?.publicUrl || null;
+}
+
 async function saveVc() {
   const vcId = document.getElementById('vc_id').value;
   const name = document.getElementById('vc_name').value.trim();
@@ -1812,6 +1896,7 @@ async function saveVc() {
   const password = document.getElementById('vc_password').value;
   const prefix = document.getElementById('vc_prefix').value.trim();
   const brandColor = document.getElementById('vc_brandColor').value;
+  const logoInput = document.getElementById('vc_logoInput');
   const msgEl = document.getElementById('vc_msg');
 
   if (!name) { msgEl.textContent = 'Enter VC name.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
@@ -1820,15 +1905,22 @@ async function saveVc() {
   if (!prefix) { msgEl.textContent = 'Enter property prefix.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
 
   if (vcId) {
-    // Update tenant
-    const { error: tenantError } = await supabaseClient
-      .from('tenants')
-      .update({
-        name,
-        property_prefix: prefix,
-        brand_color: brandColor,
-      })
-      .eq('id', vcId);
+      // Upload logo if provided
+      let logoUrl = document.getElementById('vc_logoUrl').value;
+      if (logoInput.files && logoInput.files[0]) {
+        logoUrl = await uploadLogo(logoInput.files[0], vcId);
+      }
+
+      // Update tenant
+      const { error: tenantError } = await supabaseClient
+        .from('tenants')
+        .update({
+          name,
+          property_prefix: prefix,
+          brand_color: brandColor,
+          logo_url: logoUrl || null,
+        })
+        .eq('id', vcId);
 
     if (tenantError) {
       msgEl.textContent = tenantError.message;
@@ -1902,6 +1994,7 @@ async function saveVc() {
         name,
         property_prefix: prefix,
         brand_color: brandColor,
+        logo_url: null,
         id_digit_length: 4,
       })
       .select()
@@ -1911,6 +2004,17 @@ async function saveVc() {
       msgEl.textContent = tenantError.message;
       msgEl.className = 'text-xs text-red-500 min-h-4';
       return;
+    }
+
+    // Upload logo if provided
+    if (logoInput.files && logoInput.files[0]) {
+      const logoUrl = await uploadLogo(logoInput.files[0], tenant.id);
+      if (logoUrl) {
+        await supabaseClient
+          .from('tenants')
+          .update({ logo_url: logoUrl })
+          .eq('id', tenant.id);
+      }
     }
 
     const { error: profileError } = await supabaseClient

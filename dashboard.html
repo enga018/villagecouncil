@@ -611,6 +611,22 @@
             oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
         </div>
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Brand Color</label>
+          <div class="flex items-center gap-3">
+            <input id="vc_brandColor" type="color" value="#1e40af"
+              class="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer">
+            <div class="flex gap-2">
+              <button type="button" onclick="setBrandColor('#1e40af')" class="w-7 h-7 rounded-full bg-blue-800 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+              <button type="button" onclick="setBrandColor('#047857')" class="w-7 h-7 rounded-full bg-green-700 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+              <button type="button" onclick="setBrandColor('#b45309')" class="w-7 h-7 rounded-full bg-amber-700 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+              <button type="button" onclick="setBrandColor('#7c3aed')" class="w-7 h-7 rounded-full bg-purple-700 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+              <button type="button" onclick="setBrandColor('#0f766e')" class="w-7 h-7 rounded-full bg-teal-700 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+              <button type="button" onclick="setBrandColor('#be123c')" class="w-7 h-7 rounded-full bg-rose-700 border-2 border-white shadow hover:scale-110 transition-transform"></button>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Dashboard header color for this council</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Assign Modules</label>
           <div id="vc_modules" class="space-y-1 rounded-xl border border-gray-100 p-3 bg-gray-50"></div>
         </div>
@@ -731,7 +747,7 @@ async function loadSuperAdmin({ profile }) {
   if (statTenantsEl) statTenantsEl.textContent = tenantRes.count ?? '—';
 
   const [tenantListRes, adminProfilesRes, assignmentRes, modulesRes] = await Promise.all([
-    supabaseClient.from('tenants').select('id, name, property_prefix').order('name'),
+    supabaseClient.from('tenants').select('id, name, property_prefix, brand_color').order('name'),
     supabaseClient.from('profiles')
       .select('tenant_id, email')
       .eq('role', 'admin'),
@@ -790,6 +806,7 @@ async function loadSuperAdmin({ profile }) {
     id: t.id,
     name: t.name,
     property_prefix: t.property_prefix,
+    brand_color: t.brand_color || '#1e40af',
     admin_email: (adminProfilesRes.data || []).find(p => p.tenant_id === t.id)?.email || '—',
     modules: tenantModulesMap[t.id] || [],
   }));
@@ -809,7 +826,10 @@ async function loadSuperAdmin({ profile }) {
     <div class="bg-white rounded-lg px-4 py-4 shadow-sm border border-gray-100">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <div class="text-sm font-semibold text-gray-900 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openVcModal('${t.id}')">${t.name}</div>
+          <div class="flex items-center gap-2">
+            <div class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${t.brand_color}"></div>
+            <div class="text-sm font-semibold text-gray-900 cursor-pointer hover:text-indigo-600 transition-colors" onclick="openVcModal('${t.id}')">${t.name}</div>
+          </div>
           <div class="text-xs text-gray-400 mt-0.5">Prefix: ${t.property_prefix}</div>
           <div class="text-xs text-gray-400 mt-1">Admin: ${t.admin_email}</div>
           <div class="mt-3 flex flex-wrap gap-2">${t.modules.length ? t.modules.map(code => `<span class="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium px-2.5 py-1">${MODULE_META[code]?.label || code}</span>`).join('') : '<span class="inline-flex items-center rounded-full bg-gray-100 text-gray-600 text-[11px] font-medium px-2.5 py-1">No modules assigned</span>'}</div>
@@ -980,6 +1000,18 @@ let _editingModuleCodes = [];
 async function loadAdmin({ profile, tenant }) {
   document.getElementById('ad_tenantName').textContent = tenant?.name || 'Council';
   document.getElementById('ad_userName').textContent   = profile?.full_name || profile?.role || '';
+
+  // Apply tenant brand color to header
+  const brandColor = tenant?.brand_color || '#1e40af';
+  const adminHeader = document.querySelector('#adminSection header');
+  if (adminHeader) {
+    adminHeader.style.backgroundColor = brandColor;
+  }
+  const adminIcon = document.querySelector('#adminSection header .bg-blue-600');
+  if (adminIcon) {
+    adminIcon.style.backgroundColor = brandColor;
+  }
+
   show('adminSection');
 
   // If superadmin visiting tenant subdomain, use the tenant from context
@@ -1513,6 +1545,18 @@ async function loadWorker({ profile, tenant }) {
   document.getElementById('wk_tenantName').textContent = tenant?.name || 'Council';
   document.getElementById('wk_userName').textContent   = profile?.full_name || '';
   document.getElementById('wk_roleBadge').textContent  = roleLabel[profile?.role] || profile?.role;
+
+  // Apply tenant brand color to header
+  const brandColor = tenant?.brand_color || '#1e40af';
+  const workerHeader = document.querySelector('#workerSection header');
+  if (workerHeader) {
+    workerHeader.style.backgroundColor = brandColor;
+  }
+  const workerIcon = document.querySelector('#workerSection header .bg-blue-600');
+  if (workerIcon) {
+    workerIcon.style.backgroundColor = brandColor;
+  }
+
   show('workerSection');
 
   const tenantId = profile.tenant_id;
@@ -1561,6 +1605,18 @@ async function loadWorker({ profile, tenant }) {
 async function loadSupervisor({ profile, tenant }) {
   document.getElementById('sv_tenantName').textContent = tenant?.name || 'Council';
   document.getElementById('sv_userName').textContent   = profile?.full_name || '';
+
+  // Apply tenant brand color to header (teal-800 as base, override with brand color)
+  const brandColor = tenant?.brand_color || '#0f766e';
+  const supervisorHeader = document.querySelector('#supervisorSection header');
+  if (supervisorHeader) {
+    supervisorHeader.style.backgroundColor = brandColor;
+  }
+  const supervisorIcon = document.querySelector('#supervisorSection header .bg-teal-600');
+  if (supervisorIcon) {
+    supervisorIcon.style.backgroundColor = brandColor;
+  }
+
   show('supervisorSection');
 
   const tenantId = profile.tenant_id;
@@ -1662,6 +1718,7 @@ async function openVcModal(vcId = null) {
   document.getElementById('vc_email').value = '';
   document.getElementById('vc_password').value = '';
   document.getElementById('vc_prefix').value = '';
+  document.getElementById('vc_brandColor').value = '#1e40af';
   document.getElementById('vc_msg').textContent = '';
   document.getElementById('vc_msg').className = 'text-xs min-h-4';
   _vcModuleCodes = [];
@@ -1700,6 +1757,7 @@ async function openVcModal(vcId = null) {
     if (vc) {
       document.getElementById('vc_name').value = vc.name || '';
       document.getElementById('vc_prefix').value = vc.property_prefix || '';
+      document.getElementById('vc_brandColor').value = vc.brand_color || '#1e40af';
 
       // Load assigned modules
       const { data: assignments } = await supabaseClient
@@ -1743,12 +1801,17 @@ function toggleVcModuleCheck(code, checked) {
   if (!checked) _vcModuleCodes = _vcModuleCodes.filter(c => c !== code);
 }
 
+function setBrandColor(hex) {
+  document.getElementById('vc_brandColor').value = hex;
+}
+
 async function saveVc() {
   const vcId = document.getElementById('vc_id').value;
   const name = document.getElementById('vc_name').value.trim();
   const email = document.getElementById('vc_email').value.trim();
   const password = document.getElementById('vc_password').value;
   const prefix = document.getElementById('vc_prefix').value.trim();
+  const brandColor = document.getElementById('vc_brandColor').value;
   const msgEl = document.getElementById('vc_msg');
 
   if (!name) { msgEl.textContent = 'Enter VC name.'; msgEl.className = 'text-xs text-red-500 min-h-4'; return; }
@@ -1763,6 +1826,7 @@ async function saveVc() {
       .update({
         name,
         property_prefix: prefix,
+        brand_color: brandColor,
       })
       .eq('id', vcId);
 
@@ -1837,6 +1901,7 @@ async function saveVc() {
       .insert({
         name,
         property_prefix: prefix,
+        brand_color: brandColor,
         id_digit_length: 4,
       })
       .select()

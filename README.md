@@ -23,7 +23,7 @@ This repository hosts the frontend website for:
 
 Once GitHub Pages is enabled:
 
-https://enga018.github.io/enga.in/
+https://enga018.github.io/villagecouncil/
 
 ---
 

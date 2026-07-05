@@ -39,23 +39,28 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      const ctx = await getProfile();
-      if (ctx) {
-        window.location.href = getRoleRedirectUrl(ctx.profile.role);
+      if (error) {
+        setError(error.message);
+        setLoading(false);
         return;
       }
-      setError('Profile not found. Contact administrator.');
-      await supabase.auth.signOut();
+
+      if (data.user) {
+        const ctx = await getProfile();
+        if (ctx) {
+          window.location.href = getRoleRedirectUrl(ctx.profile.role);
+          return;
+        }
+        setError('Profile not found. Contact administrator.');
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.error('Login failed:', err);
+      setError(err instanceof Error ? err.message : 'Unable to sign in. Check your connection and try again.');
     }
 
     setLoading(false);

@@ -14,13 +14,12 @@ https://villagecouncil.enga.in
 
 ## Project Structure
 
-- `index.html` - Landing page
+- `index.html` - App shell: landing page for signed-out visitors; dashboard for admin, worker, and supervisor roles
+- `superadmin.html` - Super admin console (village councils, modules, cross-tenant supersede)
 - `login.html` - Authentication
-- `dashboard.html` - Main dashboard (role-based views)
 - `survey.html` - Property survey form (7-step wizard)
 - `household.html` - Household registration form (5-step wizard)
 - `register.html` - Worker registration
-- `admin.html` - Legacy admin dashboard
 - `app.js` - Core application logic
 - `modules.sql` - Module definitions
 - `tenant_module_assignments.sql` - Module assignments per tenant

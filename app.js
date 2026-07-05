@@ -161,7 +161,7 @@ async function getTenantWorkers(tenantId) {
 
 // Redirect to dashboard for all roles
 function redirectToDashboard(role) {
-  window.location.href = "dashboard.html";
+  window.location.href = "index.html";
 }
 
 function waitForSupabase(timeoutMs = 3000) {

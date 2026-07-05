@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login — Village Council</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     // Inline fallback — in case app.js is served from cache without this function
@@ -97,7 +97,7 @@ async function login() {
 
     // Redirect to dashboard (single domain - no subdomain redirect needed)
     setTimeout(async () => {
-      window.location.replace("dashboard.html?from=login");
+      window.location.replace("index.html?from=login");
     }, 400);
 
   } catch (e) {
@@ -124,7 +124,7 @@ window.addEventListener("load", async () => {
     const { data } = await supabaseClient.auth.getSession();
     if (data.session) {
       // Already logged in — redirect to dashboard
-      window.location.replace("dashboard.html?from=login");
+      window.location.replace("index.html?from=login");
     }
   } catch (err) {
     console.error('Login bootstrap failed:', err);

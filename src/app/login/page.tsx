@@ -12,15 +12,26 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setChecking(false);
+    }, 5000);
+
     async function checkSession() {
-      const ctx = await getProfile();
-      if (ctx) {
-        window.location.href = getRoleRedirectUrl(ctx.profile.role);
-        return;
+      try {
+        const ctx = await getProfile();
+        if (ctx) {
+          window.location.href = getRoleRedirectUrl(ctx.profile.role);
+          return;
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
       }
       setChecking(false);
     }
+
     checkSession();
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   async function handleLogin(e: React.FormEvent) {

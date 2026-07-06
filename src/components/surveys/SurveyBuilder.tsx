@@ -1,16 +1,17 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { createClient } from '@/lib/supabase';
-import type { SurveyField, SurveySettings } from '@/types';
+import { useState } from "react";
+import { createClient } from "@/lib/supabase";
+import InfoCard from "@/components/ui/InfoCard";
+import type { SurveyField, SurveySettings } from "@/types";
 
 interface SurveyBuilderProps {
   onBack: () => void;
 }
 
 export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [fields, setFields] = useState<SurveyField[]>([]);
   const [settings, setSettings] = useState<SurveySettings>({
     auto_capture_gps: false,
@@ -18,35 +19,35 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
     require_photos: false,
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
-  function addField(type: SurveyField['type']) {
+  function addField(type: SurveyField["type"]) {
     const newField: SurveyField = {
       id: crypto.randomUUID(),
       type,
-      label: '',
+      label: "",
       required: false,
-      placeholder: '',
-      options: type === 'select' || type === 'radio' || type === 'checkbox' ? ['Option 1', 'Option 2'] : undefined,
+      placeholder: "",
+      options: type === "select" || type === "radio" || type === "checkbox" ? ["Option 1", "Option 2"] : undefined,
     };
     setFields([...fields, newField]);
   }
 
   function updateField(id: string, updates: Partial<SurveyField>) {
-    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
+    setFields(fields.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   }
 
   function removeField(id: string) {
-    setFields(fields.filter(f => f.id !== id));
+    setFields(fields.filter((f) => f.id !== id));
   }
 
-  function moveField(id: string, direction: 'up' | 'down') {
-    const index = fields.findIndex(f => f.id === id);
-    if (direction === 'up' && index > 0) {
+  function moveField(id: string, direction: "up" | "down") {
+    const index = fields.findIndex((f) => f.id === id);
+    if (direction === "up" && index > 0) {
       const newFields = [...fields];
       [newFields[index - 1], newFields[index]] = [newFields[index], newFields[index - 1]];
       setFields(newFields);
-    } else if (direction === 'down' && index < fields.length - 1) {
+    } else if (direction === "down" && index < fields.length - 1) {
       const newFields = [...fields];
       [newFields[index + 1], newFields[index]] = [newFields[index], newFields[index + 1]];
       setFields(newFields);
@@ -54,16 +55,16 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
   }
 
   async function handleSave() {
-    if (!title.trim()) { setError('Enter survey title'); return; }
-    if (fields.length === 0) { setError('Add at least one field'); return; }
-    if (fields.some(f => !f.label.trim())) { setError('All fields must have labels'); return; }
+    if (!title.trim()) { setError("Enter survey title"); return; }
+    if (fields.length === 0) { setError("Add at least one field"); return; }
+    if (fields.some((f) => !f.label.trim())) { setError("All fields must have labels"); return; }
 
     setSaving(true);
-    setError('');
+    setError("");
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { error } = await supabase.from('survey_templates').insert({
+    const { error } = await supabase.from("survey_templates").insert({
       title,
       description,
       fields,
@@ -81,34 +82,58 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
     onBack();
   }
 
-  const fieldTypes: { type: SurveyField['type']; label: string; icon: string }[] = [
-    { type: 'text', label: 'Text', icon: 'T' },
-    { type: 'textarea', label: 'Textarea', icon: '¶' },
-    { type: 'number', label: 'Number', icon: '#' },
-    { type: 'select', label: 'Dropdown', icon: '▼' },
-    { type: 'radio', label: 'Radio', icon: '○' },
-    { type: 'checkbox', label: 'Checkbox', icon: '☐' },
-    { type: 'date', label: 'Date', icon: '📅' },
-    { type: 'image', label: 'Image', icon: '📷' },
-    { type: 'geolocation', label: 'GPS', icon: '📍' },
+  const fieldTypes: { type: SurveyField["type"]; label: string; icon: string }[] = [
+    { type: "text", label: "Text", icon: "T" },
+    { type: "textarea", label: "Textarea", icon: "¶" },
+    { type: "number", label: "Number", icon: "#" },
+    { type: "select", label: "Dropdown", icon: "▼" },
+    { type: "radio", label: "Radio", icon: "○" },
+    { type: "checkbox", label: "Checkbox", icon: "☐" },
+    { type: "date", label: "Date", icon: "📅" },
+    { type: "image", label: "Image", icon: "📷" },
+    { type: "geolocation", label: "GPS", icon: "📍" },
   ];
+
+  function settingLabel(key: keyof SurveySettings) {
+    switch (key) {
+      case "auto_capture_gps": return "Auto-capture GPS location";
+      case "allow_drafts": return "Allow saving as draft";
+      case "require_photos": return "Require photo uploads";
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-indigo-900 text-white shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button onClick={onBack} className="flex items-center gap-2 text-indigo-200 hover:text-white transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+      {/* Top header */}
+      <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <button onClick={onBack} className="hover:text-gray-700 transition-colors">
+              Super Admin
+            </button>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            <span className="text-sm">Back</span>
-          </button>
-          <h1 className="text-sm font-semibold">Create Survey Template</h1>
-          <div className="w-16"></div>
+            <button onClick={onBack} className="hover:text-gray-700 transition-colors">
+              Survey Templates
+            </button>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <span className="text-gray-900 font-medium">Create</span>
+          </div>
+          <div className="w-20" />
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-32">
+        {/* Title */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Create Survey Template</h1>
+          <p className="text-sm text-gray-500">Build a reusable survey with custom fields for field workers.</p>
+        </div>
+
+        {/* Title & description */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="space-y-4">
             <div>
@@ -134,46 +159,44 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
           </div>
         </div>
 
+        {/* Settings info card */}
+        <InfoCard
+          items={[
+            { label: "GPS Capture", value: settings.auto_capture_gps ? "Enabled" : "Disabled" },
+            { label: "Drafts", value: settings.allow_drafts ? "Allowed" : "Disabled" },
+            { label: "Photos", value: settings.require_photos ? "Required" : "Optional" },
+            { label: "Total Fields", value: fields.length },
+          ]}
+          className="mb-6"
+        />
+
         {/* Settings */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">Survey Settings</h3>
           <div className="space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.auto_capture_gps}
-                onChange={(e) => setSettings({ ...settings, auto_capture_gps: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded"
-              />
-              <span className="text-sm text-gray-700">Auto-capture GPS location</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.allow_drafts}
-                onChange={(e) => setSettings({ ...settings, allow_drafts: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded"
-              />
-              <span className="text-sm text-gray-700">Allow saving as draft</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.require_photos}
-                onChange={(e) => setSettings({ ...settings, require_photos: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded"
-              />
-              <span className="text-sm text-gray-700">Require photo uploads</span>
-            </label>
+            {(Object.keys(settings) as (keyof SurveySettings)[]).map((key) => (
+              <label key={key} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings[key]}
+                  onChange={(e) => setSettings({ ...settings, [key]: e.target.checked })}
+                  className="w-4 h-4 text-indigo-600 rounded"
+                />
+                <span className="text-sm text-gray-700">{settingLabel(key)}</span>
+              </label>
+            ))}
           </div>
         </div>
 
         {/* Fields */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Survey Fields</h3>
-          
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-900">Survey Fields</h3>
+            <span className="text-xs text-gray-400">{fields.length} field{fields.length !== 1 ? "s" : ""}</span>
+          </div>
+
           {fields.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">
+            <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
               No fields yet. Add fields using the buttons below.
             </div>
           ) : (
@@ -184,16 +207,24 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-400">#{index + 1}</span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">
-                        {fieldTypes.find(t => t.type === field.type)?.label}
+                        {fieldTypes.find((t) => t.type === field.type)?.label}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => moveField(field.id, 'up')} disabled={index === 0} className="text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                      <button
+                        onClick={() => moveField(field.id, "up")}
+                        disabled={index === 0}
+                        className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                         </svg>
                       </button>
-                      <button onClick={() => moveField(field.id, 'down')} disabled={index === fields.length - 1} className="text-gray-400 hover:text-gray-600 disabled:opacity-30">
+                      <button
+                        onClick={() => moveField(field.id, "down")}
+                        disabled={index === fields.length - 1}
+                        className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
@@ -218,12 +249,12 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
                       />
                     </div>
 
-                    {(field.type === 'text' || field.type === 'textarea' || field.type === 'number') && (
+                    {(field.type === "text" || field.type === "textarea" || field.type === "number") && (
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Placeholder</label>
                         <input
                           type="text"
-                          value={field.placeholder || ''}
+                          value={field.placeholder || ""}
                           onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
                           placeholder="Placeholder text"
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -231,12 +262,12 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
                       </div>
                     )}
 
-                    {(field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') && (
+                    {(field.type === "select" || field.type === "radio" || field.type === "checkbox") && (
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Options (one per line)</label>
                         <textarea
-                          value={(field.options || []).join('\n')}
-                          onChange={(e) => updateField(field.id, { options: e.target.value.split('\n').filter(o => o.trim()) })}
+                          value={(field.options || []).join("\n")}
+                          onChange={(e) => updateField(field.id, { options: e.target.value.split("\n").filter((o) => o.trim()) })}
                           placeholder="Option 1&#10;Option 2&#10;Option 3"
                           rows={3}
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
@@ -263,7 +294,7 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
           <div className="mt-6 pt-6 border-t border-gray-100">
             <p className="text-xs text-gray-500 mb-3">Add a field:</p>
             <div className="flex flex-wrap gap-2">
-              {fieldTypes.map(ft => (
+              {fieldTypes.map((ft) => (
                 <button
                   key={ft.type}
                   onClick={() => addField(ft.type)}
@@ -294,7 +325,7 @@ export default function SurveyBuilder({ onBack }: SurveyBuilderProps) {
             disabled={saving}
             className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold py-3 rounded-lg text-sm transition-colors"
           >
-            {saving ? 'Saving...' : 'Save Survey Template'}
+            {saving ? "Saving..." : "Save Survey Template"}
           </button>
         </div>
       </main>

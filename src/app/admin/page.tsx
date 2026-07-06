@@ -1,9 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
-import { getProfile, logout } from '@/lib/auth';
-import type { UserProfile, SurveyTemplate, SurveyAssignment } from '@/types';
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase";
+import { getProfile, logout } from "@/lib/auth";
+import Sidebar from "@/components/ui/Sidebar";
+import Tabs from "@/components/ui/Tabs";
+import InfoCard from "@/components/ui/InfoCard";
+import ListCard from "@/components/ui/ListCard";
+import Modal from "@/components/ui/Modal";
+import type { UserProfile, SurveyTemplate, SurveyAssignment } from "@/types";
 
 export default function AdminPage() {
   const [ctx, setCtx] = useState<UserProfile | null>(null);
@@ -11,13 +16,14 @@ export default function AdminPage() {
   const [surveys, setSurveys] = useState<SurveyTemplate[]>([]);
   const [workers, setWorkers] = useState<{ id: string; full_name: string; email: string }[]>([]);
   const [assignments, setAssignments] = useState<(SurveyAssignment & { survey_templates: SurveyTemplate; public_users: { full_name: string } })[]>([]);
+  const [activeTab, setActiveTab] = useState("all");
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       const profile = await getProfile();
-      if (!profile || profile.profile.role !== 'admin') {
-        window.location.href = '/login';
+      if (!profile || profile.profile.role !== "admin") {
+        window.location.href = "/login";
         return;
       }
       setCtx(profile);
@@ -31,10 +37,13 @@ export default function AdminPage() {
   async function loadSurveys(profile: UserProfile) {
     const supabase = createClient();
     const { data } = await supabase
-      .from('survey_templates')
-      .select('*')
-      .in('id', (await supabase.from('vc_survey_access').select('survey_template_id').eq('vc_id', profile.vc?.id || '')).data?.map(a => a.survey_template_id) || [])
-      .order('title');
+      .from("survey_templates")
+      .select("*")
+      .in(
+        "id",
+        (await supabase.from("vc_survey_access").select("survey_template_id").eq("vc_id", profile.vc?.id || "")).data?.map((a) => a.survey_template_id) || []
+      )
+      .order("title");
     setSurveys(data || []);
   }
 
@@ -42,12 +51,12 @@ export default function AdminPage() {
     if (!profile.vc?.id) return;
     const supabase = createClient();
     const { data } = await supabase
-      .from('public_users')
-      .select('id, full_name, email')
-      .eq('vc_id', profile.vc.id)
-      .in('role', ['worker', 'supervisor'])
-      .eq('status', 'active')
-      .order('full_name');
+      .from("public_users")
+      .select("id, full_name, email")
+      .eq("vc_id", profile.vc.id)
+      .in("role", ["worker", "supervisor"])
+      .eq("status", "active")
+      .order("full_name");
     setWorkers(data || []);
   }
 
@@ -55,11 +64,40 @@ export default function AdminPage() {
     if (!profile.vc?.id) return;
     const supabase = createClient();
     const { data } = await supabase
-      .from('survey_assignments')
-      .select('*, survey_templates(title), public_users!assigned_to(full_name)')
-      .eq('vc_id', profile.vc.id)
-      .order('created_at', { ascending: false });
+      .from("survey_assignments")
+      .select("*, survey_templates(title), public_users!assigned_to(full_name)")
+      .eq("vc_id", profile.vc.id)
+      .order("created_at", { ascending: false });
     setAssignments(data || []);
+  }
+
+  const filteredAssignments = assignments.filter((a) =>
+    activeTab === "all" ? true : a.status === activeTab
+  );
+
+  const tabCounts = {
+    all: assignments.length,
+    pending: assignments.filter((a) => a.status === "pending").length,
+    in_progress: assignments.filter((a) => a.status === "in_progress").length,
+    completed: assignments.filter((a) => a.status === "completed").length,
+  };
+
+  const tabs = [
+    { id: "all", label: "All", count: tabCounts.all },
+    { id: "pending", label: "Pending", count: tabCounts.pending },
+    { id: "in_progress", label: "In Progress", count: tabCounts.in_progress },
+    { id: "completed", label: "Completed", count: tabCounts.completed },
+  ];
+
+  function statusBadge(status: string) {
+    switch (status) {
+      case "completed":
+        return { text: "Completed", className: "bg-green-100 text-green-700" };
+      case "in_progress":
+        return { text: "In Progress", className: "bg-blue-100 text-blue-700" };
+      default:
+        return { text: "Pending", className: "bg-gray-100 text-gray-600" };
+    }
   }
 
   if (loading) {
@@ -73,75 +111,122 @@ export default function AdminPage() {
     );
   }
 
+  const vcInitial = ctx?.vc?.name ? ctx.vc.name.charAt(0).toUpperCase() : "C";
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-800 text-white shadow-lg" style={{ backgroundColor: ctx?.vc?.brand_color || '#1e40af' }}>
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    <div className="min-h-screen bg-white flex">
+      <Sidebar
+        brand={{ name: ctx?.vc?.name || "Council", subtitle: "Admin Portal" }}
+        items={[
+          {
+            id: "dashboard",
+            label: "Dashboard",
+            active: true,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
-            </div>
-            <div>
-              <div className="font-bold text-sm leading-none">{ctx?.vc?.name || 'Council'}</div>
-              <div className="text-blue-300 text-xs mt-0.5">{ctx?.profile.full_name}</div>
-            </div>
-          </div>
-          <button onClick={logout} className="text-blue-200 hover:text-white text-sm transition-colors">Logout</button>
-        </div>
-      </header>
+            ),
+          },
+          {
+            id: "surveys",
+            label: "Surveys",
+            badge: surveys.length,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            ),
+          },
+          {
+            id: "workers",
+            label: "Workers",
+            badge: workers.length,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            ),
+          },
+          {
+            id: "assignments",
+            label: "Assignments",
+            badge: tabCounts.pending,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            ),
+          },
+        ]}
+        footer={{
+          userName: ctx?.profile.full_name || "",
+          userRole: "admin",
+          onLogout: () => logout(),
+        }}
+      />
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="text-2xl font-bold text-gray-900">{workers.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Workers</div>
+      <main className="flex-1 p-6 lg:p-8 pt-20 lg:pt-8 overflow-x-auto min-w-0">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6 flex-wrap">
+          <span className="hover:text-gray-700 cursor-pointer transition-colors">Dashboard</span>
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="text-gray-900 font-medium">Assignments</span>
+        </nav>
+
+        {/* Title */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-1">
+            <div
+              className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+              style={{ backgroundColor: ctx?.vc?.brand_color || "#1e40af" }}
+            >
+              {vcInitial}
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Survey Assignments</h1>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="text-2xl font-bold text-gray-900">{surveys.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Available Surveys</div>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="text-2xl font-bold text-gray-900">{assignments.length}</div>
-            <div className="text-xs text-gray-500 mt-1">Assignments</div>
-          </div>
+          <p className="text-sm text-gray-500">Manage and track survey assignments for your village council.</p>
         </div>
 
-        {/* Create Assignment */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Survey Assignments</h2>
+        {/* Info Card */}
+        <InfoCard
+          items={[
+            { label: "Village Council", value: ctx?.vc?.name || "—" },
+            { label: "Workers", value: workers.length },
+            { label: "Available Surveys", value: surveys.length },
+            { label: "Total Assignments", value: assignments.length },
+          ]}
+          className="mb-6"
+        />
+
+        {/* Tabs + Create button */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
           <button
             onClick={() => setShowAssignModal(true)}
-            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
           >
             + Create Assignment
           </button>
         </div>
 
+        {/* Assignment list */}
         <div className="space-y-2">
-          {assignments.length === 0 ? (
-            <div className="text-sm text-gray-400 py-4 text-center">No assignments yet.</div>
+          {filteredAssignments.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
+              No assignments found.
+            </div>
           ) : (
-              assignments.map(a => (
-              <div key={a.id} className="bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">{a.survey_templates?.title || 'Survey'}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      Assigned to {a.public_users?.full_name || 'Worker'} · {a.status}
-                    </div>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    a.status === 'completed' ? 'bg-green-100 text-green-700' :
-                    a.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                    'bg-gray-100 text-gray-600'
-                  }`}>
-                    {a.status}
-                  </span>
-                </div>
-              </div>
+            filteredAssignments.map((a) => (
+              <ListCard
+                key={a.id}
+                title={a.survey_templates?.title || "Survey"}
+                subtitle={`Assigned to ${a.public_users?.full_name || "Worker"}`}
+                meta={a.due_date ? `Due: ${new Date(a.due_date).toLocaleDateString()}` : undefined}
+                badge={statusBadge(a.status)}
+              />
             ))
           )}
         </div>
@@ -151,17 +236,27 @@ export default function AdminPage() {
         <AssignModal
           surveys={surveys}
           workers={workers}
-          vcId={ctx?.vc?.id || ''}
-          assignedBy={ctx?.profile.id || ''}
+          vcId={ctx?.vc?.id || ""}
+          assignedBy={ctx?.profile.id || ""}
           onClose={() => setShowAssignModal(false)}
-          onSave={() => { setShowAssignModal(false); loadAssignments(ctx!); }}
+          onSave={() => {
+            setShowAssignModal(false);
+            if (ctx) loadAssignments(ctx);
+          }}
         />
       )}
     </div>
   );
 }
 
-function AssignModal({ surveys, workers, vcId, assignedBy, onClose, onSave }: {
+function AssignModal({
+  surveys,
+  workers,
+  vcId,
+  assignedBy,
+  onClose,
+  onSave,
+}: {
   surveys: SurveyTemplate[];
   workers: { id: string; full_name: string; email: string }[];
   vcId: string;
@@ -169,21 +264,27 @@ function AssignModal({ surveys, workers, vcId, assignedBy, onClose, onSave }: {
   onClose: () => void;
   onSave: () => void;
 }) {
-  const [surveyId, setSurveyId] = useState('');
-  const [workerId, setWorkerId] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [error, setError] = useState('');
+  const [surveyId, setSurveyId] = useState("");
+  const [workerId, setWorkerId] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSave() {
-    if (!surveyId) { setError('Select a survey'); return; }
-    if (!workerId) { setError('Select a worker'); return; }
+    if (!surveyId) {
+      setError("Select a survey");
+      return;
+    }
+    if (!workerId) {
+      setError("Select a worker");
+      return;
+    }
 
     setLoading(true);
-    setError('');
+    setError("");
     const supabase = createClient();
 
-    const { error } = await supabase.from('survey_assignments').insert({
+    const { error } = await supabase.from("survey_assignments").insert({
       survey_template_id: surveyId,
       vc_id: vcId,
       assigned_to: workerId,
@@ -191,48 +292,80 @@ function AssignModal({ surveys, workers, vcId, assignedBy, onClose, onSave }: {
       due_date: dueDate || null,
     });
 
-    if (error) { setError(error.message); setLoading(false); return; }
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
     setLoading(false);
     onSave();
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Create Assignment</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <Modal
+      title="Create Assignment"
+      subtitle="Assign a survey template to a worker in your village council."
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            Cancel
           </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            {loading ? "Creating..." : "Create"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Survey Template</label>
+          <select
+            value={surveyId}
+            onChange={(e) => setSurveyId(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select survey...</option>
+            {surveys.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="p-5 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Survey Template</label>
-            <select value={surveyId} onChange={(e) => setSurveyId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">Select survey...</option>
-              {surveys.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign to Worker</label>
-            <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">Select worker...</option>
-              {workers.map(w => <option key={w.id} value={w.id}>{w.full_name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Due Date (optional)</label>
-            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          {error && <div className="text-sm text-red-600">{error}</div>}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign to Worker</label>
+          <select
+            value={workerId}
+            onChange={(e) => setWorkerId(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Select worker...</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.full_name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="p-5 border-t border-gray-100 flex gap-2">
-          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
-          <button onClick={handleSave} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2.5 rounded-lg text-sm font-medium transition-colors">{loading ? 'Creating...' : 'Create'}</button>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Due Date (optional)</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
+        {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase';
 import type { SurveyTemplate, SurveyField, SurveyResponse } from '@/types';
 
@@ -21,14 +21,7 @@ export default function SurveyForm({ survey, assignmentId, onBack }: SurveyFormP
   const [imagePreviews, setImagePreviews] = useState<Record<string, string>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  useEffect(() => {
-    loadExistingResponse();
-    if (survey.settings.auto_capture_gps) {
-      captureGps();
-    }
-  }, []);
-
-  async function loadExistingResponse() {
+  const loadExistingResponse = useCallback(async () => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -45,7 +38,19 @@ export default function SurveyForm({ survey, assignmentId, onBack }: SurveyFormP
       setFormData(data.data || {});
       setGpsLocation(data.gps_location);
     }
-  }
+  }, [assignmentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function init() {
+      await loadExistingResponse();
+      if (!cancelled && survey.settings.auto_capture_gps) {
+        captureGps();
+      }
+    }
+    init();
+    return () => { cancelled = true; };
+  }, [loadExistingResponse, survey.settings.auto_capture_gps]);
 
   async function captureGps() {
     if (!navigator.geolocation) {
@@ -314,6 +319,7 @@ export default function SurveyForm({ survey, assignmentId, onBack }: SurveyFormP
             />
             {(imagePreviews[field.id] || (typeof value === 'string' && value)) && (
               <div className="mt-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={imagePreviews[field.id] || (value as string)}
                   alt="Preview"

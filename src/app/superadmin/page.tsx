@@ -16,19 +16,19 @@ export default function SuperAdminPage() {
   const [editingVc, setEditingVc] = useState<VillageCouncil | null>(null);
 
   useEffect(() => {
+    async function loadData() {
+      const profile = await getProfile();
+      if (!profile || profile.profile.role !== 'superadmin') {
+        window.location.href = '/login';
+        return;
+      }
+      setCtx(profile);
+      await Promise.all([loadVcs(), loadSurveys()]);
+      setLoading(false);
+    }
+
     loadData();
   }, []);
-
-  async function loadData() {
-    const profile = await getProfile();
-    if (!profile || profile.profile.role !== 'superadmin') {
-      window.location.href = '/login';
-      return;
-    }
-    setCtx(profile);
-    await Promise.all([loadVcs(), loadSurveys()]);
-    setLoading(false);
-  }
 
   async function loadVcs() {
     const supabase = createClient();
@@ -103,6 +103,7 @@ export default function SuperAdminPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         {vc.logo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img src={vc.logo_url} className="w-5 h-5 object-contain rounded flex-shrink-0" alt="" />
                         ) : (
                           <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: vc.brand_color }}></div>

@@ -14,50 +14,50 @@ export default function AdminPage() {
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   useEffect(() => {
+    async function loadData() {
+      const profile = await getProfile();
+      if (!profile || profile.profile.role !== 'admin') {
+        window.location.href = '/login';
+        return;
+      }
+      setCtx(profile);
+      await Promise.all([loadSurveys(profile), loadWorkers(profile), loadAssignments(profile)]);
+      setLoading(false);
+    }
+
     loadData();
   }, []);
 
-  async function loadData() {
-    const profile = await getProfile();
-    if (!profile || profile.profile.role !== 'admin') {
-      window.location.href = '/login';
-      return;
-    }
-    setCtx(profile);
-    await Promise.all([loadSurveys(), loadWorkers(), loadAssignments()]);
-    setLoading(false);
-  }
-
-  async function loadSurveys() {
+  async function loadSurveys(profile: UserProfile) {
     const supabase = createClient();
     const { data } = await supabase
       .from('survey_templates')
       .select('*')
-      .in('id', (await supabase.from('vc_survey_access').select('survey_template_id').eq('vc_id', ctx?.vc?.id || '')).data?.map(a => a.survey_template_id) || [])
+      .in('id', (await supabase.from('vc_survey_access').select('survey_template_id').eq('vc_id', profile.vc?.id || '')).data?.map(a => a.survey_template_id) || [])
       .order('title');
     setSurveys(data || []);
   }
 
-  async function loadWorkers() {
-    if (!ctx?.vc?.id) return;
+  async function loadWorkers(profile: UserProfile) {
+    if (!profile.vc?.id) return;
     const supabase = createClient();
     const { data } = await supabase
       .from('public_users')
       .select('id, full_name, email')
-      .eq('vc_id', ctx.vc.id)
+      .eq('vc_id', profile.vc.id)
       .in('role', ['worker', 'supervisor'])
       .eq('status', 'active')
       .order('full_name');
     setWorkers(data || []);
   }
 
-  async function loadAssignments() {
-    if (!ctx?.vc?.id) return;
+  async function loadAssignments(profile: UserProfile) {
+    if (!profile.vc?.id) return;
     const supabase = createClient();
     const { data } = await supabase
       .from('survey_assignments')
       .select('*, survey_templates(title), public_users!assigned_to(full_name)')
-      .eq('vc_id', ctx.vc.id)
+      .eq('vc_id', profile.vc.id)
       .order('created_at', { ascending: false });
     setAssignments(data || []);
   }
@@ -154,7 +154,7 @@ export default function AdminPage() {
           vcId={ctx?.vc?.id || ''}
           assignedBy={ctx?.profile.id || ''}
           onClose={() => setShowAssignModal(false)}
-          onSave={() => { setShowAssignModal(false); loadAssignments(); }}
+          onSave={() => { setShowAssignModal(false); loadAssignments(ctx!); }}
         />
       )}
     </div>

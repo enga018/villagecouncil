@@ -14,19 +14,19 @@ export default function WorkerPage() {
   const [activeSurvey, setActiveSurvey] = useState<SurveyTemplate | null>(null);
 
   useEffect(() => {
+    async function loadData() {
+      const profile = await getProfile();
+      if (!profile || !['worker', 'supervisor'].includes(profile.profile.role)) {
+        window.location.href = '/login';
+        return;
+      }
+      setCtx(profile);
+      await loadAssignments(profile.profile.id);
+      setLoading(false);
+    }
+
     loadData();
   }, []);
-
-  async function loadData() {
-    const profile = await getProfile();
-    if (!profile || !['worker', 'supervisor'].includes(profile.profile.role)) {
-      window.location.href = '/login';
-      return;
-    }
-    setCtx(profile);
-    await loadAssignments(profile.profile.id);
-    setLoading(false);
-  }
 
   async function loadAssignments(userId: string) {
     const supabase = createClient();

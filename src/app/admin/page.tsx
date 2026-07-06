@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [assignments, setAssignments] = useState<(SurveyAssignment & { survey_templates: SurveyTemplate; public_users: { full_name: string } })[]>([]);
   const [activeTab, setActiveTab] = useState("all");
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showAddWorkerModal, setShowAddWorkerModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -83,6 +84,7 @@ export default function AdminPage() {
   };
 
   const tabs = [
+    { id: "workers", label: "Workers", count: workers.length },
     { id: "all", label: "All", count: tabCounts.all },
     { id: "pending", label: "Pending", count: tabCounts.pending },
     { id: "in_progress", label: "In Progress", count: tabCounts.in_progress },
@@ -173,7 +175,7 @@ export default function AdminPage() {
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <span className="text-gray-900 font-medium">Assignments</span>
+          <span className="text-gray-900 font-medium">{activeTab === "workers" ? "Workers" : "Assignments"}</span>
         </nav>
 
         {/* Title */}
@@ -185,9 +187,15 @@ export default function AdminPage() {
             >
               {vcInitial}
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Survey Assignments</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {activeTab === "workers" ? "Workers" : "Survey Assignments"}
+            </h1>
           </div>
-          <p className="text-sm text-gray-500">Manage and track survey assignments for your village council.</p>
+          <p className="text-sm text-gray-500">
+            {activeTab === "workers"
+              ? "Manage workers and supervisors in your village council."
+              : "Manage and track survey assignments for your village council."}
+          </p>
         </div>
 
         {/* Info Card */}
@@ -201,35 +209,65 @@ export default function AdminPage() {
           className="mb-6"
         />
 
-        {/* Tabs + Create button */}
+        {/* Tabs + Action button */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-          <button
-            onClick={() => setShowAssignModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            + Create Assignment
-          </button>
-        </div>
-
-        {/* Assignment list */}
-        <div className="space-y-2">
-          {filteredAssignments.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
-              No assignments found.
-            </div>
+          {activeTab === "workers" ? (
+            <button
+              onClick={() => setShowAddWorkerModal(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              + Add Worker
+            </button>
           ) : (
-            filteredAssignments.map((a) => (
-              <ListCard
-                key={a.id}
-                title={a.survey_templates?.title || "Survey"}
-                subtitle={`Assigned to ${a.public_users?.full_name || "Worker"}`}
-                meta={a.due_date ? `Due: ${new Date(a.due_date).toLocaleDateString()}` : undefined}
-                badge={statusBadge(a.status)}
-              />
-            ))
+            <button
+              onClick={() => setShowAssignModal(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              + Create Assignment
+            </button>
           )}
         </div>
+
+        {/* Workers list */}
+        {activeTab === "workers" && (
+          <div className="space-y-2">
+            {workers.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
+                No workers yet. Add a worker to get started.
+              </div>
+            ) : (
+              workers.map((w) => (
+                <ListCard
+                  key={w.id}
+                  title={w.full_name}
+                  subtitle={w.email}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {/* Assignment list */}
+        {activeTab !== "workers" && (
+          <div className="space-y-2">
+            {filteredAssignments.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm bg-gray-50 rounded-lg">
+                No assignments found.
+              </div>
+            ) : (
+              filteredAssignments.map((a) => (
+                <ListCard
+                  key={a.id}
+                  title={a.survey_templates?.title || "Survey"}
+                  subtitle={`Assigned to ${a.public_users?.full_name || "Worker"}`}
+                  meta={a.due_date ? `Due: ${new Date(a.due_date).toLocaleDateString()}` : undefined}
+                  badge={statusBadge(a.status)}
+                />
+              ))
+            )}
+          </div>
+        )}
       </main>
 
       {showAssignModal && (
@@ -242,6 +280,17 @@ export default function AdminPage() {
           onSave={() => {
             setShowAssignModal(false);
             if (ctx) loadAssignments(ctx);
+          }}
+        />
+      )}
+
+      {showAddWorkerModal && ctx && (
+        <AddWorkerModal
+          vcId={ctx.vc?.id || ""}
+          onClose={() => setShowAddWorkerModal(false)}
+          onSave={() => {
+            setShowAddWorkerModal(false);
+            if (ctx) loadWorkers(ctx);
           }}
         />
       )}
@@ -363,6 +412,119 @@ function AssignModal({
             onChange={(e) => setDueDate(e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+        {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
+      </div>
+    </Modal>
+  );
+}
+
+function AddWorkerModal({
+  vcId,
+  onClose,
+  onSave,
+}: {
+  vcId: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"worker" | "supervisor">("worker");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSave() {
+    if (!fullName.trim()) { setError("Enter full name"); return; }
+    if (!email.trim()) { setError("Enter email"); return; }
+    if (!password || password.length < 6) { setError("Password must be at least 6 characters"); return; }
+
+    setLoading(true);
+    setError("");
+    const supabase = createClient();
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+    if (authError) { setError(authError.message); setLoading(false); return; }
+
+    const { error: profileError } = await supabase.from("public_users").insert({
+      id: authData.user!.id,
+      email,
+      full_name: fullName,
+      role,
+      vc_id: vcId,
+      status: "active",
+    });
+    if (profileError) { setError(profileError.message); setLoading(false); return; }
+
+    setLoading(false);
+    onSave();
+  }
+
+  return (
+    <Modal
+      title="Add Worker"
+      subtitle="Create a new worker or supervisor account for your village council."
+      onClose={onClose}
+      footer={
+        <>
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={loading}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2.5 rounded-lg text-sm font-medium transition-colors"
+          >
+            {loading ? "Creating..." : "Create"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+          <input
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="e.g. John Doe"
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="worker@example.com"
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Minimum 6 characters"
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Role</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as "worker" | "supervisor")}
+            className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="worker">Worker</option>
+            <option value="supervisor">Supervisor</option>
+          </select>
         </div>
         {error && <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</div>}
       </div>

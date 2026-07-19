@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getProfile, getRoleRedirectUrl } from '@/lib/auth';
+import { getSubdomainContext, redirectToVC } from '@/lib/subdomain';
+import type { VillageCouncil } from '@/types';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
+  const [vcContext, setVcContext] = useState<VillageCouncil | null>(null);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -18,9 +21,34 @@ export default function LoginPage() {
 
     async function checkSession() {
       try {
+        const subdomain = getSubdomainContext();
+        const supabase = createClient();
+
+        // Load VC data if on VC subdomain
+        if (!subdomain.isMainDomain && subdomain.vcName) {
+          const { data: vc } = await supabase
+            .from('village_councils')
+            .select('*')
+            .eq('name', subdomain.vcName)
+            .single();
+
+          if (vc) {
+            setVcContext(vc);
+          }
+        }
+
+        // Check if already logged in
         const ctx = await getProfile();
         if (ctx) {
-          window.location.href = getRoleRedirectUrl(ctx.profile.role);
+          // If on VC subdomain and user's VC matches, proceed
+          if (!subdomain.isMainDomain && ctx.profile.vc_id === ctx.vc?.id) {
+            window.location.href = getRoleRedirectUrl(ctx.profile.role);
+          } else if (subdomain.isMainDomain && ctx.vc) {
+            // If on main domain, redirect to user's VC
+            redirectToVC(ctx.vc.name);
+          } else {
+            window.location.href = getRoleRedirectUrl(ctx.profile.role);
+          }
           return;
         }
       } catch (err) {
@@ -41,6 +69,7 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient();
+      const subdomain = getSubdomainContext();
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
@@ -52,6 +81,20 @@ export default function LoginPage() {
       if (data.user) {
         const ctx = await getProfile();
         if (ctx) {
+          // If on VC subdomain, check if user belongs to this VC
+          if (!subdomain.isMainDomain && ctx.profile.vc_id !== ctx.vc?.id) {
+            setError('You do not have access to this council.');
+            await supabase.auth.signOut();
+            setLoading(false);
+            return;
+          }
+
+          // If on main domain, redirect to user's VC
+          if (subdomain.isMainDomain && ctx.vc) {
+            redirectToVC(ctx.vc.name, getRoleRedirectUrl(ctx.profile.role));
+            return;
+          }
+
           window.location.href = getRoleRedirectUrl(ctx.profile.role);
           return;
         }
@@ -81,12 +124,25 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Village Council</h1>
+          {vcContext?.logo_url ? (
+            <img
+              src={vcContext.logo_url}
+              alt={vcContext.name}
+              className="h-14 mx-auto mb-5"
+            />
+          ) : (
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5"
+              style={{ backgroundColor: vcContext?.brand_color || '#0E7490' }}
+            >
+              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-gray-900">
+            {vcContext?.name || 'Village Council'}
+          </h1>
           <p className="text-sm text-gray-500 mt-2">Sign in to your account</p>
         </div>
 

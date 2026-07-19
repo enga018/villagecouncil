@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { getProfile, logout } from "@/lib/auth";
+import { validateVCAccess } from "@/lib/vcValidation";
 import Sidebar from "@/components/ui/Sidebar";
 import Tabs from "@/components/ui/Tabs";
 import InfoCard from "@/components/ui/InfoCard";
@@ -25,6 +26,11 @@ export default function WorkerPage() {
         window.location.href = "/login";
         return;
       }
+
+      if (!validateVCAccess(profile)) {
+        return;
+      }
+
       setCtx(profile);
       await loadAssignments(profile.profile.id);
       setLoading(false);

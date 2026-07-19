@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getProfile, logout } from '@/lib/auth';
+import { validateVCAccess } from '@/lib/vcValidation';
 import type { UserProfile, SurveyResponse, SurveyTemplate } from '@/types';
 
 export default function SupervisorPage() {
@@ -17,6 +18,11 @@ export default function SupervisorPage() {
         window.location.href = '/login';
         return;
       }
+
+      if (!validateVCAccess(profile)) {
+        return;
+      }
+
       setCtx(profile);
       await loadResponses(profile.vc?.id || '');
       setLoading(false);

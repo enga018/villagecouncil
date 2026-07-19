@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { getProfile, logout } from "@/lib/auth";
+import { getSubdomainContext, redirectToVC } from "@/lib/subdomain";
 import Sidebar from "@/components/ui/Sidebar";
 import Tabs from "@/components/ui/Tabs";
 import InfoCard from "@/components/ui/InfoCard";
@@ -27,6 +28,18 @@ export default function AdminPage() {
         window.location.href = "/login";
         return;
       }
+
+      // Validate subdomain matches user's VC
+      const subdomain = getSubdomainContext();
+      if (!subdomain.isMainDomain && profile.vc) {
+        const vcNameFromSubdomain = subdomain.vcName?.toLowerCase().replace('-', ' ');
+        const userVcName = profile.vc.name.toLowerCase();
+        if (vcNameFromSubdomain !== userVcName) {
+          redirectToVC(profile.vc.name);
+          return;
+        }
+      }
+
       setCtx(profile);
       await Promise.all([loadSurveys(profile), loadWorkers(profile), loadAssignments(profile)]);
       setLoading(false);

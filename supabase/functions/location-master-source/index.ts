@@ -79,11 +79,50 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const response = await fetch(sourceUrl, {
-      method: "GET", redirect: "follow",
-      headers: { "User-Agent": "VillageCouncil-Location-Reader/1.0", "Accept": "text/html,application/xhtml+xml", "Cache-Control": "no-cache" },
+    const baseHeaders = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "no-cache",
+      "Upgrade-Insecure-Requests": "1",
+    };
+    const cookieJar = new Map<string, string>();
+    const absorbCookies = (response: Response) => {
+      const values = typeof response.headers.getSetCookie === "function"
+        ? response.headers.getSetCookie()
+        : [response.headers.get("set-cookie") || ""];
+      for (const value of values) {
+        const pair = value.split(";", 1)[0].trim();
+        const separator = pair.indexOf("=");
+        if (separator > 0) cookieJar.set(pair.slice(0, separator), pair.slice(separator + 1));
+      }
+    };
+    const cookieHeader = () => [...cookieJar.entries()].map(([name, value]) => name + "=" + value).join("; ");
+
+    // Establish the same ASP.NET session that a normal visit to the State page starts.
+    const sessionResponse = await fetch(STATE_LIST_URL, {
+      method: "GET",
+      redirect: "follow",
+      headers: baseHeaders,
       signal: AbortSignal.timeout(30000),
     });
+    absorbCookies(sessionResponse);
+    if (!sessionResponse.ok) {
+      return reply({ success: false, error: "VBGRAMG session initialization returned HTTP " + sessionResponse.status + ".", diagnostic: { status: sessionResponse.status, finalUrl: sessionResponse.url } }, 502, origin);
+    }
+    await sessionResponse.body?.cancel();
+
+    const requestHeaders: Record<string, string> = {
+      ...baseHeaders,
+      "Referer": body.action === "districts" ? sessionResponse.url : sourceUrl,
+    };
+    if (cookieHeader()) requestHeaders["Cookie"] = cookieHeader();
+    const response = await fetch(sourceUrl, {
+      method: "GET", redirect: "follow",
+      headers: requestHeaders,
+      signal: AbortSignal.timeout(30000),
+    });
+    absorbCookies(response);
     const contentType = response.headers.get("content-type") || "";
     const diagnostic = { status: response.status, contentType, finalUrl: response.url, server: response.headers.get("server") || "" };
     if (!response.ok) return reply({ success: false, error: "VBGRAMG returned HTTP " + response.status + ".", diagnostic }, 502, origin);

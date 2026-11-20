@@ -50,23 +50,28 @@ Deno.serve(async (req: Request) => {
   if (adminError) return reply({ error: "Unable to verify platform administrator role." }, 500, origin);
   if (!admin) return reply({ error: "Platform administrator access required." }, 403, origin);
 
-  let body: { action?: string; stateUrl?: string };
+  let body: { action?: string; parentUrl?: string };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
-  if (!["states", "districts"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
+  if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
 
   let sourceUrl = STATE_LIST_URL;
-  if (body.action === "districts") {
-    if (!body.stateUrl) return reply({ error: "Select a State / UT first." }, 400, origin);
+  if (body.action !== "states") {
+    if (!body.parentUrl) return reply({ error: "Select the parent location first." }, 400, origin);
+    const expectedParentPath = {
+      districts: /\/VBGRAMG\/homestciti\.aspx$/i,
+      blocks: /\/VBGRAMG\/Homeblock\.aspx$/i,
+      panchayats: /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
+    }[body.action];
     try {
-      const candidate = new URL(body.stateUrl);
+      const candidate = new URL(body.parentUrl);
       if (!["vbgramgrep.dord.gov.in", "vbgramg.dord.gov.in"].includes(candidate.hostname)
-        || !/\/VBGRAMG\/homestciti\.aspx$/i.test(candidate.pathname)
+        || !expectedParentPath?.test(candidate.pathname)
         || !candidate.searchParams.has("payload")) {
-        return reply({ error: "The selected State link is not a valid official VBGRAMG location URL." }, 400, origin);
+        return reply({ error: "The selected parent link is not a valid official VBGRAMG location URL." }, 400, origin);
       }
       sourceUrl = candidate.href;
     } catch {
-      return reply({ error: "The selected State URL is invalid." }, 400, origin);
+      return reply({ error: "The selected parent URL is invalid." }, 400, origin);
     }
   }
 
@@ -96,15 +101,18 @@ Deno.serve(async (req: Request) => {
       let resolved: URL;
       try { resolved = new URL(rawHref, response.url); } catch { continue; }
       if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(resolved.hostname) || !resolved.searchParams.has("payload")) continue;
-      const expectedPath = body.action === "states"
-        ? /\/VBGRAMG\/homestciti\.aspx$/i
-        : /\/VBGRAMG\/Homeblock\.aspx$/i;
+      const expectedPath = {
+        states: /\/VBGRAMG\/homestciti\.aspx$/i,
+        districts: /\/VBGRAMG\/Homeblock\.aspx$/i,
+        blocks: /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
+        panchayats: /\/VBGRAMG\/IndexFrame\.aspx$/i,
+      }[body.action || ""];
       if (!expectedPath.test(resolved.pathname)) continue;
       if (!entries.some(item => item.url === resolved.href)) entries.push({ name, url: resolved.href });
     }
-    if (!entries.length) return reply({ success: false, error: "No State/UT payload links were detected. No data was changed.", diagnostic, htmlBytes: new TextEncoder().encode(html).length, title: cleanText((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [,""])[1]) }, 502, origin);
-    return reply({ success: true, level: "states", count: entries.length, entries, diagnostic }, 200, origin);
+    if (!entries.length) return reply({ success: false, error: "No official location links were detected for this level. No data was changed.", diagnostic, htmlBytes: new TextEncoder().encode(html).length, title: cleanText((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [,""])[1]) }, 502, origin);
+    return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic }, 200, origin);
   } catch (error) {
-    return reply({ success: false, error: "Could not retrieve the VBGRAMG State list: " + (error instanceof Error ? error.message : String(error)), noDataChanged: true }, 502, origin);
+    return reply({ success: false, error: "Could not retrieve the VBGRAMG location list: " + (error instanceof Error ? error.message : String(error)), noDataChanged: true }, 502, origin);
   }
 });

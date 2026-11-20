@@ -1,10 +1,27 @@
 /**
  * VC Puitu domain types.
  *
- * These types describe the first Job Cards module contract only.
- * They are not a database schema; tenant-safe persistence and import
- * reconciliation rules will be implemented after the model is reviewed.
+ * Tenant types mirror the isolated Puitu account mapping.
+ * Job Card and Applicant types are the initial Register-import data contract;
+ * they are not yet backed by database tables.
  */
+
+export interface PuituVillageCouncil {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PuituMembership {
+  id: string;
+  user_id: string;
+  village_council_id: string;
+  is_active: boolean;
+  created_at: string;
+}
 
 export interface PuituJobCard {
   id: string;
@@ -12,7 +29,7 @@ export interface PuituJobCard {
   jobCardNumber: string;
   headOfHousehold: string;
   status: "active" | "inactive" | "deleted";
-  source: "official_mis" | "manual";
+  source: "official_register" | "manual";
   sourceRecordKey: string | null;
   firstImportedAt: string;
   lastSeenInImportAt: string | null;
@@ -34,10 +51,10 @@ export interface PuituApplicant {
   updatedAt: string;
 }
 
-export interface JobCardImportBatch {
+export interface RegisterImportBatch {
   id: string;
   villageCouncilId: string;
-  source: "official_mis";
+  source: "official_registration_register";
   status: "pending" | "processing" | "completed" | "failed";
   sourcePeriod: string | null;
   startedAt: string;

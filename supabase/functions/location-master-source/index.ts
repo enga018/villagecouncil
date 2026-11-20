@@ -52,29 +52,33 @@ Deno.serve(async (req: Request) => {
   if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
   if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
 
-  let body: { action?: string; parentUrl?: string };
+  let body: { action?: string; parentUrl?: string; navigationUrls?: string[] };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
   if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
 
-  let sourceUrl = STATE_LIST_URL;
-  if (body.action !== "states") {
-    if (!body.parentUrl) return reply({ error: "Select the parent location first." }, 400, origin);
-    const expectedParentPath = {
-      districts: /\/VBGRAMG\/homestciti\.aspx$/i,
-      blocks: /\/VBGRAMG\/Homedist\.aspx$/i,
-      panchayats: /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
-    }[body.action];
+  const expectedPaths = [
+    /\/VBGRAMG\/homestciti\.aspx$/i,
+    /\/VBGRAMG\/Homedist\.aspx$/i,
+    /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
+  ];
+  const expectedDepth = { districts: 1, blocks: 2, panchayats: 3 }[body.action || ""];
+  const navigationUrls = body.action === "states" ? [] : body.navigationUrls;
+  if (body.action !== "states" && (!Array.isArray(navigationUrls) || navigationUrls.length !== expectedDepth)) {
+    return reply({ error: "The complete official location navigation path is required." }, 400, origin);
+  }
+  const validatedUrls: string[] = [];
+  for (let i = 0; i < (navigationUrls || []).length; i++) {
     try {
-      const candidate = new URL(body.parentUrl);
+      const candidate = new URL(navigationUrls![i]);
       if (!["vbgramgrep.dord.gov.in", "vbgramg.dord.gov.in"].includes(candidate.hostname)
-        || !expectedParentPath?.test(candidate.pathname)
+        || !expectedPaths[i].test(candidate.pathname)
         || !candidate.searchParams.has("payload")) {
-        return reply({ error: "The selected parent link is not a valid official VBGRAMG location URL." }, 400, origin);
+        return reply({ error: "An official parent location link is invalid." }, 400, origin);
       }
       candidate.protocol = "https:";
-      sourceUrl = candidate.href;
+      validatedUrls.push(candidate.href);
     } catch {
-      return reply({ error: "The selected parent URL is invalid." }, 400, origin);
+      return reply({ error: "An official parent location URL is invalid." }, 400, origin);
     }
   }
 
@@ -99,30 +103,44 @@ Deno.serve(async (req: Request) => {
     };
     const cookieHeader = () => [...cookieJar.entries()].map(([name, value]) => name + "=" + value).join("; ");
 
-    // Establish the same ASP.NET session that a normal visit to the State page starts.
-    const sessionResponse = await fetch(STATE_LIST_URL, {
-      method: "GET",
-      redirect: "follow",
-      headers: baseHeaders,
+    let previousUrl = STATE_LIST_URL;
+    const initialResponse = await fetch(STATE_LIST_URL, {
+      method: "GET", redirect: "follow", headers: baseHeaders,
       signal: AbortSignal.timeout(30000),
     });
-    absorbCookies(sessionResponse);
-    if (!sessionResponse.ok) {
-      return reply({ success: false, error: "VBGRAMG session initialization returned HTTP " + sessionResponse.status + ".", diagnostic: { status: sessionResponse.status, finalUrl: sessionResponse.url } }, 502, origin);
+    absorbCookies(initialResponse);
+    if (!initialResponse.ok) {
+      return reply({ success: false, error: "VBGRAMG session initialization returned HTTP " + initialResponse.status + ".", diagnostic: { status: initialResponse.status, finalUrl: initialResponse.url } }, 502, origin);
     }
-    await sessionResponse.body?.cancel();
+    await initialResponse.body?.cancel();
+    previousUrl = initialResponse.url || STATE_LIST_URL;
 
-    const requestHeaders: Record<string, string> = {
-      ...baseHeaders,
-      "Referer": body.action === "districts" ? sessionResponse.url : sourceUrl,
-    };
-    if (cookieHeader()) requestHeaders["Cookie"] = cookieHeader();
-    const response = await fetch(sourceUrl, {
-      method: "GET", redirect: "follow",
-      headers: requestHeaders,
-      signal: AbortSignal.timeout(30000),
-    });
-    absorbCookies(response);
+    const targetUrl = body.action === "states" ? STATE_LIST_URL : validatedUrls[validatedUrls.length - 1];
+    let response: Response | null = null;
+    if (body.action === "states") {
+      response = await fetch(STATE_LIST_URL, {
+        method: "GET", redirect: "follow",
+        headers: { ...baseHeaders, ...(cookieHeader() ? { Cookie: cookieHeader() } : {}), Referer: previousUrl },
+        signal: AbortSignal.timeout(30000),
+      });
+      absorbCookies(response);
+    } else {
+      for (const stepUrl of validatedUrls) {
+        const stepResponse = await fetch(stepUrl, {
+          method: "GET", redirect: "follow",
+          headers: { ...baseHeaders, ...(cookieHeader() ? { Cookie: cookieHeader() } : {}), Referer: previousUrl },
+          signal: AbortSignal.timeout(30000),
+        });
+        absorbCookies(stepResponse);
+        if (!stepResponse.ok) {
+          return reply({ success: false, error: "VBGRAMG returned HTTP " + stepResponse.status + " while following the official location hierarchy.", diagnostic: { status: stepResponse.status, finalUrl: stepResponse.url, requestedUrl: stepUrl } }, 502, origin);
+        }
+        previousUrl = stepResponse.url || stepUrl;
+        if (stepUrl === targetUrl) response = stepResponse;
+        else await stepResponse.body?.cancel();
+      }
+    }
+    if (!response) return reply({ success: false, error: "The official location page could not be loaded." }, 502, origin);
     const contentType = response.headers.get("content-type") || "";
     const diagnostic = { status: response.status, contentType, finalUrl: response.url, server: response.headers.get("server") || "" };
     if (!response.ok) return reply({ success: false, error: "VBGRAMG returned HTTP " + response.status + ".", diagnostic }, 502, origin);

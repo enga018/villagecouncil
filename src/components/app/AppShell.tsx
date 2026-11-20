@@ -6,22 +6,22 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 
 const navigation = [
-  { href: "/puitu", label: "Dashboard", mark: "D" },
-  { href: "/puitu/job-cards", label: "Job Cards", mark: "J" },
-  { href: "/puitu/register", label: "Register", mark: "R" },
-  { href: "/puitu/fto-monitoring", label: "FTO Monitoring", mark: "F" },
-  { href: "/puitu/contributions", label: "Contributions", mark: "C" },
-  { href: "/puitu/co-calculation", label: "CO Calculation", mark: "CO" },
-  { href: "/puitu/payments", label: "Payments", mark: "P" },
-  { href: "/puitu/reports", label: "Reports", mark: "R" },
-  { href: "/puitu/settings", label: "Settings", mark: "S" },
+  { href: "/dashboard", label: "Dashboard", mark: "D" },
+  { href: "/job-cards", label: "Job Cards", mark: "J" },
+  { href: "/register", label: "Register", mark: "R" },
+  { href: "/fto-monitoring", label: "FTO Monitoring", mark: "F" },
+  { href: "/contributions", label: "Contributions", mark: "C" },
+  { href: "/co-calculation", label: "CO Calculation", mark: "CO" },
+  { href: "/payments", label: "Payments", mark: "P" },
+  { href: "/reports", label: "Reports", mark: "R" },
+  { href: "/settings", label: "Settings", mark: "S" },
 ];
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return <nav aria-label="Main navigation" className="space-y-1">
     {navigation.map(item => {
-      const active = item.href === "/puitu" ? pathname === "/puitu" : pathname === item.href || pathname.startsWith(item.href + "/");
+      const active = item.href === "/dashboard" ? pathname === "/dashboard" : pathname === item.href || pathname.startsWith(item.href + "/");
       return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}
         className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${active ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`}>
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${active ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{item.mark}</span>

@@ -1,15 +1,15 @@
 const modules = [
-  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/puitu/job-cards", mark: "JC" },
-  { title: "Register", description: "Maintain the official registration register.", href: "/puitu/register", mark: "RG" },
-  { title: "FTO Monitoring", description: "Monitor FTO progress from First Signatory onward.", href: "/puitu/fto-monitoring", mark: "FTO" },
-  { title: "Contributions", description: "Review contribution charges and outstanding balances.", href: "/puitu/contributions", mark: "CN" },
-  { title: "CO Calculation", description: "Prepare and review CO calculations.", href: "/puitu/co-calculation", mark: "CO" },
-  { title: "Payments", description: "Record and review payments.", href: "/puitu/payments", mark: "PY" },
-  { title: "Reports", description: "View and export council reports.", href: "/puitu/reports", mark: "RP" },
-  { title: "Settings", description: "Configure the council workspace.", href: "/puitu/settings", mark: "ST" },
+  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC" },
+  { title: "Register", description: "Maintain the official registration register.", href: "/register", mark: "RG" },
+  { title: "FTO Monitoring", description: "Monitor FTO progress from First Signatory onward.", href: "/fto-monitoring", mark: "FTO" },
+  { title: "Contributions", description: "Review contribution charges and outstanding balances.", href: "/contributions", mark: "CN" },
+  { title: "CO Calculation", description: "Prepare and review CO calculations.", href: "/co-calculation", mark: "CO" },
+  { title: "Payments", description: "Record and review payments.", href: "/payments", mark: "PY" },
+  { title: "Reports", description: "View and export council reports.", href: "/reports", mark: "RP" },
+  { title: "Settings", description: "Configure the council workspace.", href: "/settings", mark: "ST" },
 ];
 
-export default function PuituDashboardPage() {
+export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <section>

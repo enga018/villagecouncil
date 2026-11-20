@@ -62,9 +62,13 @@ Deno.serve(async (req: Request) => {
     /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
   ];
   const expectedDepth = { districts: 1, blocks: 2, panchayats: 3 }[body.action || ""];
-  const navigationUrls = body.action === "states" ? [] : body.navigationUrls;
+  // Backward compatibility for already-open/cached onboarding clients:
+  // a District request needs only the selected State URL.
+  const navigationUrls = body.action === "states" ? [] :
+    Array.isArray(body.navigationUrls) ? body.navigationUrls :
+    body.action === "districts" && typeof body.parentUrl === "string" ? [body.parentUrl] : undefined;
   if (body.action !== "states" && (!Array.isArray(navigationUrls) || navigationUrls.length !== expectedDepth)) {
-    return reply({ error: "The complete official location navigation path is required." }, 400, origin);
+    return reply({ error: "The selected location path is incomplete. Refresh onboarding and select the locations again." }, 400, origin);
   }
   const validatedUrls: string[] = [];
   for (let i = 0; i < (navigationUrls || []).length; i++) {

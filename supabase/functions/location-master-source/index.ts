@@ -137,7 +137,20 @@ Deno.serve(async (req: Request) => {
         });
         absorbCookies(stepResponse);
         if (!stepResponse.ok) {
-          return reply({ success: false, error: "VBGRAMG returned HTTP " + stepResponse.status + " while following the official location hierarchy.", diagnostic: { status: stepResponse.status, finalUrl: stepResponse.url, requestedUrl: stepUrl } }, 502, origin);
+          return reply({
+            success: false,
+            error: "VBGRAMG returned HTTP " + stepResponse.status + " at navigation step " + (validatedUrls.indexOf(stepUrl) + 1) + " of " + validatedUrls.length + ".",
+            diagnostic: {
+              status: stepResponse.status,
+              step: validatedUrls.indexOf(stepUrl) + 1,
+              requestedHost: new URL(stepUrl).hostname,
+              requestedPath: new URL(stepUrl).pathname,
+              finalHost: stepResponse.url ? new URL(stepResponse.url).hostname : null,
+              finalPath: stepResponse.url ? new URL(stepResponse.url).pathname : null,
+              refererHost: previousUrl ? new URL(previousUrl).hostname : null,
+              cookieNames: [...cookieJar.keys()],
+            },
+          }, 502, origin);
         }
         previousUrl = stepResponse.url || stepUrl;
         if (stepUrl === targetUrl) response = stepResponse;

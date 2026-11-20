@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
       if (!rawHref || /^javascript:/i.test(rawHref) || rawHref === "#") continue;
       let resolved: URL;
       try { resolved = new URL(rawHref, response.url); } catch { continue; }
-      if (resolved.hostname !== "vbgramgrep.dord.gov.in" || !/\/VBGRAMG\//i.test(resolved.pathname) || !resolved.searchParams.has("payload")) continue;
+      if (resolved.hostname !== "vbgramgrep.dord.gov.in" || !/\/VBGRAMG\/Homedist\.aspx$/i.test(resolved.pathname) || !resolved.searchParams.has("payload")) continue;
       if (!entries.some(item => item.url === resolved.href)) entries.push({ name, url: resolved.href });
     }
     if (!entries.length) return reply({ success: false, error: "No State/UT payload links were detected. No data was changed.", diagnostic, htmlBytes: new TextEncoder().encode(html).length, title: cleanText((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [,""])[1]) }, 502, origin);

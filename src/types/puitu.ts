@@ -1,9 +1,7 @@
 /**
  * VC Puitu domain types.
- *
- * Tenant types mirror the isolated Puitu account mapping.
- * Job Card and Applicant types are the initial Register-import data contract;
- * they are not yet backed by database tables.
+ * Tenant interfaces mirror the isolated Puitu account mapping.
+ * Register import record types are a contract, not database tables yet.
  */
 
 export interface PuituVillageCouncil {

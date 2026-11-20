@@ -37,12 +37,13 @@ export default function SuperadminGate({ children }: { children: React.ReactNode
           return;
         }
 
-        const accessCheck = supabase
-          .from("platform_superadmins")
-          .select("id")
-          .eq("user_id", session.user.id)
-          .maybeSingle()
-          .then((response) => response);
+        const accessCheck = Promise.resolve(
+          supabase
+            .from("platform_superadmins")
+            .select("id")
+            .eq("user_id", session.user.id)
+            .maybeSingle(),
+        );
         const { data, error } = await withTimeout(
           accessCheck,
           "Checking platform administrator access",

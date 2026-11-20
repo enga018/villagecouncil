@@ -29,9 +29,9 @@ function cleanText(value: string) {
 
 function extractEntries(html: string, baseUrl: string, expectedPath: RegExp) {
   const entries: { name: string; url: string }[] = [];
-  const anchorPattern = /<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi;
+  const anchorPattern = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
   for (const match of html.matchAll(anchorPattern)) {
-    const hrefMatch = match[1].match(/\\bhref\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))/i);
+    const hrefMatch = match[1].match(/\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
     if (!hrefMatch) continue;
     const name = cleanText(match[2]);
     if (!name) continue;
@@ -77,10 +77,10 @@ Deno.serve(async (req: Request) => {
   if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
 
   const expectedPaths = [
-    /\\/VBGRAMG\\/homestciti\\.aspx$/i,
-    /\\/VBGRAMG\\/Homedist\\.aspx$/i,
-    /\\/VBGRAMG\\/Progofficer\\/PoIndexFrame\\.aspx$/i,
-    /\\/VBGRAMG\\/IndexFrame\\.aspx$/i,
+    /\/VBGRAMG\/homestciti\.aspx$/i,
+    /\/VBGRAMG\/Homedist\.aspx$/i,
+    /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
+    /\/VBGRAMG\/IndexFrame\.aspx$/i,
   ];
   const requiredNames = { states: 0, districts: 1, blocks: 2, panchayats: 3 }[body.action || ""]!;
   const selectedNames = body.selectedNames || [];
@@ -115,9 +115,9 @@ Deno.serve(async (req: Request) => {
       absorbCookies(response);
       if (!response.ok) throw new Error("VBGRAMG returned HTTP " + response.status + " while loading " + new URL(pageUrl).pathname + ".");
       const contentType = response.headers.get("content-type") || "";
-      if (!/(text\\/html|application\\/xhtml\\+xml)/i.test(contentType)) throw new Error("VBGRAMG returned an unexpected content type.");
+      if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("VBGRAMG returned an unexpected content type.");
       const html = await response.text();
-      if (!html.trim() || !/<html[\\s>]/i.test(html)) throw new Error("VBGRAMG returned an invalid HTML page.");
+      if (!html.trim() || !/<html[\s>]/i.test(html)) throw new Error("VBGRAMG returned an invalid HTML page.");
       return { html, finalUrl: response.url || pageUrl, diagnostic: { status: response.status, finalUrl: response.url || pageUrl, contentType } };
     };
 

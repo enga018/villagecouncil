@@ -31,7 +31,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   </nav>;
 }
 
-export default function PuituShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
@@ -44,22 +44,22 @@ export default function PuituShell({ children }: { children: React.ReactNode }) 
       setSigningOut(false);
       return;
     }
-    router.replace("/puitu-login");
+    router.replace("/login");
   }
 
   return <div className="min-h-screen bg-slate-50 text-slate-900">
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-200 bg-white lg:flex">
-      <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-5"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white">VP</div><div><div className="font-semibold tracking-tight">VC Puitu</div><div className="text-xs text-slate-500">Village Council Platform</div></div></div>
+      <div className="flex h-20 items-center gap-3 border-b border-slate-100 px-5"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white">VP</div><div><div className="font-semibold tracking-tight">Village Council</div><div className="text-xs text-slate-500">Village Council Platform</div></div></div>
       <div className="flex-1 overflow-y-auto px-3 py-5"><div className="mb-3 px-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Workspace</div><Navigation /></div>
       <div className="border-t border-slate-100 p-4"><button onClick={handleSignOut} disabled={signingOut} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">{signingOut ? "Signing out…" : "Sign out"}</button></div>
     </aside>
     {mobileOpen && <div className="fixed inset-0 z-50 lg:hidden"><button aria-label="Close navigation" className="absolute inset-0 bg-slate-950/40" onClick={() => setMobileOpen(false)} />
-      <aside className="relative flex h-full w-[min(19rem,85vw)] flex-col bg-white shadow-2xl"><div className="flex h-20 items-center justify-between border-b border-slate-100 px-5"><div className="font-semibold">VC Puitu</div><button onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100">Close</button></div>
+      <aside className="relative flex h-full w-[min(19rem,85vw)] flex-col bg-white shadow-2xl"><div className="flex h-20 items-center justify-between border-b border-slate-100 px-5"><div className="font-semibold">Village Council</div><button onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100">Close</button></div>
         <div className="flex-1 overflow-y-auto px-3 py-5"><Navigation onNavigate={() => setMobileOpen(false)} /></div>
         <div className="border-t border-slate-100 p-4"><button onClick={handleSignOut} disabled={signingOut} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-left text-sm font-medium text-slate-600 disabled:opacity-50">{signingOut ? "Signing out…" : "Sign out"}</button></div></aside>
     </div>}
     <div className="lg:pl-64"><header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-6 lg:px-8">
-      <div className="flex items-center gap-3"><button onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 lg:hidden" aria-label="Open navigation">Menu</button><div className="text-sm font-medium text-slate-700">Village Council Workspace</div></div><div className="text-xs font-medium text-slate-500">VC Puitu</div>
+      <div className="flex items-center gap-3"><button onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 lg:hidden" aria-label="Open navigation">Menu</button><div className="text-sm font-medium text-slate-700">Village Council Workspace</div></div><div className="text-xs font-medium text-slate-500">Village Council</div>
     </header><main className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">{children}</main></div>
   </div>;
 }

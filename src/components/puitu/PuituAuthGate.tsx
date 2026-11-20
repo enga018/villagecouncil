@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import type { PuituMembership, PuituVillageCouncil } from "@/types/puitu";
+import type { Membership, VillageCouncil } from "@/types/village-council";
 
-type TenantContext = { membership: PuituMembership; council: PuituVillageCouncil };
+type TenantContext = { membership: Membership; council: VillageCouncil };
 type GateState =
   | { status: "loading" }
   | { status: "signed_out" }
@@ -13,7 +13,7 @@ type GateState =
   | { status: "ready"; tenant: TenantContext }
   | { status: "error"; message: string };
 
-export default function PuituAuthGate({ children }: { children: React.ReactNode }) {
+export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [state, setState] = useState<GateState>({ status: "loading" });
 
@@ -25,19 +25,19 @@ export default function PuituAuthGate({ children }: { children: React.ReactNode 
       if (userError) throw userError;
       if (!user) {
         setState({ status: "signed_out" });
-        router.replace("/puitu-login");
+        router.replace("/login");
         return;
       }
 
       const { data: membership, error: membershipError } = await supabase
-        .from("puitu_memberships")
+        .from("memberships")
         .select("id,user_id,village_council_id,is_active,created_at")
         .eq("user_id", user.id).eq("is_active", true).maybeSingle();
       if (membershipError) throw membershipError;
       if (!membership) { setState({ status: "no_membership" }); return; }
 
       const { data: council, error: councilError } = await supabase
-        .from("puitu_village_councils")
+        .from("village_councils")
         .select("id,name,slug,is_active,created_at,updated_at")
         .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
       if (councilError) throw councilError;
@@ -67,7 +67,7 @@ export default function PuituAuthGate({ children }: { children: React.ReactNode 
     return <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center">
       <h1 className="text-xl font-semibold text-slate-900">No council access assigned</h1>
       <p className="mt-2 text-sm leading-6 text-slate-500">Your account is signed in, but it is not linked to an active Village Council. Contact the platform administrator.</p>
-      <button className="mt-5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={async () => { await createClient().auth.signOut(); router.replace("/puitu-login"); }}>Sign out</button>
+      <button className="mt-5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" onClick={async () => { await createClient().auth.signOut(); router.replace("/login"); }}>Sign out</button>
     </div>;
   }
   if (state.status === "error") {

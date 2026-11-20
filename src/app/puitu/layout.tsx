@@ -1,6 +1,6 @@
-import PuituShell from "@/components/puitu/PuituShell";
-import PuituAuthGate from "@/components/puitu/PuituAuthGate";
+import AppShell from "@/components/puitu/AppShell";
+import AuthGate from "@/components/puitu/AuthGate";
 
 export default function PuituLayout({ children }: { children: React.ReactNode }) {
-  return <PuituAuthGate><PuituShell>{children}</PuituShell></PuituAuthGate>;
+  return <AuthGate><AppShell>{children}</AppShell></AuthGate>;
 }

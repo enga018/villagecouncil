@@ -1,139 +1,66 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
-import { getProfile, getRoleRedirectUrl } from '@/lib/auth';
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [checking, setChecking] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setChecking(false);
-    }, 5000);
-
-    async function checkSession() {
+    let active = true;
+    async function checkExistingUser() {
       try {
-        const ctx = await getProfile();
-        if (ctx) {
-          window.location.href = getRoleRedirectUrl(ctx.profile.role);
-          return;
-        }
-      } catch (err) {
-        console.error('Session check failed:', err);
+        const { data: { user } } = await createClient().auth.getUser();
+        if (user && active) router.replace("/dashboard");
+      } finally {
+        if (active) setChecking(false);
       }
-      setChecking(false);
     }
+    void checkExistingUser();
+    return () => { active = false; };
+  }, [router]);
 
-    checkSession();
-
-    return () => clearTimeout(timeoutId);
-  }, []);
-
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setLoading(true); setError("");
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      if (data.user) {
-        const ctx = await getProfile();
-        if (ctx) {
-          window.location.href = getRoleRedirectUrl(ctx.profile.role);
-          return;
-        }
-        setError('Profile not found. Contact administrator.');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+      if (!data.user) throw new Error("Sign-in did not return a user.");
+      const { data: membership, error: membershipError } = await supabase.from("memberships")
+        .select("id").eq("user_id", data.user.id).eq("is_active", true).maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership) {
         await supabase.auth.signOut();
+        throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
       }
+      router.replace("/dashboard");
     } catch (err) {
-      console.error('Login failed:', err);
-      setError(err instanceof Error ? err.message : 'Unable to sign in. Check your connection and try again.');
-    }
-
-    setLoading(false);
+      setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
+    } finally { setLoading(false); }
   }
 
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-sm text-gray-500">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (checking) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Checking sign-in…</p></main>;
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-5">
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Village Council</h1>
-          <p className="text-sm text-gray-500 mt-2">Sign in to your account</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3 rounded-lg text-sm font-medium transition-colors"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-
-        <p className="text-center text-xs text-gray-400 mt-6">
-          Contact your administrator for an account
-        </p>
-      </div>
+  return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
+    <div className="w-full max-w-md">
+      <div className="mb-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-lg font-bold text-white">VP</div>
+        <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-950">Village Council</h1><p className="mt-2 text-sm text-slate-500">Sign in to your Village Council workspace</p></div>
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div><label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>
+          <input id="login-email" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50" /></div>
+        <div><label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-slate-700">Password</label>
+          <input id="login-password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50" /></div>
+        {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
+        <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{loading ? "Signing in…" : "Sign in"}</button>
+      </form>
+      <p className="mt-6 text-center text-xs text-slate-400">Accounts are provisioned by the platform administrator. Public registration is disabled.</p>
     </div>
-  );
+  </main>;
 }

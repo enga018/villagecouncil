@@ -1,10 +1,10 @@
 /**
- * VC Puitu domain types.
+ * Village Council domain types.
  * Tenant interfaces mirror the isolated Puitu account mapping.
  * Register import record types are a contract, not database tables yet.
  */
 
-export interface PuituVillageCouncil {
+export interface VillageCouncil {
   id: string;
   name: string;
   slug: string;
@@ -13,7 +13,7 @@ export interface PuituVillageCouncil {
   updated_at: string;
 }
 
-export interface PuituMembership {
+export interface Membership {
   id: string;
   user_id: string;
   village_council_id: string;
@@ -21,7 +21,7 @@ export interface PuituMembership {
   created_at: string;
 }
 
-export interface PuituJobCard {
+export interface JobCard {
   id: string;
   villageCouncilId: string;
   jobCardNumber: string;
@@ -35,7 +35,7 @@ export interface PuituJobCard {
   updatedAt: string;
 }
 
-export interface PuituApplicant {
+export interface Applicant {
   id: string;
   villageCouncilId: string;
   jobCardId: string;

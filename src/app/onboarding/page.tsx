@@ -29,7 +29,7 @@ export default function OnboardingPage() {
 
   async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", parentUrl?: string) {
     const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
-      body: action === "states" ? { action } : { action, parentUrl },
+      body: action === "states" ? { action } : { action, navigationUrls: action === "districts" ? [parentUrl!] : action === "blocks" ? [stateUrl, parentUrl!] : [stateUrl, districtUrl, parentUrl!] },
     });
     if (invokeError) {
       let message = invokeError.message || "Could not contact the official location source.";

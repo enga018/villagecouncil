@@ -139,7 +139,7 @@ Deno.serve(async (req: Request) => {
         if (!stepResponse.ok) {
           return reply({
             success: false,
-            error: "VBGRAMG returned HTTP " + stepResponse.status + " at navigation step " + (validatedUrls.indexOf(stepUrl) + 1) + " of " + validatedUrls.length + ".",
+            error: "VBGRAMG returned HTTP " + stepResponse.status + " at navigation step " + (validatedUrls.indexOf(stepUrl) + 1) + " of " + validatedUrls.length + " (" + new URL(stepUrl).hostname + new URL(stepUrl).pathname + "; referer " + new URL(previousUrl).hostname + new URL(previousUrl).pathname + "; cookies " + [...cookieJar.keys()].join(",") + ").",
             diagnostic: {
               status: stepResponse.status,
               step: validatedUrls.indexOf(stepUrl) + 1,

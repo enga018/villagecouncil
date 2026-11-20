@@ -93,6 +93,13 @@ function SuperadminDashboard() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">Active VC Accounts</p><p className="mt-2 text-3xl font-bold tabular-nums">{loading ? "—" : activeAccounts}</p></div>
       </section>
 
+      <section className="rounded-2xl border border-blue-200 bg-blue-50/50 p-5 sm:p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><h3 className="font-semibold text-slate-900">Location Master</h3><p className="mt-1 text-sm text-slate-600">Import and manage the nationwide official State, District, Block and Panchayat directory.</p></div>
+          <Link href="/superadmin/locations" className="w-fit rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">Open Location Master</Link>
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
         <div className="mb-5"><h3 className="font-semibold">Create Village Council</h3><p className="mt-1 text-sm text-slate-500">Register a new council and invite its administrator. Each council receives one login account.</p></div>
         <form onSubmit={createCouncil} className="grid gap-4 sm:grid-cols-2">

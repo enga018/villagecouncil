@@ -17,7 +17,7 @@ export default function LoginPage() {
     async function checkExistingUser() {
       try {
         const { data: { user } } = await createClient().auth.getUser();
-        if (user && active) router.replace("/dashboard");
+        if (user && active) router.replace("/puitu");
       } finally {
         if (active) setChecking(false);
       }
@@ -40,7 +40,7 @@ export default function LoginPage() {
         await supabase.auth.signOut();
         throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
       }
-      router.replace("/dashboard");
+      router.replace("/puitu");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
     } finally { setLoading(false); }

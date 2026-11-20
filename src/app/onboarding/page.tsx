@@ -27,9 +27,9 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", parentUrl?: string) {
+  async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
     const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
-      body: { action, selectedNames: action === "states" ? [] : action === "districts" ? [states.find(entry => entry.url === parentUrl)?.name || ""] : action === "blocks" ? [states.find(entry => entry.url === stateUrl)?.name || "", districts.find(entry => entry.url === parentUrl)?.name || ""] : [states.find(entry => entry.url === stateUrl)?.name || "", districts.find(entry => entry.url === districtUrl)?.name || "", blocks.find(entry => entry.url === parentUrl)?.name || ""] },
+      body: { action, selectedNames },
     });
     if (invokeError) {
       let message = invokeError.message || "Could not contact the official location source.";
@@ -81,31 +81,31 @@ export default function OnboardingPage() {
     return () => { active = false; };
   }, [router]);
 
-  async function selectState(url: string) {
+  async function selectState(url: string, name: string) {
     setStateUrl(url); setDistrictUrl(""); setBlockUrl(""); setPanchayatUrl("");
     setDistricts([]); setBlocks([]); setPanchayats([]); setError("");
     if (!url) return;
     setLoadingDistricts(true);
-    try { setDistricts(await fetchLocations("districts", url)); }
+    try { setDistricts(await fetchLocations("districts", [name])); }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to retrieve Districts."); }
     finally { setLoadingDistricts(false); }
   }
 
-  async function selectDistrict(url: string) {
+  async function selectDistrict(url: string, name: string) {
     setDistrictUrl(url); setBlockUrl(""); setPanchayatUrl("");
     setBlocks([]); setPanchayats([]); setError("");
     if (!url) return;
     setLoadingBlocks(true);
-    try { setBlocks(await fetchLocations("blocks", url)); }
+    try { setBlocks(await fetchLocations("blocks", [states.find(entry => entry.url === stateUrl)?.name || "", name])); }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to retrieve Blocks."); }
     finally { setLoadingBlocks(false); }
   }
 
-  async function selectBlock(url: string) {
+  async function selectBlock(url: string, name: string) {
     setBlockUrl(url); setPanchayatUrl(""); setPanchayats([]); setError("");
     if (!url) return;
     setLoadingPanchayats(true);
-    try { setPanchayats(await fetchLocations("panchayats", url)); }
+    try { setPanchayats(await fetchLocations("panchayats", [states.find(entry => entry.url === stateUrl)?.name || "", districts.find(entry => entry.url === districtUrl)?.name || "", name])); }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to retrieve Panchayats."); }
     finally { setLoadingPanchayats(false); }
   }
@@ -156,9 +156,9 @@ export default function OnboardingPage() {
       </div>
       <form onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <div className="space-y-4">
-          <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value)} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
-          {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value)} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-          {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value)} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+          <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
+          {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+          {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
           {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => setPanchayatUrl(event.target.value)} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}

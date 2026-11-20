@@ -46,9 +46,11 @@ Deno.serve(async (req: Request) => {
   const adminClient = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
-  const { data: admin, error: adminError } = await adminClient.from("platform_superadmins").select("id").eq("user_id", userData.user.id).maybeSingle();
-  if (adminError) return reply({ error: "Unable to verify platform administrator role." }, 500, origin);
-  if (!admin) return reply({ error: "Platform administrator access required." }, 403, origin);
+  const { data: membership, error: membershipError } = await adminClient
+    .from("memberships").select("id")
+    .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
+  if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
+  if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
 
   let body: { action?: string; parentUrl?: string };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
@@ -59,7 +61,7 @@ Deno.serve(async (req: Request) => {
     if (!body.parentUrl) return reply({ error: "Select the parent location first." }, 400, origin);
     const expectedParentPath = {
       districts: /\/VBGRAMG\/homestciti\.aspx$/i,
-      blocks: /\/VBGRAMG\/Homeblock\.aspx$/i,
+      blocks: /\/VBGRAMG\/Homedist\.aspx$/i,
       panchayats: /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
     }[body.action];
     try {
@@ -103,7 +105,7 @@ Deno.serve(async (req: Request) => {
       if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(resolved.hostname) || !resolved.searchParams.has("payload")) continue;
       const expectedPath = {
         states: /\/VBGRAMG\/homestciti\.aspx$/i,
-        districts: /\/VBGRAMG\/Homeblock\.aspx$/i,
+        districts: /\/VBGRAMG\/Homedist\.aspx$/i,
         blocks: /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
         panchayats: /\/VBGRAMG\/IndexFrame\.aspx$/i,
       }[body.action || ""];

@@ -10,6 +10,7 @@ type GateState =
   | { status: "loading" }
   | { status: "signed_out" }
   | { status: "no_membership" }
+  | { status: "onboarding" }
   | { status: "ready"; tenant: TenantContext }
   | { status: "error"; message: string };
 
@@ -38,10 +39,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
       const { data: council, error: councilError } = await supabase
         .from("village_councils")
-        .select("id,name,slug,is_active,created_at,updated_at")
+        .select("id,name,slug,is_active,created_at,updated_at,state,district,block,village,onboarding_completed_at")
         .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
       if (councilError) throw councilError;
       if (!council) { setState({ status: "no_membership" }); return; }
+
+      if (!council.onboarding_completed_at) {
+        setState({ status: "onboarding" });
+        router.replace("/onboarding");
+        return;
+      }
 
       setState({ status: "ready", tenant: { membership, council } });
     } catch (error) {
@@ -60,8 +67,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [resolveTenant]);
 
-  if (state.status === "loading" || state.status === "signed_out") {
-    return <div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-slate-500">Checking council access…</p></div>;
+  if (state.status === "loading" || state.status === "signed_out" || state.status === "onboarding") {
+    return <div className="flex min-h-[60vh] items-center justify-center"><p className="text-sm text-slate-500">Checking council setup…</p></div>;
   }
   if (state.status === "no_membership") {
     return <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center">

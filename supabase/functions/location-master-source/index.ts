@@ -50,12 +50,28 @@ Deno.serve(async (req: Request) => {
   if (adminError) return reply({ error: "Unable to verify platform administrator role." }, 500, origin);
   if (!admin) return reply({ error: "Platform administrator access required." }, 403, origin);
 
-  let body: { action?: string };
+  let body: { action?: string; stateUrl?: string };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
-  if (body.action !== "states") return reply({ error: "Unsupported action." }, 400, origin);
+  if (!["states", "districts"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
+
+  let sourceUrl = STATE_LIST_URL;
+  if (body.action === "districts") {
+    if (!body.stateUrl) return reply({ error: "Select a State / UT first." }, 400, origin);
+    try {
+      const candidate = new URL(body.stateUrl);
+      if (!["vbgramgrep.dord.gov.in", "vbgramg.dord.gov.in"].includes(candidate.hostname)
+        || !/\\/VBGRAMG\\/homestciti\\.aspx$/i.test(candidate.pathname)
+        || !candidate.searchParams.has("payload")) {
+        return reply({ error: "The selected State link is not a valid official VBGRAMG location URL." }, 400, origin);
+      }
+      sourceUrl = candidate.href;
+    } catch {
+      return reply({ error: "The selected State URL is invalid." }, 400, origin);
+    }
+  }
 
   try {
-    const response = await fetch(STATE_LIST_URL, {
+    const response = await fetch(sourceUrl, {
       method: "GET", redirect: "follow",
       headers: { "User-Agent": "VillageCouncil-Location-Reader/1.0", "Accept": "text/html,application/xhtml+xml", "Cache-Control": "no-cache" },
       signal: AbortSignal.timeout(30000),

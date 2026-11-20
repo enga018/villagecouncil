@@ -61,8 +61,20 @@ export default function SuperadminGate({ children }: { children: React.ReactNode
     return () => { active = false; };
   }, [router]);
 
+  useEffect(() => {
+    if (result.status !== "denied") return;
+    let active = true;
+    async function redirectToLogin() {
+      try { await createClient().auth.signOut(); } finally {
+        if (active) window.location.replace("/login/");
+      }
+    }
+    void redirectToLogin();
+    return () => { active = false; };
+  }, [result.status]);
+
+  if (result.status === "denied") return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><p className="text-sm text-slate-500">Access not authorised. Returning to login…</p></main>;
   if (result.status === "checking") return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><p className="text-sm text-slate-500">Verifying platform administrator access…</p></main>;
-  if (result.status === "denied") return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><div className="max-w-md rounded-2xl border border-slate-200 bg-white p-7 text-center"><h1 className="text-xl font-semibold text-slate-900">Access not authorised</h1><p className="mt-2 text-sm text-slate-600">This account is not assigned platform administrator privileges.</p><button onClick={async () => { await createClient().auth.signOut(); router.replace("/login"); }} className="mt-5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium">Sign out</button></div></main>;
   if (result.status === "error") return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4"><div className="max-w-md rounded-2xl border border-red-200 bg-white p-7 text-center"><h1 className="text-xl font-semibold text-slate-900">Unable to verify access</h1><p role="alert" className="mt-2 text-sm text-red-700">{result.message}</p><button onClick={() => window.location.reload()} className="mt-5 rounded-xl bg-blue-700 px-4 py-2 text-sm font-medium text-white">Try again</button></div></main>;
   return <>{children}</>;
 }

@@ -71,6 +71,7 @@ Deno.serve(async (req: Request) => {
         || !candidate.searchParams.has("payload")) {
         return reply({ error: "The selected parent link is not a valid official VBGRAMG location URL." }, 400, origin);
       }
+      candidate.protocol = "https:";
       sourceUrl = candidate.href;
     } catch {
       return reply({ error: "The selected parent URL is invalid." }, 400, origin);
@@ -103,6 +104,7 @@ Deno.serve(async (req: Request) => {
       let resolved: URL;
       try { resolved = new URL(rawHref, response.url); } catch { continue; }
       if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(resolved.hostname) || !resolved.searchParams.has("payload")) continue;
+      resolved.protocol = "https:";
       const expectedPath = {
         states: /\/VBGRAMG\/homestciti\.aspx$/i,
         districts: /\/VBGRAMG\/Homedist\.aspx$/i,

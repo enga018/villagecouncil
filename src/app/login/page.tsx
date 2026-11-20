@@ -4,6 +4,20 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
+async function getDestination(userId: string) {
+  const supabase = createClient();
+  const { data: admin, error: adminError } = await supabase
+    .from("platform_superadmins").select("id").eq("user_id", userId).maybeSingle();
+  if (adminError) throw adminError;
+  if (admin) return "/superadmin";
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("memberships").select("id").eq("user_id", userId).eq("is_active", true).maybeSingle();
+  if (membershipError) throw membershipError;
+  if (!membership) throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
+  return "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -17,7 +31,9 @@ export default function LoginPage() {
     async function checkExistingUser() {
       try {
         const { data: { user } } = await createClient().auth.getUser();
-        if (user && active) router.replace("/puitu");
+        if (user && active) router.replace(await getDestination(user.id));
+      } catch {
+        if (active) setError("Unable to verify your account access. Please sign in again.");
       } finally {
         if (active) setChecking(false);
       }
@@ -27,30 +43,27 @@ export default function LoginPage() {
   }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setLoading(true); setError("");
+    event.preventDefault();
+    setLoading(true);
+    setError("");
     try {
       const supabase = createClient();
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
       if (!data.user) throw new Error("Sign-in did not return a user.");
-      const { data: membership, error: membershipError } = await supabase.from("memberships")
-        .select("id").eq("user_id", data.user.id).eq("is_active", true).maybeSingle();
-      if (membershipError) throw membershipError;
-      if (!membership) {
-        await supabase.auth.signOut();
-        throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
-      }
-      router.replace("/puitu");
+      router.replace(await getDestination(data.user.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (checking) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Checking sign-in…</p></main>;
 
   return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
     <div className="w-full max-w-md">
-      <div className="mb-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-lg font-bold text-white">VP</div>
+      <div className="mb-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-lg font-bold text-white">VC</div>
         <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-950">Village Council</h1><p className="mt-2 text-sm text-slate-500">Sign in to your Village Council workspace</p></div>
       <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div><label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-slate-700">Email</label>

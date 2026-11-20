@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const STATE_LIST_URL = "https://vbgramgrep.dord.gov.in/VBGRAMG/homestciti.aspx?payload=uxnA_h-_hbliJnZeq7CJW2GKLXuA2Xl8aRCpToX23hA43Yk099RtoB3PPXb5edYa3WppmkwktkBRxsmhneuKgGB2yQS8NavSlH29R3N89NI";
+const STATE_LIST_URL = "https://vbgramg.dord.gov.in/vbgramg/statepage1.aspx?payload=pM0yiywvsMaE1zHGNIlrxcHgXCaS7CSW9SF6aHM0OYE";
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
 
 function headers(origin: string | null) {
@@ -79,7 +79,7 @@ Deno.serve(async (req: Request) => {
       if (!rawHref || /^javascript:/i.test(rawHref) || rawHref === "#") continue;
       let resolved: URL;
       try { resolved = new URL(rawHref, response.url); } catch { continue; }
-      if (resolved.hostname !== "vbgramgrep.dord.gov.in" || !/\/VBGRAMG\/Homedist\.aspx$/i.test(resolved.pathname) || !resolved.searchParams.has("payload")) continue;
+      if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(resolved.hostname) || !/\/vbgramg\/homedist\.aspx$/i.test(resolved.pathname) || !resolved.searchParams.has("payload")) continue;
       if (!entries.some(item => item.url === resolved.href)) entries.push({ name, url: resolved.href });
     }
     if (!entries.length) return reply({ success: false, error: "No State/UT payload links were detected. No data was changed.", diagnostic, htmlBytes: new TextEncoder().encode(html).length, title: cleanText((html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i) || [,""])[1]) }, 502, origin);

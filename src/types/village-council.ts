@@ -1,6 +1,5 @@
 /**
  * Village Council domain types.
- * Tenant interfaces mirror the isolated Puitu account mapping.
  * Register import record types are a contract, not database tables yet.
  */
 
@@ -9,6 +8,11 @@ export interface VillageCouncil {
   name: string;
   slug: string;
   is_active: boolean;
+  state: string | null;
+  district: string | null;
+  block: string | null;
+  village: string | null;
+  onboarding_completed_at: string | null;
   created_at: string;
   updated_at: string;
 }

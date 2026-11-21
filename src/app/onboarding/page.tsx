@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import OnboardingShell from "@/components/app/OnboardingShell";
 
 type SourceEntry = { name: string; url: string };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
@@ -202,18 +203,11 @@ export default function OnboardingPage() {
 
   const dropdownClass = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100";
 
-  return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-    <div className="w-full max-w-2xl">
-      <div className="mb-8">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700 text-sm font-bold text-white">VC</div>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-blue-700">First-time setup · 4 steps</p>
-        <ol className="mt-4 grid grid-cols-4 gap-2 text-center">
-          {["Location", "Job Cards", "FTOs", "Review"].map((step, index) => <li key={step} className="min-w-0">
-            <div className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${index === 0 && locationSaved ? "bg-emerald-600 text-white" : index === 0 ? "bg-blue-700 text-white" : "bg-slate-200 text-slate-500"}`}>{index === 0 && locationSaved ? "✓" : index + 1}</div>
-            <p className={`mt-1 truncate text-[11px] font-medium ${index === 0 && locationSaved ? "text-emerald-700" : index === 0 ? "text-blue-700" : "text-slate-400"}`}>{step}</p>
-          </li>)}
-        </ol>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Set up your Village Council</h1>
+  return <OnboardingShell activeStep={0}>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div>
+        <p className="text-sm font-medium text-blue-700">Government location · Step 1</p>
+        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Confirm your Government location</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official administrative location is confirmed. Continue with the next setup step." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
       <form onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -246,5 +240,5 @@ export default function OnboardingPage() {
         </>}
       </form>
     </div>
-  </main>;
+  </OnboardingShell>;
 }

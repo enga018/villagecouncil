@@ -26,6 +26,7 @@ type RegisterPreview = {
   missingJobCards: number;
   sample: { jobCardNumber: string; headOfHousehold: string; applicantNumber: string; applicantName: string }[];
   activation: string;
+  validation?: { passed: boolean; stagedRowsMatch: boolean; requiredFieldsPresent: boolean; uniqueSourceKeys: boolean; uniqueOfficialIds: boolean; applicantNumbering: boolean; activeJobCards: number; inactiveJobCards: number; checkedRows: number };
 };
 
 type StagedApplicant = { job_card_number: string; jc_number: string; head_of_household: string; applicant_number: string; official_unique_id: string; applicant_name: string; status: string; source_sequence: number };
@@ -225,6 +226,21 @@ export default function JobCardOnboardingPage() {
               ["Total applicants", preview.stagedRows],
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
           </div>
+          {preview.validation && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><h3 className="text-sm font-semibold text-emerald-950">Import validation</h3><p className="mt-0.5 text-xs text-emerald-800">Checked {preview.validation.checkedRows.toLocaleString()} staged applicant records before review.</p></div>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">{preview.validation.passed ? "All checks passed" : "Review required"}</span>
+            </div>
+            <div className="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["Required fields", preview.validation.requiredFieldsPresent],
+                ["Source identities unique", preview.validation.uniqueSourceKeys],
+                ["Official IDs unique", preview.validation.uniqueOfficialIds],
+                ["Applicant numbering", preview.validation.applicantNumbering],
+                ["Staged row count", preview.validation.stagedRowsMatch],
+              ].map(([label, passed]) => <div key={String(label)} className="flex items-center gap-2 text-xs"><span className={passed ? "text-emerald-700" : "text-red-700"}>{passed ? "✓" : "!"}</span><span className="text-slate-700">{label}</span></div>)}
+            </div>
+          </div>}
           <div className="mt-5">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>

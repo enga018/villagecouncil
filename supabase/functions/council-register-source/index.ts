@@ -229,18 +229,50 @@ Deno.serve(async (req: Request) => {
     };
     const cookieHeader = () => [...cookieJar.entries()].map(([name, value]) => name + "=" + value).join("; ");
     const requestPage = async (pageUrl: string, referer: string) => {
-      const response = await fetch(pageUrl, {
-        method: "GET", redirect: "follow",
-        headers: { ...baseHeaders, ...(cookieHeader() ? { Cookie: cookieHeader() } : {}), Referer: referer },
-        signal: AbortSignal.timeout(30000),
-      });
-      absorbCookies(response);
-      if (!response.ok) throw new Error("VBGRAMG returned HTTP " + response.status + " at " + new URL(pageUrl).pathname + ".");
-      const contentType = response.headers.get("content-type") || "";
-      if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("VBGRAMG returned an unexpected content type.");
-      const html = await response.text();
-      if (!html.trim() || !/<html[\s>]/i.test(html)) throw new Error("VBGRAMG returned invalid HTML.");
-      return { html, finalUrl: response.url || pageUrl, status: response.status, contentType };
+      const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504]);
+      const delays = [800, 1800];
+      let lastError = "Unknown Government server error.";
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const response = await fetch(pageUrl, {
+            method: "GET", redirect: "follow",
+            headers: {
+              ...baseHeaders,
+              ...(cookieHeader() ? { Cookie: cookieHeader() } : {}),
+              Referer: referer,
+            },
+            signal: AbortSignal.timeout(30000),
+          });
+          absorbCookies(response);
+          if (!response.ok) {
+            lastError = "VBGRAMG returned HTTP " + response.status + " at " + new URL(pageUrl).pathname + ".";
+            if (attempt < 3 && retryableStatuses.has(response.status)) {
+              await response.body?.cancel().catch(() => {});
+              const retryAfter = Number(response.headers.get("retry-after") || 0);
+              const delay = retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : delays[attempt - 1];
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+            throw new Error(lastError);
+          }
+          const contentType = response.headers.get("content-type") || "";
+          if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) {
+            throw new Error("VBGRAMG returned an unexpected content type at " + new URL(pageUrl).pathname + ".");
+          }
+          const html = await response.text();
+          if (!html.trim() || !/<html[\s>]/i.test(html)) {
+            throw new Error("VBGRAMG returned invalid HTML at " + new URL(pageUrl).pathname + ".");
+          }
+          return { html, finalUrl: response.url || pageUrl, status: response.status, contentType };
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : String(error);
+          if (attempt >= 3 || !/timed out|timeout|network|connection|fetch failed/i.test(lastError)) {
+            throw new Error(lastError + (attempt > 1 ? " (after " + attempt + " attempts)" : ""));
+          }
+          await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
+        }
+      }
+      throw new Error(lastError + " (after 3 attempts)");
     };
 
     const navigation: Record<string, unknown>[] = [];

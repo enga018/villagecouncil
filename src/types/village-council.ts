@@ -45,6 +45,8 @@ export interface Applicant {
   jobCardId: string;
   applicantNumber: string;
   applicantName: string;
+  officialUniqueId: string | null;
+  sourceRecordKey: string;
   status: "active" | "inactive" | "deleted";
   sourceSequence: number;
   firstImportedAt: string;
@@ -59,6 +61,7 @@ export interface RegisterImportBatch {
   source: "official_registration_register";
   status: "pending" | "processing" | "completed" | "failed";
   sourcePeriod: string | null;
+  sourceLocationKey: string | null;
   startedAt: string;
   completedAt: string | null;
   totalRows: number;

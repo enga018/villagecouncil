@@ -13,6 +13,12 @@ type RegisterSourceResult = {
   reportPath?: string | null;
   candidates?: { kind: string; label: string; path: string }[];
   inspectedPages?: { path: string; status?: number; contentType?: string; error?: string }[];
+  reportInspection?: {
+    path?: string; status?: number; contentType?: string; error?: string;
+    title?: string; htmlBytes?: number; tableCount?: number;
+    hasRegisterTitle?: boolean; hasApplicantFields?: boolean;
+    tableSummaries?: { index: number; rowCount: number; columnCounts: number[]; relevantColumnLabels: string[] }[];
+  } | null;
   error?: string;
 };
 
@@ -250,6 +256,20 @@ export default function OnboardingPage() {
               <p className="font-semibold">{registerDiscovery.found ? "Official register source identified" : "Panchayat reached; register link not identified yet"}</p>
               {registerDiscovery.jurisdictionKey && <p className="mt-1">Official jurisdiction key: <strong>{registerDiscovery.jurisdictionKey}</strong></p>}
               {registerDiscovery.reportPath && <p className="mt-1 break-all">Report path: {registerDiscovery.reportPath}</p>}
+              {registerDiscovery.reportInspection && <div className="mt-2 rounded-md bg-slate-50 p-2">
+                <p className="font-semibold">Register endpoint inspection</p>
+                {registerDiscovery.reportInspection.error
+                  ? <p className="mt-1 text-red-700">Fetch failed: {registerDiscovery.reportInspection.error}</p>
+                  : <>
+                    <p className="mt-1">HTTP: {registerDiscovery.reportInspection.status ?? "—"} · Content type: {registerDiscovery.reportInspection.contentType || "unknown"}</p>
+                    <p>Page title: {registerDiscovery.reportInspection.title || "Not provided"} · HTML size: {registerDiscovery.reportInspection.htmlBytes ?? "—"} bytes</p>
+                    <p>Tables: {registerDiscovery.reportInspection.tableCount ?? 0} · Register title detected: {registerDiscovery.reportInspection.hasRegisterTitle ? "Yes" : "No"} · Applicant columns detected: {registerDiscovery.reportInspection.hasApplicantFields ? "Yes" : "No"}</p>
+                    {registerDiscovery.reportInspection.tableSummaries?.map(table => <div key={table.index} className="mt-2">
+                      <p className="font-medium">Table {table.index + 1}: {table.rowCount} rows · Column counts: {table.columnCounts.join(", ") || "—"}</p>
+                      {table.relevantColumnLabels.length > 0 && <p className="mt-1 break-words">Relevant headings: {table.relevantColumnLabels.join(" · ")}</p>}
+                    </div>)}
+                  </>}
+              </div>}
               {registerDiscovery.candidates?.length ? <div className="mt-2 space-y-1"><p className="font-medium">Detected source references</p>{registerDiscovery.candidates.map((item, index) => <p key={index} className="break-all"><span className="font-medium">{item.kind}:</span> {item.label || item.path} — {item.path}</p>)}</div> : <p className="mt-1 text-slate-500">No registration-report references were found in the inspected page.</p>}
               <p className="mt-2 text-slate-500">No records were imported or modified.</p>
             </div>}

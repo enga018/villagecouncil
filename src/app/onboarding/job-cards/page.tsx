@@ -352,7 +352,7 @@ export default function JobCardOnboardingPage() {
                 ["Updated Job Cards", activationResult.job_cards_updated],
                 ["New applicants", activationResult.applicants_inserted],
                 ["Updated applicants", activationResult.applicants_updated],
-              ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-white/70 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-1 text-lg font-semibold text-emerald-950">{Number(value || 0).toLocaleString()}</p></div>)}
+              ].map(([label, value]: [string, unknown]) => <div key={label} className="rounded-lg bg-white/70 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-1 text-lg font-semibold text-emerald-950">{Number(value || 0).toLocaleString()}</p></div>)}
             </div>
             <p className="mt-3 text-xs leading-5 text-emerald-900">Missing existing applicants: {Number(activationResult.missing_applicants_for_manual_review || 0).toLocaleString()} · Missing Job Cards: {Number(activationResult.missing_job_cards_for_manual_review || 0).toLocaleString()}. These records were not deactivated.</p>
           </div> : <>

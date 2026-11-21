@@ -76,10 +76,10 @@ function inspectRegisterStructure(html: string) {
   };
 }
 function inspectRegisterParserCompatibility(html: string) {
-  const cellText = (value: string) => cleanText(value.replace(/<!--[\\s\\S]*?-->/g, " ").replace(/<br\\s*\\/?>/gi, " "));
+  const cellText = (value: string) => cleanText(value.replace(/<!--[\s\S]*?-->/g, " ").replace(/<br\s*\/?>/gi, " "));
   const parseRows = (table: string) => {
-    const blocks = [...table.matchAll(/<tr\\b[^>]*>([\\s\\S]*?)(?=<tr\\b|$)/gi)];
-    return blocks.map(match => [...match[1].matchAll(/<t[dh]\\b[^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(cell => cellText(cell[1]))).filter(row => row.some(Boolean));
+    const blocks = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)(?=<tr\b|$)/gi)];
+    return blocks.map(match => [...match[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => cellText(cell[1]))).filter(row => row.some(Boolean));
   };
   const headerAliases = [
     ["sl no", "s no"], ["head of household", "head of household name"], ["caste"],
@@ -89,13 +89,13 @@ function inspectRegisterParserCompatibility(html: string) {
     ["reasons if job card not issued any other remarks", "reasons if job card not issued", "remarks"],
     ["disabled"], ["minority"], ["job card verified on date"],
   ];
-  const key = (value: unknown) => String(value ?? "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\\s+/g, " ").trim();
-  const tables = [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)].map(match => match[1]);
+  const key = (value: unknown) => String(value ?? "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(match => match[1]);
   let headerCandidate: Record<string, unknown> | null = null;
   const tableStats = tables.map((table, index) => {
-    const firstRow = table.search(/<tr\\b/i);
+    const firstRow = table.search(/<tr\b/i);
     const leadingMarkup = firstRow >= 0 ? table.slice(0, firstRow) : table;
-    const leadingCells = [...leadingMarkup.matchAll(/<t[dh]\\b[^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(cell => cellText(cell[1]));
+    const leadingCells = [...leadingMarkup.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell => cellText(cell[1]));
     const parsedRows = parseRows(table);
     const rows = leadingCells.length >= 10 ? [leadingCells, ...parsedRows] : parsedRows;
     let candidate: Record<string, unknown> | null = null;
@@ -106,7 +106,7 @@ function inspectRegisterParserCompatibility(html: string) {
         const merged = Array.from({ length: width }, (_, column) => {
           for (const row of window) {
             const value = String(row[column] ?? "").trim();
-            if (value && !/^\\d+$/.test(value)) return value;
+            if (value && !/^\d+$/.test(value)) return value;
           }
           return "";
         });
@@ -124,7 +124,7 @@ function inspectRegisterParserCompatibility(html: string) {
     if (candidate) headerCandidate = { tableIndex: index, ...candidate };
     const maxColumns = rows.reduce((max, row) => Math.max(max, row.length), 0);
     const wideRows = rows.filter(row => row.length >= 14).length;
-    const jobCardLikeRows = rows.filter(row => row.some(cell => /^MZ-[A-Z0-9-]+\\//i.test(String(cell).trim()))).length;
+    const jobCardLikeRows = rows.filter(row => row.some(cell => /^MZ-[A-Z0-9-]+\//i.test(String(cell).trim()))).length;
     return {
       index,
       leadingCellCount: leadingCells.length,
@@ -137,9 +137,9 @@ function inspectRegisterParserCompatibility(html: string) {
     };
   });
   return {
-    globalTrCount: (html.match(/<tr\\b/gi) || []).length,
-    globalTdCount: (html.match(/<td\\b/gi) || []).length,
-    globalThCount: (html.match(/<th\\b/gi) || []).length,
+    globalTrCount: (html.match(/<tr\b/gi) || []).length,
+    globalTdCount: (html.match(/<td\b/gi) || []).length,
+    globalThCount: (html.match(/<th\b/gi) || []).length,
     tableStats,
     headerCandidate,
     likelyApplicantTableIndex: tableStats.filter(table => table.effectiveRowCount > 100).sort((a,b) => b.effectiveRowCount-a.effectiveRowCount)[0]?.index ?? null,

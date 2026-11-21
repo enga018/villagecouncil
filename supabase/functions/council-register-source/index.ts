@@ -146,6 +146,69 @@ function inspectRegisterParserCompatibility(html: string) {
   };
 }
 
+
+function normalizeApplicantName(value: unknown) {
+  return String(value ?? "").replace(/\*/g, "").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+function parseOfficialRegister(html: string, village: string) {
+  const text = cleanText(html).toLowerCase();
+  if (new TextEncoder().encode(html).length > 8_000_000 || !text.includes("registration application register") || !text.includes(village.toLowerCase())) throw new Error("Official report title or Panchayat identity validation failed.");
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m => m[1]);
+  const parseRows = (table: string) => {
+    const blocks = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)(?=<tr\b|$)/gi)];
+    return blocks.map(m => [...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x => cleanText(x[1].replace(/<br\s*\/?>/gi, " "))).filter(Boolean)).filter(row => row.length);
+  };
+  const parsedTables = tables.map((table,index) => {
+    const first = table.search(/<tr\b/i);
+    const leading = first >= 0 ? table.slice(0,first) : table;
+    const cells = [...leading.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(m => cleanText(m[1]));
+    const rows = parseRows(table);
+    return { index, rows: cells.length >= 10 ? [cells,...rows] : rows };
+  });
+  const key = (v: unknown) => String(v ?? "").toLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim().replace(/\bno\b/g,"number");
+  const aliases = [["sl number","s number"],["head of household","head of household name"],["caste"],["name of applicant","applicant name"],["father husband name","father name","husband name"],["gender","sex"],["age"],["date of receipt of application request for registration","date of receipt of application"],["job card number","jobcard number"],["job card issue date"],["reasons if job card not issued any other remarks","reasons if job card not issued","remarks"],["disabled"],["minority"],["job card verified on date"]];
+  let selected: {index:number;rows:string[][]}|null = null, header:string[] = [];
+  for (const table of parsedTables) {
+    for (let i=0;i<Math.min(table.rows.length,12) && !selected;i++) for(let span=1;span<=3 && i+span<=table.rows.length;span++) {
+      const win=table.rows.slice(i,i+span), width=Math.max(...win.map(row=>row.length));
+      const merged=Array.from({length:width},(_,col)=>{for(const row of win){const v=String(row[col]??"").trim();if(v&&!/^\d+$/.test(v))return v;}return "";});
+      const keys=merged.map(key), matched=aliases.filter(group=>keys.some(v=>group.some(a=>v===a||v.includes(a)))).length;
+      if(matched>=6 && keys.some(v=>v.includes("job card number")) && keys.some(v=>v.includes("name of applicant")) && keys.some(v=>v.includes("head of household"))) {selected=table;header=merged;break;}
+    }
+    if(selected)break;
+  }
+  if(!selected) throw new Error("Could not identify applicant table headings.");
+  if(header.length<14||header.length>15) throw new Error("Unexpected applicant heading count: "+header.length+".");
+  if(header.length===15&&!String(header[14]??"").trim())header=header.slice(0,14);
+  const col=(names:string[])=>{const keys=header.map(key);let i=keys.findIndex(v=>names.includes(v));return i>=0?i:keys.findIndex(v=>names.some(a=>v.includes(a)||a.includes(v)));};
+  const ix={house:col(["head of household","head of household name"]),caste:col(["caste"]),name:col(["name of applicant","applicant name"]),father:col(["father husband name","father name","husband name"]),gender:col(["gender","sex"]),age:col(["age"]),received:col(["date of receipt of application request for registration","date of receipt of application"]),job:col(["job card number","jobcard number"]),issue:col(["job card issue date"]),remarks:col(["reasons if job card not issued any other remarks","reasons if job card not issued","remarks"]),disabled:col(["disabled"]),minority:col(["minority"]),verified:col(["job card verified on date"])};
+  if([ix.house,ix.name,ix.job].some(v=>v<0))throw new Error("Required household, applicant-name or Job Card columns are missing.");
+  const rows:Record<string,unknown>[]=[], review:string[]=[], seen=new Set<string>(), households=new Map<string,string>(), sequences=new Map<string,number>();
+  let deletedCount=0;
+  for(let n=3;n<selected.rows.length;n++){
+    const row=selected.rows[n], content=row.join(" ").trim();
+    if(!content||/^(villages?\b|no\. of registrants\b|total no\. of registered applicants\b|total\b|report completed\b|# end of report\b)/i.test(content))continue;
+    const card=String(row[ix.job]??"").trim(), raw=String(row[ix.name]??"").trim();
+    if(!card&&!raw)continue;
+    if(!/^MZ-/i.test(card)||!card.includes("/")||!raw){review.push("Unrecognized applicant row "+(n+1));continue;}
+    const rawHouse=String(row[ix.house]??"").trim();if(rawHouse)households.set(card,rawHouse.replace(/\*/g,"").trim());
+    const house=rawHouse?rawHouse.replace(/\*/g,"").trim():(households.get(card)||"");
+    if(!house){review.push("Missing household head for Job Card "+card+" at source row "+(n+1));continue;}
+    const remarks=ix.remarks>=0?String(row[ix.remarks]??"").trim():"", name=raw.replace(/\*/g,"").trim();
+    const status=rawHouse.includes("*")||raw.includes("*")||/\bdeleted\b/i.test(remarks)?"deleted":"active";
+    const sourceKey=card.toUpperCase()+"|"+normalizeApplicantName(name);
+    if(seen.has(sourceKey)){review.push("Duplicate applicant identity for Job Card "+card+" and name "+name);continue;}seen.add(sourceKey);
+    const seq=(sequences.get(card)||0)+1;sequences.set(card,seq);
+    const val=(i:number)=>i>=0?String(row[i]??"").trim():"";
+    rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,head_of_household:house,applicant_number:String(seq),applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status,source_row_number:n+1});
+    if(status==="deleted")deletedCount++;
+  }
+  if(review.length)throw new Error("Import preview paused for "+review.length+" uncertain row(s). First issue: "+review[0]);
+  const active=rows.filter(r=>r.status==="active");
+  if(!active.length||active.length>100000)throw new Error("Parsed applicant count is outside permitted range.");
+  return {rows,active,deletedCount,tableIndex:selected.index,sourceRowCount:selected.rows.length,columnCount:header.length};
+}
+
 function inspectHtml(html: string, baseUrl: string) {
   const candidates: { kind: string; label: string; path: string; url: string }[] = [];
   const add = (kind: string, label: string, raw: string) => {

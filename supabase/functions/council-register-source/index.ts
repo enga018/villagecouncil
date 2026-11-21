@@ -51,6 +51,27 @@ function extractEntries(html: string, baseUrl: string, expectedPath: RegExp) {
   }
   return entries;
 }
+function inspectRegisterStructure(html: string) {
+  const tables = [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)].map(match => match[1]);
+  const tableSummaries = tables.map((table, index) => {
+    const rows = [...table.matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)];
+    const firstRows = rows.slice(0, 5).map(row =>
+      [...row[1].matchAll(/<t[hd]\\b[^>]*>([\\s\\S]*?)<\\/t[hd]>/gi)]
+        .map(cell => cleanText(cell[1])).filter(Boolean)
+    );
+    return { index, rowCount: rows.length, firstRows };
+  });
+  const title = cleanText(html.match(/<title\\b[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1] || "");
+  const text = cleanText(html);
+  return {
+    title,
+    htmlBytes: new TextEncoder().encode(html).length,
+    tableCount: tables.length,
+    tableSummaries,
+    hasRegisterTitle: /registration application register/i.test(text),
+    hasApplicantFields: /job card number/i.test(text) && /name of applicant|applicant name/i.test(text),
+  };
+}
 function inspectHtml(html: string, baseUrl: string) {
   const candidates: { kind: string; label: string; path: string; url: string }[] = [];
   const add = (kind: string, label: string, raw: string) => {
@@ -184,19 +205,38 @@ Deno.serve(async (req: Request) => {
       inspectedPages = inspectedPages.slice(0, 10);
       break;
     }
-    const report = allCandidates.find(x => x.kind === "registration-report" || /panchregpeople/i.test(x.path));
-    const jurisdictionKey = report?.path.match(/panchregpeople_([A-Za-z0-9-]+)_eng\d+\.html/i)?.[1] || null;
+    const report = allCandidates.find(x => /panchregpeople\\.aspx/i.test(x.path))
+      || allCandidates.find(x => x.kind === "registration-report" || /panchregpeople/i.test(x.path));
+    const jurisdictionKey = report?.path.match(/panchregpeople_([A-Za-z0-9-]+)_eng\\d+\\.html/i)?.[1] || null;
+    let reportInspection: Record<string, unknown> | null = null;
+    if (report) {
+      try {
+        const reportPage = await requestPage(report.url, current.finalUrl);
+        reportInspection = {
+          path: new URL(reportPage.finalUrl).pathname,
+          status: reportPage.status,
+          contentType: reportPage.contentType,
+          ...inspectRegisterStructure(reportPage.html),
+        };
+      } catch (error) {
+        reportInspection = {
+          path: new URL(report.url).pathname,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
     return reply({
       success: true,
       found: Boolean(report),
       councilLocation: { state: council.state, district: council.district, block: council.block, panchayat: council.village },
       jurisdictionKey,
       reportPath: report?.path || null,
+      reportInspection,
       candidates: allCandidates.slice(0, 30).map(({ kind, label, path }) => ({ kind, label, path })),
       inspectedPages: inspectedPages.map(({ path, status, contentType, error }) => ({ path, status, contentType, error })),
       navigation,
       dataChanged: false,
-      note: "Read-only discovery. No encrypted navigation URL or source register data was saved.",
+      note: "Read-only discovery and report structure inspection. Applicant records were not returned or saved.",
     }, 200, origin);
   } catch (error) {
     return reply({ success: false, error: "Could not inspect the official registration register: " + (error instanceof Error ? error.message : String(error)), dataChanged: false }, 502, origin);

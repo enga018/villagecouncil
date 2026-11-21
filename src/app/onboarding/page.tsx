@@ -6,37 +6,6 @@ import { createClient } from "@/lib/supabase";
 
 type SourceEntry = { name: string; url: string };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
-type RegisterPreview = {
-  batchId: string; status: string; sourceTable: number; sourceRows: number; stagedRows: number;
-  activeApplicants: number; sourceDeletedApplicants: number; existingJobCards: number; newJobCards: number;
-  changedJobCards: number; existingApplicants: number; newApplicants: number; changedApplicants: number;
-  unchangedApplicants: number; missingApplicants: number; missingJobCards: number;
-  sample: { jobCardNumber: string; headOfHousehold: string; applicantNumber: string; applicantName: string }[];
-  activation: string;
-};
-type RegisterSourceResult = {
-  success?: boolean;
-  found?: boolean;
-  jurisdictionKey?: string | null;
-  reportPath?: string | null;
-  candidates?: { kind: string; label: string; path: string }[];
-  inspectedPages?: { path: string; status?: number; contentType?: string; error?: string }[];
-  reportInspection?: {
-    preview?: RegisterPreview;
-    path?: string; status?: number; contentType?: string; error?: string;
-    title?: string; htmlBytes?: number; tableCount?: number;
-    hasRegisterTitle?: boolean; hasApplicantFields?: boolean;
-    tableSummaries?: { index: number; rowCount: number; columnCounts: number[]; relevantColumnLabels: string[] }[];
-    parserCompatibility?: {
-      globalTrCount: number; globalTdCount: number; globalThCount: number;
-      tableStats: { index: number; leadingCellCount: number; parsedRowCount: number; effectiveRowCount: number; maxColumns: number; rowsWith14PlusCells: number; rowsContainingJobCardPattern: number; headerCandidate: { rowIndex: number; headerSpan: number; headerColumnCount: number; headings: string[] } | null }[];
-      headerCandidate: { tableIndex: number; rowIndex: number; headerSpan: number; headerColumnCount: number; headings: string[] } | null;
-      likelyApplicantTableIndex: number | null;
-    };
-  } | null;
-  error?: string;
-};
-
 function isAuthenticationFailure(error: unknown, response?: Response) {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
   return response?.status === 401 || /auth session missing|authentication required|invalid or expired session|jwt expired|unauthorized|\b401\b/.test(message);
@@ -63,12 +32,6 @@ export default function OnboardingPage() {
   const [locationSaved, setLocationSaved] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
   const [error, setError] = useState("");
-  const [discoveringRegister, setDiscoveringRegister] = useState(false);
-  const [registerDiscovery, setRegisterDiscovery] = useState<RegisterSourceResult | null>(null);
-  const [registerDiscoveryError, setRegisterDiscoveryError] = useState("");
-  const [preparingPreview, setPreparingPreview] = useState(false);
-  const [registerPreview, setRegisterPreview] = useState<RegisterPreview | null>(null);
-  const [registerPreviewError, setRegisterPreviewError] = useState("");
 
   function returnToLogin() {
     const requestedPath = window.location.pathname + window.location.search;
@@ -198,63 +161,6 @@ export default function OnboardingPage() {
     finally { setLoadingPanchayats(false); }
   }
 
-  async function discoverRegisterSource() {
-    setDiscoveringRegister(true);
-    setRegisterDiscovery(null);
-    setRegisterDiscoveryError("");
-    try {
-      const { data, error: invokeError } = await createClient().functions.invoke<RegisterSourceResult>("council-register-source", { body: {} });
-      if (invokeError) {
-        let message = invokeError.message || "Could not inspect the official register source.";
-        const context = invokeError.context as Response | undefined;
-        if (isAuthenticationFailure(invokeError, context)) {
-          returnToLogin();
-          throw new Error("Your session has expired. Returning you to sign in…");
-        }
-        if (context && typeof context.json === "function") {
-          try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
-        }
-        throw new Error(message);
-      }
-      if (!data?.success) throw new Error(data?.error || "The official register source could not be identified.");
-      setRegisterDiscovery(data);
-    } catch (err) {
-      setRegisterDiscoveryError(err instanceof Error ? err.message : "Unable to inspect the official register source.");
-    } finally {
-      setDiscoveringRegister(false);
-    }
-  }
-
-  async function prepareRegisterPreview() {
-    setPreparingPreview(true);
-    setRegisterPreview(null);
-    setRegisterPreviewError("");
-    try {
-      const { data, error: invokeError } = await createClient().functions.invoke<RegisterSourceResult>("council-register-source", { body: { action: "prepare-preview" } });
-      if (invokeError) {
-        let message = invokeError.message || "Could not prepare the MIS import preview.";
-        const context = invokeError.context as Response | undefined;
-        if (isAuthenticationFailure(invokeError, context)) {
-          returnToLogin();
-          throw new Error("Your session has expired. Returning you to sign in…");
-        }
-        if (context && typeof context.json === "function") {
-          try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
-        }
-        throw new Error(message);
-      }
-      if (!data?.success || !data.reportInspection?.preview) {
-        const reportError = data?.reportInspection && "error" in data.reportInspection ? data.reportInspection.error : null;
-        throw new Error(reportError || data?.error || "The official register preview was not prepared.");
-      }
-      setRegisterPreview(data.reportInspection.preview);
-    } catch (err) {
-      setRegisterPreviewError(err instanceof Error ? err.message : "Unable to prepare the MIS import preview.");
-    } finally {
-      setPreparingPreview(false);
-    }
-  }
-
   async function saveLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!councilId) return;
@@ -284,6 +190,7 @@ export default function OnboardingPage() {
       if (updateError) throw updateError;
       setLocationSaved(true);
       setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
+      router.push("/onboarding/job-cards");
     } catch (err) {
       if (isAuthenticationFailure(err)) { returnToLogin(); return; }
       setError(err instanceof Error ? err.message : "Unable to save the Village Council location.");
@@ -316,65 +223,11 @@ export default function OnboardingPage() {
           {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Step 1 is complete. Your location is saved and will be restored when you return.</p>{savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}<p className="mt-3 text-xs text-emerald-800">Next: Step 2 — Import Job Cards (MIS). Your workspace remains locked until all steps are completed.</p>
-          <div className="mt-4 border-t border-emerald-200 pt-4">
-            <p className="text-sm font-semibold text-emerald-950">Step 2 · Official register source</p>
-            <p className="mt-1 text-xs leading-5 text-emerald-800">First, verify that Puitu can locate this Panchayat's Registration Application Register. This check is read-only and will not import or change records.</p>
-            <button type="button" onClick={() => void discoverRegisterSource()} disabled={discoveringRegister} className="mt-3 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60">{discoveringRegister ? "Checking official source…" : "Check official register source"}</button>
-            {registerDiscoveryError && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{registerDiscoveryError}</p>}
-            {registerDiscovery && <div className="mt-3 rounded-lg border border-emerald-200 bg-white p-3 text-xs text-slate-700">
-              <p className="font-semibold">{registerDiscovery.found ? "Official register source identified" : "Panchayat reached; register link not identified yet"}</p>
-              {registerDiscovery.jurisdictionKey && <p className="mt-1">Official jurisdiction key: <strong>{registerDiscovery.jurisdictionKey}</strong></p>}
-              {registerDiscovery.reportPath && <p className="mt-1 break-all">Report path: {registerDiscovery.reportPath}</p>}
-              {registerDiscovery.reportInspection && <div className="mt-2 rounded-md bg-slate-50 p-2">
-                <p className="font-semibold">Register endpoint inspection</p>
-                {registerDiscovery.reportInspection.error
-                  ? <p className="mt-1 text-red-700">Fetch failed: {registerDiscovery.reportInspection.error}</p>
-                  : <>
-                    <p className="mt-1">HTTP: {registerDiscovery.reportInspection.status ?? "—"} · Content type: {registerDiscovery.reportInspection.contentType || "unknown"}</p>
-                    <p>Page title: {registerDiscovery.reportInspection.title || "Not provided"} · HTML size: {registerDiscovery.reportInspection.htmlBytes ?? "—"} bytes</p>
-                    <p>Tables: {registerDiscovery.reportInspection.tableCount ?? 0} · Register title detected: {registerDiscovery.reportInspection.hasRegisterTitle ? "Yes" : "No"} · Applicant columns detected: {registerDiscovery.reportInspection.hasApplicantFields ? "Yes" : "No"}</p>
-                    {registerDiscovery.reportInspection.parserCompatibility && <div className="mt-2 border-t border-slate-200 pt-2">
-                      <p className="font-semibold">Legacy parser compatibility</p>
-                      <p>HTML rows: {registerDiscovery.reportInspection.parserCompatibility.globalTrCount} · TD cells: {registerDiscovery.reportInspection.parserCompatibility.globalTdCount} · TH cells: {registerDiscovery.reportInspection.parserCompatibility.globalThCount}</p>
-                      <p>Likely applicant table: {registerDiscovery.reportInspection.parserCompatibility.likelyApplicantTableIndex === null ? "Not identified" : registerDiscovery.reportInspection.parserCompatibility.likelyApplicantTableIndex + 1}</p>
-                      {registerDiscovery.reportInspection.parserCompatibility.headerCandidate && <p>Detected headings: {registerDiscovery.reportInspection.parserCompatibility.headerCandidate.headings.join(" · ")}</p>}
-                      {registerDiscovery.reportInspection.parserCompatibility.tableStats.map(table => <p key={table.index}>Table {table.index + 1}: {table.effectiveRowCount} effective rows · {table.maxColumns} max columns · {table.rowsWith14PlusCells} wide rows · {table.rowsContainingJobCardPattern} Job Card rows · leading headings {table.leadingCellCount}</p>)}
-                    </div>}
-                    {registerDiscovery.reportInspection.tableSummaries?.map(table => <div key={table.index} className="mt-2">
-                      <p className="font-medium">Table {table.index + 1}: {table.rowCount} rows · Column counts: {table.columnCounts.join(", ") || "—"}</p>
-                      {table.relevantColumnLabels.length > 0 && <p className="mt-1 break-words">Relevant headings: {table.relevantColumnLabels.join(" · ")}</p>}
-                    </div>)}
-                  </>}
-              </div>}
-              {registerDiscovery.candidates?.length ? <div className="mt-2 space-y-1"><p className="font-medium">Detected source references</p>{registerDiscovery.candidates.map((item, index) => <p key={index} className="break-all"><span className="font-medium">{item.kind}:</span> {item.label || item.path} — {item.path}</p>)}</div> : <p className="mt-1 text-slate-500">No registration-report references were found in the inspected page.</p>}
-              <p className="mt-2 text-slate-500">The source check is read-only. It does not import or modify records.</p>
-              {registerDiscovery.found && <div className="mt-3 border-t border-emerald-100 pt-3">
-                <p className="font-semibold text-slate-800">Prepare Job Card import preview</p>
-                <p className="mt-1 text-slate-600">Fetch and parse the official register into a review-only staging batch. Existing Job Cards and applicants will not be changed or activated.</p>
-                <button type="button" onClick={() => void prepareRegisterPreview()} disabled={preparingPreview} className="mt-2 rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white disabled:opacity-60">{preparingPreview ? "Preparing preview…" : "Prepare import preview"}</button>
-                {registerPreviewError && <p role="alert" className="mt-2 rounded-md bg-red-50 p-2 text-red-700">{registerPreviewError}</p>}
-                {registerPreview && <div className="mt-3 rounded-md bg-blue-50 p-3 text-slate-700">
-                  <p className="font-semibold text-blue-950">Import preview staged — awaiting review</p>
-                  <p className="mt-1">Batch: <code>{registerPreview.batchId}</code></p>
-                  <p>Source table {registerPreview.sourceTable} · {registerPreview.sourceRows.toLocaleString()} source rows · {registerPreview.stagedRows.toLocaleString()} staged rows</p>
-                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    <p>Active applicants: <strong>{registerPreview.activeApplicants.toLocaleString()}</strong></p>
-                    <p>New Job Cards: <strong>{registerPreview.newJobCards.toLocaleString()}</strong></p>
-                    <p>New applicants: <strong>{registerPreview.newApplicants.toLocaleString()}</strong></p>
-                    <p>Changed applicants: <strong>{registerPreview.changedApplicants.toLocaleString()}</strong></p>
-                    <p>Unchanged applicants: <strong>{registerPreview.unchangedApplicants.toLocaleString()}</strong></p>
-                    <p>Source-deleted applicants: <strong>{registerPreview.sourceDeletedApplicants.toLocaleString()}</strong></p>
-                    <p>Missing existing applicants: <strong>{registerPreview.missingApplicants.toLocaleString()}</strong></p>
-                    <p>Missing existing Job Cards: <strong>{registerPreview.missingJobCards.toLocaleString()}</strong></p>
-                  </div>
-                  <p className="mt-2 font-medium">Sample parsed records</p>
-                  {registerPreview.sample.map((item,index) => <p key={index} className="mt-1">{item.jobCardNumber} · {item.applicantNumber} · {item.applicantName} · Household: {item.headOfHousehold}</p>)}
-                  <p className="mt-2 font-semibold text-blue-950">{registerPreview.activation}</p>
-                </div>}
-              </div>}
-            </div>}
-          </div>
+        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">Official location saved</p>
+          <p className="mt-1">Step 1 is complete. Continue to import the Job Card and Applicant Register.</p>
+          {savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}
+          <button type="button" onClick={() => router.push("/onboarding/job-cards")} className="mt-4 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800">Continue to Step 2</button>
         </div>}
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>

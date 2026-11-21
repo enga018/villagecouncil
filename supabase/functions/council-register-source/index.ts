@@ -281,6 +281,9 @@ Deno.serve(async (req: Request) => {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
+      // The VBGRAMG origin intermittently serves malformed gzip responses.
+      // Request identity encoding so the Edge Runtime does not need to decode them.
+      "Accept-Encoding": "identity",
       "Cache-Control": "no-cache",
       "Upgrade-Insecure-Requests": "1",
     };
@@ -332,9 +335,12 @@ Deno.serve(async (req: Request) => {
           return { html, finalUrl: response.url || pageUrl, status: response.status, contentType };
         } catch (error) {
           lastError = error instanceof Error ? error.message : String(error);
-          if (attempt >= 3 || !/timed out|timeout|network|connection|fetch failed/i.test(lastError)) {
+          const retryableTransportError = /timed out|timeout|network|connection|fetch failed|gzip|decompress|invalid header|unexpected end|content decoding/i.test(lastError);
+          if (attempt >= 3 || !retryableTransportError) {
             throw new Error(lastError + (attempt > 1 ? " (after " + attempt + " attempts)" : ""));
           }
+          // Retry malformed/partial compressed responses just like transient network failures.
+          await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
           await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
         }
       }

@@ -52,16 +52,16 @@ function extractEntries(html: string, baseUrl: string, expectedPath: RegExp) {
   return entries;
 }
 function inspectRegisterStructure(html: string) {
-  const tables = [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)].map(match => match[1]);
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(match => match[1]);
   const tableSummaries = tables.map((table, index) => {
-    const rows = [...table.matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)];
+    const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
     const firstRows = rows.slice(0, 5).map(row =>
-      [...row[1].matchAll(/<t[hd]\\b[^>]*>([\\s\\S]*?)<\\/t[hd]>/gi)]
+      [...row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)]
         .map(cell => cleanText(cell[1])).filter(Boolean)
     );
     return { index, rowCount: rows.length, firstRows };
   });
-  const title = cleanText(html.match(/<title\\b[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1] || "");
+  const title = cleanText(html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "");
   const text = cleanText(html);
   return {
     title,

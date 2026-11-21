@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
@@ -51,6 +51,10 @@ export default function JobCardOnboardingPage() {
   const [stagedApplicants, setStagedApplicants] = useState<StagedApplicant[]>([]);
   const [loadingRegister, setLoadingRegister] = useState(false);
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
+  const [cardSearch, setCardSearch] = useState("");
+  const [cardStatus, setCardStatus] = useState<"active" | "inactive" | "all">("active");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [error, setError] = useState("");
   const [pageError, setPageError] = useState("");
 
@@ -151,6 +155,33 @@ export default function JobCardOnboardingPage() {
     }
   }
 
+  const groupedCards = useMemo(() => {
+    const groups = new Map<string, StagedApplicant[]>();
+    for (const applicant of stagedApplicants) {
+      const key = applicant.job_card_number;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(applicant);
+    }
+    return Array.from(groups.entries()).map(([card, applicants]) => {
+      const head = applicants.find(item => item.head_of_household)?.head_of_household || "Household head unavailable";
+      const activeCount = applicants.filter(item => item.status === "active").length;
+      return { card, applicants, head, activeCount, deletedCount: applicants.length - activeCount, inactive: activeCount === 0 };
+    });
+  }, [stagedApplicants]);
+
+  const activeJobCards = groupedCards.filter(item => !item.inactive).length;
+  const inactiveJobCards = groupedCards.length - activeJobCards;
+  const filteredCards = groupedCards.filter(item => {
+    const matchesStatus = cardStatus === "all" || (cardStatus === "active" ? !item.inactive : item.inactive);
+    const term = cardSearch.trim().toLowerCase();
+    const matchesSearch = !term || item.card.toLowerCase().includes(term) ||
+      item.head.toLowerCase().includes(term) ||
+      item.applicants.some(applicant => applicant.applicant_name.toLowerCase().includes(term));
+    return matchesStatus && matchesSearch;
+  });
+  const pageCount = Math.max(1, Math.ceil(filteredCards.length / pageSize));
+  const visibleCards = filteredCards.slice((page - 1) * pageSize, page * pageSize);
+
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Loading onboarding…</p></main>;
 
   return <OnboardingShell activeStep={1}>
@@ -187,12 +218,12 @@ export default function JobCardOnboardingPage() {
           <p className="mt-2 break-all text-xs text-slate-500">Batch ID: {preview.batchId}</p>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
-              ["Job Cards", new Set(stagedApplicants.map(item => item.job_card_number)).size],
+              ["Active Job Cards", activeJobCards],
+              ["Inactive Job Cards", inactiveJobCards],
               ["Active applicants", preview.activeApplicants],
               ["Deleted applicants", preview.deletedApplicants ?? preview.sourceDeletedApplicants],
-              ["Inactive Job Cards", preview.inactiveJobCards ?? 0],
               ["Total applicants", preview.stagedRows],
-            ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
+            ].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
           </div>
           <div className="mt-5">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -203,38 +234,56 @@ export default function JobCardOnboardingPage() {
               <span className="text-xs font-semibold text-slate-600">{new Set(stagedApplicants.map(item => item.job_card_number)).size.toLocaleString()} Job Cards · {stagedApplicants.length.toLocaleString()} applicants</span>
             </div>
             {loadingRegister ? <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Loading the complete staged register…</p> : (
-              <div className="mt-3 space-y-2">
-                {Array.from(stagedApplicants.reduce((groups, applicant) => {
-                  const key = applicant.job_card_number;
-                  if (!groups.has(key)) groups.set(key, []);
-                  groups.get(key)!.push(applicant);
-                  return groups;
-                }, new Map<string, StagedApplicant[]>()).entries()).map(([card, applicants]) => {
-                  const expanded = expandedCards.includes(card);
-                  const head = applicants.find(item => item.head_of_household)?.head_of_household || "Household head unavailable";
-                  const activeCount = applicants.filter(item => item.status === "active").length;
-                  const deletedCount = applicants.length - activeCount;
-                  const cardInactive = activeCount === 0;
-                  return <div key={card} className="overflow-hidden rounded-xl border border-slate-200">
-                    <button type="button" onClick={() => setExpandedCards(current => expanded ? current.filter(item => item !== card) : [...current, card])} aria-expanded={expanded} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50">
-                      <span className="min-w-0">
-                        <strong className="block break-all text-sm text-slate-950">{card}</strong>
-                        <span className="mt-1 block truncate text-xs text-slate-500">{head}</span>
-                        <span className="mt-1 block text-xs text-slate-500">{applicants.length} applicants · {activeCount} active{deletedCount ? ` · ${deletedCount} deleted` : ""} · {cardInactive ? "Inactive Job Card" : "Active Job Card"}</span>
-                      </span>
-                      <span className="shrink-0 text-lg text-slate-400">{expanded ? "−" : "+"}</span>
-                    </button>
-                    {expanded && <div className="border-t border-slate-100">
-                      {applicants.sort((a,b) => Number(a.source_sequence) - Number(b.source_sequence)).map((applicant, index) => <div key={applicant.official_unique_id || index} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900">{applicant.applicant_name}</p>
-                          <p className="mt-0.5 break-all text-xs text-slate-500">Applicant No. {applicant.applicant_number} · {applicant.official_unique_id}</p>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${applicant.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{applicant.status === "active" ? "Active" : "Deleted"}</span>
-                      </div>)}
-                    </div>}
-                  </div>;
-                })}
+              <div className="mt-3">
+                <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Search Job Cards and applicants</span>
+                    <input value={cardSearch} onChange={event => { setCardSearch(event.target.value); setPage(1); }} placeholder="Search Job Card, household head or applicant…" className="min-h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+                  </label>
+                  <div className="flex shrink-0 gap-1 rounded-lg bg-white p-1">
+                    {(["active", "inactive", "all"] as const).map(status => <button key={status} type="button" onClick={() => { setCardStatus(status); setPage(1); }} aria-pressed={cardStatus === status} className={`rounded-md px-3 py-2 text-xs font-semibold capitalize transition ${cardStatus === status ? "bg-blue-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}>{status === "all" ? "All" : status}</button>)}
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <span>Showing {filteredCards.length ? ((page - 1) * pageSize + 1).toLocaleString() : 0}–{Math.min(page * pageSize, filteredCards.length).toLocaleString()} of {filteredCards.length.toLocaleString()} Job Cards</span>
+                  <label className="flex items-center gap-2">Rows per page
+                    <select value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }} className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700">
+                      <option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-2 space-y-2">
+                  {visibleCards.map(({ card, applicants, head, activeCount, deletedCount, inactive }) => {
+                    const expanded = expandedCards.includes(card);
+                    return <div key={card} className="overflow-hidden rounded-xl border border-slate-200">
+                      <button type="button" onClick={() => setExpandedCards(current => expanded ? current.filter(item => item !== card) : [...current, card])} aria-expanded={expanded} className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-slate-50">
+                        <span className="min-w-0">
+                          <span className="flex flex-wrap items-center gap-2"><strong className="break-all text-sm text-slate-950">{card}</strong><span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${inactive ? "bg-slate-100 text-slate-600" : "bg-emerald-50 text-emerald-700"}`}>{inactive ? "Inactive" : "Active"}</span></span>
+                          <span className="mt-0.5 block truncate text-xs text-slate-500">{head}</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">{applicants.length} applicants · {activeCount} active{deletedCount ? ` · ${deletedCount} deleted` : ""}</span>
+                        </span>
+                        <span className="shrink-0 text-lg text-slate-400">{expanded ? "−" : "+"}</span>
+                      </button>
+                      {expanded && <div className="border-t border-slate-100 bg-white">
+                        {[...applicants].sort((a,b) => Number(a.source_sequence) - Number(b.source_sequence)).map((applicant, index) => <div key={applicant.official_unique_id || index} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 last:border-b-0">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900">{applicant.applicant_name}</p>
+                            <p className="mt-0.5 break-all text-xs text-slate-500">Applicant No. {applicant.applicant_number} · {applicant.official_unique_id}</p>
+                          </div>
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${applicant.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{applicant.status === "active" ? "Active" : "Deleted"}</span>
+                        </div>)}
+                      </div>}
+                    </div>;
+                  })}
+                  {visibleCards.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 px-4 py-10 text-center"><p className="text-sm font-medium text-slate-700">No matching Job Cards</p><p className="mt-1 text-xs text-slate-500">Try another search or status filter.</p></div>}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-3">
+                  <p className="text-xs text-slate-500">Page {page} of {pageCount}</p>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+                    <button type="button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -54,7 +54,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setState({ status: "ready", tenant: { membership, council } });
     } catch (error) {
       const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
-      if (/auth session missing|invalid or expired session|jwt expired|unauthorized|\\b401\\b/.test(message)) {
+      if (/auth session missing|invalid or expired session|jwt expired|unauthorized|\b401\b/.test(message)) {
         const requestedPath = window.location.pathname + window.location.search;
         router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
         return;

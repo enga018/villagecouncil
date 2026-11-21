@@ -32,8 +32,8 @@ function SuperadminDashboard() {
       try {
         const supabase = createClient();
         const [councilResult, membershipResult] = await Promise.all([
-          supabase.from("village_councils").select("id,name,slug,is_active,created_at").order("name"),
-          supabase.from("memberships").select("village_council_id,is_active"),
+          supabase.from("council_tenants").select("id,name,slug,is_active,created_at").order("name"),
+          supabase.from("council_memberships").select("village_council_id,is_active"),
         ]);
         if (councilResult.error) throw councilResult.error;
         if (membershipResult.error) throw membershipResult.error;

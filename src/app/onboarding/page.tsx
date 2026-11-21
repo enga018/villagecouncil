@@ -57,13 +57,13 @@ export default function OnboardingPage() {
         if (!user) { router.replace("/login"); return; }
 
         const { data: membership, error: membershipError } = await supabase
-          .from("memberships").select("village_council_id")
+          .from("council_memberships").select("village_council_id")
           .eq("user_id", user.id).eq("is_active", true).maybeSingle();
         if (membershipError) throw membershipError;
         if (!membership) throw new Error("This account has no active Village Council assignment.");
 
         const { data: council, error: councilError } = await supabase
-          .from("village_councils")
+          .from("council_tenants")
           .select("id,name,onboarding_completed_at,state,district,block,village")
           .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
         if (councilError) throw councilError;
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
     try {
       const now = new Date().toISOString();
       const { error: updateError } = await createClient()
-        .from("village_councils")
+        .from("council_tenants")
         .update({
           state: state.name,
           district: district.name,

@@ -31,14 +31,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       }
 
       const { data: membership, error: membershipError } = await supabase
-        .from("memberships")
+        .from("council_memberships")
         .select("id,user_id,village_council_id,is_active,created_at")
         .eq("user_id", user.id).eq("is_active", true).maybeSingle();
       if (membershipError) throw membershipError;
       if (!membership) { setState({ status: "no_membership" }); return; }
 
       const { data: council, error: councilError } = await supabase
-        .from("village_councils")
+        .from("council_tenants")
         .select("id,name,slug,is_active,created_at,updated_at,state,district,block,village,onboarding_completed_at")
         .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
       if (councilError) throw councilError;

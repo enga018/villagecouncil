@@ -12,7 +12,7 @@ async function getDestination(userId: string) {
   if (admin) return "/superadmin";
 
   const { data: membership, error: membershipError } = await supabase
-    .from("memberships").select("id").eq("user_id", userId).eq("is_active", true).maybeSingle();
+    .from("council_memberships").select("id").eq("user_id", userId).eq("is_active", true).maybeSingle();
   if (membershipError) throw membershipError;
   if (!membership) throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
   return "/dashboard";

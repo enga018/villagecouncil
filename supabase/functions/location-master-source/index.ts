@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
   const { data: membership, error: membershipError } = await adminClient
-    .from("memberships").select("id")
+    .from("council_memberships").select("id")
     .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
   if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
   if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);

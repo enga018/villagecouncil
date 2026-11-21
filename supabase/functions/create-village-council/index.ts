@@ -65,24 +65,24 @@ Deno.serve(async (req: Request) => {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return response({ error: "Use a URL-safe slug with lowercase letters, numbers and hyphens." }, 400, origin);
   if (adminEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return response({ error: "Enter a valid administrator email address." }, 400, origin);
 
-  const { data: existingCouncil } = await adminClient.from("village_councils").select("id").eq("slug", slug).maybeSingle();
+  const { data: existingCouncil } = await adminClient.from("council_tenants").select("id").eq("slug", slug).maybeSingle();
   if (existingCouncil) return response({ error: "That Village Council slug is already in use." }, 409, origin);
 
   const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(adminEmail);
   if (inviteError || !inviteData.user) return response({ error: inviteError?.message ?? "Unable to invite the VC administrator." }, 400, origin);
 
   const { data: council, error: councilError } = await adminClient
-    .from("village_councils").insert({ name, slug, is_active: true })
+    .from("council_tenants").insert({ name, slug, is_active: true })
     .select("id,name,slug,is_active,created_at").single();
   if (councilError || !council) {
     await adminClient.auth.admin.deleteUser(inviteData.user.id);
     return response({ error: councilError?.message ?? "Unable to create the Village Council." }, 500, origin);
   }
 
-  const { error: membershipError } = await adminClient.from("memberships")
+  const { error: membershipError } = await adminClient.from("council_memberships")
     .insert({ user_id: inviteData.user.id, village_council_id: council.id, is_active: true });
   if (membershipError) {
-    await adminClient.from("village_councils").delete().eq("id", council.id);
+    await adminClient.from("council_tenants").delete().eq("id", council.id);
     await adminClient.auth.admin.deleteUser(inviteData.user.id);
     return response({ error: membershipError.message }, 500, origin);
   }

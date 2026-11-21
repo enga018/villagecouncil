@@ -156,7 +156,7 @@ function parseOfficialRegister(html: string, village: string) {
   const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m => m[1]);
   const parseRows = (table: string) => {
     const blocks = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)(?=<tr\b|$)/gi)];
-    return blocks.map(m => [...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x => cleanText(x[1].replace(/<br\s*\/?>/gi, " "))).filter(Boolean)).filter(row => row.length);
+    return blocks.map(m => [...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(x => cleanText(x[1].replace(/<br\s*\/?>/gi, " ")))).filter(row => row.length);
   };
   const parsedTables = tables.map((table,index) => {
     const first = table.search(/<tr\b/i);

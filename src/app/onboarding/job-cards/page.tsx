@@ -226,6 +226,23 @@ export default function JobCardOnboardingPage() {
               ["Total applicants", preview.stagedRows],
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
           </div>
+          <div className="mt-5 rounded-xl border border-slate-200 p-4">
+            <h3 className="text-sm font-semibold text-slate-950">Import reconciliation</h3>
+            <p className="mt-0.5 text-xs text-slate-500">Comparison with records already activated for this Village Council.</p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ["New Job Cards", preview.newJobCards],
+                ["Changed Job Cards", preview.changedJobCards],
+                ["New applicants", preview.newApplicants],
+                ["Changed applicants", preview.changedApplicants],
+                ["Unchanged applicants", preview.unchangedApplicants],
+                ["Existing applicants", preview.existingApplicants],
+                ["Missing Job Cards", preview.missingJobCards],
+                ["Missing applicants", preview.missingApplicants],
+              ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-slate-50 px-3 py-2.5"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{Number(value ?? 0).toLocaleString()}</p></div>)}
+            </div>
+            {(preview.missingJobCards > 0 || preview.missingApplicants > 0) && <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-900">Some previously active records are absent from this source snapshot. They will be flagged for manual review and will not be automatically deactivated.</p>}
+          </div>
           {preview.validation && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div><h3 className="text-sm font-semibold text-emerald-950">Import validation</h3><p className="mt-0.5 text-xs text-emerald-800">Checked {preview.validation.checkedRows.toLocaleString()} staged applicant records before review.</p></div>

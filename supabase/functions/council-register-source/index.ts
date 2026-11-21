@@ -205,7 +205,7 @@ function parseOfficialRegister(html: string, village: string) {
     const sourceKey=occurrence===1?identityBase:identityBase+"|DUP"+occurrence;
     const seq=(sequences.get(card)||0)+1;sequences.set(card,seq);
     const val=(i:number)=>i>=0?String(row[i]??"").trim():"";
-    rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,head_of_household:house,applicant_number:String(seq),applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status,source_row_number:n+1});
+    rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,jc_number:card.split("/").pop()||card,head_of_household:house,applicant_number:String(seq),official_unique_id:card+"/"+seq,applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status,source_row_number:n+1});
     if(status==="deleted")deletedCount++;
   }
   if(review.length)throw new Error("Import preview paused for "+review.length+" uncertain row(s). First issue: "+review[0]);

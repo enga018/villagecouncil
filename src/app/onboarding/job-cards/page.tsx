@@ -91,9 +91,34 @@ export default function JobCardOnboardingPage() {
           router.replace("/onboarding");
           return;
         }
+        const { data: completedBatch, error: completedBatchError } = await supabase
+          .from("council_register_import_batches")
+          .select("id,total_rows,inserted_job_cards,updated_job_cards,inserted_applicants,updated_applicants,missing_records,completed_at")
+          .eq("village_council_id", membership.village_council_id)
+          .eq("source", "official_registration_register")
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (completedBatchError) throw completedBatchError;
         if (active) {
           setCouncilName(council.name);
           setLocation([council.state, council.district, council.block, council.village]);
+          if (completedBatch) {
+            setActivationResult({
+              alreadyActivated: true,
+              activated_rows: Number(completedBatch.inserted_applicants || 0) + Number(completedBatch.updated_applicants || 0),
+              job_cards_inserted: completedBatch.inserted_job_cards,
+              job_cards_updated: completedBatch.updated_job_cards,
+              applicants_inserted: completedBatch.inserted_applicants,
+              applicants_updated: completedBatch.updated_applicants,
+              missing_applicants_for_manual_review: completedBatch.missing_records,
+              missing_job_cards_for_manual_review: 0,
+              batch_id: completedBatch.id,
+              total_rows: completedBatch.total_rows,
+              completed_at: completedBatch.completed_at,
+            });
+          }
         }
       } catch (err) {
         if (active && isAuthenticationFailure(err)) { returnToLogin(); return; }
@@ -226,9 +251,13 @@ export default function JobCardOnboardingPage() {
           <div className="mt-6 border-t border-slate-100 pt-5">
             <h2 className="text-base font-semibold text-slate-950">Official applicant register</h2>
             <p className="mt-1 text-sm leading-6 text-slate-600">We will read the Government register, calculate Applicant Numbers and Unique IDs in source order, and prepare a review-only import batch. All applicants are retained, including deleted records. Applicant Numbers and Unique IDs are calculated in the original Government source order. Job Cards with no active applicants remain in the register as inactive.</p>
-            <button type="button" onClick={() => void preparePreview()} disabled={fetching} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
-              {fetching ? "Fetching and preparing preview…" : preview ? "Fetch register again" : "Fetch official register"}
-            </button>
+            {activationResult ? (
+              <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">Initial Government register already activated. Refetching is disabled during onboarding; later updates belong in the operational Job Cards module.</p>
+            ) : (
+              <button type="button" onClick={() => void preparePreview()} disabled={fetching} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+                {fetching ? "Fetching and preparing preview…" : preview ? "Fetch register again" : "Fetch official register"}
+              </button>
+            )}
             {fetching && <p className="mt-3 text-xs text-slate-500">This may take a little while while the Government site is contacted and the register is parsed.</p>}
             {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
           </div>

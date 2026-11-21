@@ -205,14 +205,14 @@ function parseOfficialRegister(html: string, village: string) {
     const sourceKey=occurrence===1?identityBase:identityBase+"|DUP"+occurrence;
     const seq=(sequences.get(card)||0)+1;sequences.set(card,seq);
     const val=(i:number)=>i>=0?String(row[i]??"").trim():"";
-    // Match V1: consume every source occurrence for numbering first, then
-    // discard deleted applicants before creating the import payload.
-    if(status==="deleted") { deletedCount++; continue; }
-    rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,jc_number:card.split("/").pop()||card,head_of_household:house,applicant_number:String(seq),official_unique_id:card+"/"+seq,applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status:"active",source_row_number:n+1});
+    // Preserve every source applicant. Numbering is calculated across the
+    // complete Government source order, including deleted applicants.
+    if(status==="deleted") deletedCount++;
+    rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,jc_number:card.split("/").pop()||card,head_of_household:house,applicant_number:String(seq),official_unique_id:card+"/"+seq,applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status,source_row_number:n+1});
   }
   if(review.length)throw new Error("Import preview paused for "+review.length+" uncertain row(s). First issue: "+review[0]);
-  const active=rows;
-  if(!active.length||active.length>100000)throw new Error("Parsed applicant count is outside permitted range.");
+  const active=rows.filter(row=>row.status==="active");
+  if(!rows.length||rows.length>100000)throw new Error("Parsed applicant count is outside permitted range.");
   return {rows,active,deletedCount,tableIndex:selected.index,sourceRowCount:selected.rows.length,columnCount:header.length};
 }
 
@@ -457,24 +457,29 @@ Deno.serve(async (req: Request) => {
           }
           const cardMap = new Map(existingCards.map(row => [row.job_card_number, row]));
           const applicantMap = new Map(existingApplicants.map(row => [row.source_record_key, row]));
-          const activeKeys = new Set(parsed.active.map(row => String(row.source_record_key)));
-          const activeCards = new Map<string,string>();
-          for (const row of parsed.active) activeCards.set(String(row.job_card_number), String(row.head_of_household));
+          const sourceKeys = new Set(parsed.rows.map(row => String(row.source_record_key)));
+          const sourceCards = new Map<string,string>();
+          const activeCardNumbers = new Set<string>();
+          for (const row of parsed.rows) {
+            sourceCards.set(String(row.job_card_number), String(row.head_of_household));
+            if (row.status === "active") activeCardNumbers.add(String(row.job_card_number));
+          }
           let newCards = 0, changedCards = 0, newApplicants = 0, changedApplicants = 0, unchangedApplicants = 0;
-          for (const [number, household] of activeCards) {
+          for (const [number, household] of sourceCards) {
             const old = cardMap.get(number);
             if (!old) newCards++;
             else if (old.head_of_household !== household) changedCards++;
           }
           const compareFields = ["applicant_name","caste","father_husband_name","gender","age","application_received_date","job_card_issue_date","remarks","is_disabled","is_minority","job_card_verified_date"];
-          for (const row of parsed.active) {
+          for (const row of parsed.rows) {
             const old = applicantMap.get(String(row.source_record_key));
             if (!old) newApplicants++;
             else if (compareFields.some(field => String(old[field] ?? "") !== String(row[field] ?? ""))) changedApplicants++;
             else unchangedApplicants++;
           }
-          const missingApplicants = existingApplicants.filter(row => row.status === "active" && !activeKeys.has(row.source_record_key)).length;
-          const missingCards = existingCards.filter(row => row.status === "active" && !activeCards.has(row.job_card_number)).length;
+          const missingApplicants = existingApplicants.filter(row => row.status === "active" && !sourceKeys.has(row.source_record_key)).length;
+          const missingCards = existingCards.filter(row => row.status === "active" && !sourceCards.has(row.job_card_number)).length;
+          const inactiveJobCards = [...sourceCards.keys()].filter(number => !activeCardNumbers.has(number)).length;
           const { data: batch, error: batchError } = await adminClient.from("council_register_import_batches").insert({
             village_council_id: tenantId,
             source: "official_registration_register",
@@ -510,11 +515,12 @@ Deno.serve(async (req: Request) => {
             batchId: batch.id, status: "pending_review",
             sourceTable: parsed.tableIndex + 1, sourceRows: parsed.sourceRowCount,
             stagedRows: parsed.rows.length, activeApplicants: parsed.active.length,
+            deletedApplicants: parsed.deletedCount, inactiveJobCards,
             sourceDeletedApplicants: parsed.deletedCount,
             existingJobCards: existingCards.length, newJobCards: newCards, changedJobCards: changedCards,
             existingApplicants: existingApplicants.length, newApplicants, changedApplicants,
             unchangedApplicants, missingApplicants, missingJobCards: missingCards,
-            sample: parsed.active.slice(0, 8).map(row => ({
+            sample: parsed.rows.slice(0, 8).map(row => ({
               jobCardNumber: row.job_card_number, headOfHousehold: row.head_of_household,
               applicantNumber: row.applicant_number, applicantName: row.applicant_name,
             })),
@@ -541,7 +547,7 @@ Deno.serve(async (req: Request) => {
       dataChanged: false,
       dataChanged: false,
       note: action === "prepare-preview"
-        ? "Applicant rows were parsed and staged for review. Canonical Job Card and applicant records were not activated or modified."
+        ? "All source applicants, including deleted applicants, were parsed and staged for review. Job Cards with no active applicants are retained as inactive. Canonical records were not activated or modified."
         : "Read-only discovery and report structure inspection. Applicant records were not returned or saved.",
     }, 200, origin);
   } catch (error) {

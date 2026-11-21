@@ -243,7 +243,10 @@ export default function OnboardingPage() {
         }
         throw new Error(message);
       }
-      if (!data?.success || !data.reportInspection?.preview) throw new Error(data?.error || "The official register preview was not prepared.");
+      if (!data?.success || !data.reportInspection?.preview) {
+        const reportError = data?.reportInspection && "error" in data.reportInspection ? data.reportInspection.error : null;
+        throw new Error(reportError || data?.error || "The official register preview was not prepared.");
+      }
       setRegisterPreview(data.reportInspection.preview);
     } catch (err) {
       setRegisterPreviewError(err instanceof Error ? err.message : "Unable to prepare the MIS import preview.");

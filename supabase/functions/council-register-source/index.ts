@@ -44,6 +44,8 @@ function extractEntries(html: string, baseUrl: string, expectedPath: RegExp) {
     let resolved: URL;
     try { resolved = new URL(rawHref, baseUrl); } catch { continue; }
     if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(resolved.hostname)) continue;
+    // Government navigation pages may emit legacy HTTP links; use HTTPS for every request.
+    resolved.protocol = "https:";
     if (!resolved.searchParams.has("payload") || !expectedPath.test(resolved.pathname)) continue;
     if (!entries.some(item => item.name.toLowerCase() === name.toLowerCase())) entries.push({ name, url: resolved.href });
   }
@@ -55,6 +57,8 @@ function inspectHtml(html: string, baseUrl: string) {
     try {
       const url = new URL(decodeHtml(raw), baseUrl);
       if (!["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(url.hostname)) return;
+      // Report and frame references can also be emitted as HTTP; normalize before fetching.
+      url.protocol = "https:";
       const path = url.pathname + url.search;
       if (!candidates.some(x => x.url === url.href)) candidates.push({ kind, label: cleanText(label).slice(0, 120), path, url: url.href });
     } catch { /* Ignore invalid references. */ }

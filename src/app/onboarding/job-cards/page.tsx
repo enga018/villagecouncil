@@ -51,6 +51,8 @@ export default function JobCardOnboardingPage() {
   const [preview, setPreview] = useState<RegisterPreview | null>(null);
   const [stagedApplicants, setStagedApplicants] = useState<StagedApplicant[]>([]);
   const [loadingRegister, setLoadingRegister] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [activationResult, setActivationResult] = useState<Record<string, unknown> | null>(null);
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
   const [cardSearch, setCardSearch] = useState("");
   const [cardStatus, setCardStatus] = useState<"active" | "inactive" | "all">("active");
@@ -103,6 +105,27 @@ export default function JobCardOnboardingPage() {
     void loadSetup();
     return () => { active = false; };
   }, [router]);
+
+  async function activateRegister() {
+    if (!preview?.batchId || !preview.validation?.passed || stagedApplicants.length !== preview.stagedRows) return;
+    const approved = window.confirm(
+      `Activate this reviewed Government register for ${councilName}? This will write ${stagedApplicants.length.toLocaleString()} applicants and their Job Cards to the operational register. Missing existing records will be kept and flagged for manual review.`
+    );
+    if (!approved) return;
+    setActivating(true);
+    setError("");
+    try {
+      const { data, error: activationError } = await createClient()
+        .rpc("activate_council_register_import", { p_batch_id: preview.batchId });
+      if (activationError) throw activationError;
+      if (!data?.success) throw new Error("The activation did not return a successful result.");
+      setActivationResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to activate the reviewed register.");
+    } finally {
+      setActivating(false);
+    }
+  }
 
   async function preparePreview() {
     setFetching(true);
@@ -320,8 +343,26 @@ export default function JobCardOnboardingPage() {
               </div>
             )}
           </div>
-          <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No canonical Job Card or applicant records have been changed. Import activation will be a separate step after review.</p>
-          <p className="mt-3 text-xs text-slate-500">Review the complete Job Card register above. No records are activated at this stage.</p>
+          {activationResult ? <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <h3 className="text-sm font-semibold text-emerald-950">Register activated successfully</h3>
+            <p className="mt-1 text-sm text-emerald-900">{Number(activationResult.activated_rows || 0).toLocaleString()} applicants activated.</p>
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                ["New Job Cards", activationResult.job_cards_inserted],
+                ["Updated Job Cards", activationResult.job_cards_updated],
+                ["New applicants", activationResult.applicants_inserted],
+                ["Updated applicants", activationResult.applicants_updated],
+              ].map(([label, value]) => <div key={String(label)} className="rounded-lg bg-white/70 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-1 text-lg font-semibold text-emerald-950">{Number(value || 0).toLocaleString()}</p></div>)}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-emerald-900">Missing existing applicants: {Number(activationResult.missing_applicants_for_manual_review || 0).toLocaleString()} · Missing Job Cards: {Number(activationResult.missing_job_cards_for_manual_review || 0).toLocaleString()}. These records were not deactivated.</p>
+          </div> : <>
+            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No canonical Job Card or applicant records have been changed. Import activation remains a separate, explicit step.</p>
+            <button type="button" onClick={() => void activateRegister()} disabled={activating || fetching || !preview.validation?.passed || stagedApplicants.length !== preview.stagedRows} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+              {activating ? "Activating register…" : "Activate reviewed register"}
+            </button>
+            <p className="mt-2 text-xs text-slate-500">Activation is atomic. If any record fails validation or conflicts with an existing identity, the entire transaction is rolled back.</p>
+          </>}
+          <p className="mt-3 text-xs text-slate-500">{activationResult ? "The Government register is now available in the operational Job Card tables." : "Review the complete Job Card register above before activation."}</p>
         </section>}
       </>}
 

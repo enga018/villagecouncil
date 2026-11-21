@@ -287,64 +287,73 @@ Deno.serve(async (req: Request) => {
       "Cache-Control": "no-cache",
       "Upgrade-Insecure-Requests": "1",
     };
-    const cookieJar = new Map<string, string>();
-    const absorbCookies = (response: Response) => {
+    // Keep session cookies isolated by official host. The Government site is
+    // intermittently unavailable on one hostname while the equivalent hostname
+    // serves the same jurisdiction path and encrypted payload.
+    const cookieJars = new Map<string, Map<string, string>>();
+    const jarFor = (hostname: string) => {
+      let jar = cookieJars.get(hostname);
+      if (!jar) { jar = new Map<string, string>(); cookieJars.set(hostname, jar); }
+      return jar;
+    };
+    const absorbCookies = (response: Response, requestHost: string) => {
+      const responseHost = (() => { try { return new URL(response.url).hostname; } catch { return requestHost; } })();
+      const jar = jarFor(responseHost);
       const values = typeof response.headers.getSetCookie === "function" ? response.headers.getSetCookie() : [response.headers.get("set-cookie") || ""];
       for (const value of values) {
         const pair = value.split(";", 1)[0].trim();
         const separator = pair.indexOf("=");
-        if (separator > 0) cookieJar.set(pair.slice(0, separator), pair.slice(separator + 1));
+        if (separator > 0) jar.set(pair.slice(0, separator), pair.slice(separator + 1));
       }
     };
-    const cookieHeader = () => [...cookieJar.entries()].map(([name, value]) => name + "=" + value).join("; ");
+    const cookieHeader = (hostname: string) => [...jarFor(hostname).entries()].map(([name, value]) => name + "=" + value).join("; ");
     const requestPage = async (pageUrl: string, referer: string) => {
       const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504]);
-      const delays = [800, 1800];
+      const original = new URL(pageUrl);
+      const hosts = ["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"];
+      const candidates = [original.href];
+      if (hosts.includes(original.hostname)) {
+        const alternate = new URL(original.href);
+        alternate.hostname = original.hostname === hosts[0] ? hosts[1] : hosts[0];
+        candidates.push(alternate.href);
+      }
       let lastError = "Unknown Government server error.";
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          const response = await fetch(pageUrl, {
-            method: "GET", redirect: "follow",
-            headers: {
-              ...baseHeaders,
-              ...(cookieHeader() ? { Cookie: cookieHeader() } : {}),
-              Referer: referer,
-            },
-            signal: AbortSignal.timeout(30000),
-          });
-          absorbCookies(response);
-          if (!response.ok) {
-            lastError = "VBGRAMG returned HTTP " + response.status + " at " + new URL(pageUrl).pathname + ".";
-            if (attempt < 3 && retryableStatuses.has(response.status)) {
+      for (const candidate of candidates) {
+        const target = new URL(candidate);
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const cookies = cookieHeader(target.hostname);
+            const response = await fetch(candidate, {
+              method: "GET", redirect: "follow",
+              headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: referer },
+              signal: AbortSignal.timeout(15000),
+            });
+            absorbCookies(response, target.hostname);
+            if (!response.ok) {
+              lastError = "VBGRAMG returned HTTP " + response.status + " at " + target.pathname + " on " + target.hostname + ".";
               await response.body?.cancel().catch(() => {});
-              const retryAfter = Number(response.headers.get("retry-after") || 0);
-              const delay = retryAfter > 0 ? Math.min(retryAfter * 1000, 5000) : delays[attempt - 1];
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
+              if (retryableStatuses.has(response.status) && attempt === 1) continue;
+              if (retryableStatuses.has(response.status)) break;
+              throw new Error(lastError);
             }
-            throw new Error(lastError);
+            const contentType = response.headers.get("content-type") || "";
+            if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) {
+              throw new Error("VBGRAMG returned an unexpected content type at " + target.pathname + ".");
+            }
+            const html = await response.text();
+            if (!html.trim() || !/<html[\s>]/i.test(html)) {
+              throw new Error("VBGRAMG returned invalid HTML at " + target.pathname + ".");
+            }
+            return { html, finalUrl: response.url || candidate, status: response.status, contentType };
+          } catch (error) {
+            lastError = error instanceof Error ? error.message : String(error);
+            const retryableTransportError = /timed out|timeout|network|connection|fetch failed|gzip|decompress|invalid header|unexpected end|content decoding/i.test(lastError);
+            if (!retryableTransportError || attempt === 2) break;
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
-          const contentType = response.headers.get("content-type") || "";
-          if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) {
-            throw new Error("VBGRAMG returned an unexpected content type at " + new URL(pageUrl).pathname + ".");
-          }
-          const html = await response.text();
-          if (!html.trim() || !/<html[\s>]/i.test(html)) {
-            throw new Error("VBGRAMG returned invalid HTML at " + new URL(pageUrl).pathname + ".");
-          }
-          return { html, finalUrl: response.url || pageUrl, status: response.status, contentType };
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
-          const retryableTransportError = /timed out|timeout|network|connection|fetch failed|gzip|decompress|invalid header|unexpected end|content decoding/i.test(lastError);
-          if (attempt >= 3 || !retryableTransportError) {
-            throw new Error(lastError + (attempt > 1 ? " (after " + attempt + " attempts)" : ""));
-          }
-          // Retry malformed/partial compressed responses just like transient network failures.
-          await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
-          await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
         }
       }
-      throw new Error(lastError + " (after 3 attempts)");
+      throw new Error(lastError + " (primary and alternate Government hosts checked)");
     };
 
     const navigation: Record<string, unknown>[] = [];

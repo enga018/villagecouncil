@@ -18,6 +18,12 @@ type RegisterSourceResult = {
     title?: string; htmlBytes?: number; tableCount?: number;
     hasRegisterTitle?: boolean; hasApplicantFields?: boolean;
     tableSummaries?: { index: number; rowCount: number; columnCounts: number[]; relevantColumnLabels: string[] }[];
+    parserCompatibility?: {
+      globalTrCount: number; globalTdCount: number; globalThCount: number;
+      tableStats: { index: number; leadingCellCount: number; parsedRowCount: number; effectiveRowCount: number; maxColumns: number; rowsWith14PlusCells: number; rowsContainingJobCardPattern: number; headerCandidate: { rowIndex: number; headerSpan: number; headerColumnCount: number; headings: string[] } | null }[];
+      headerCandidate: { tableIndex: number; rowIndex: number; headerSpan: number; headerColumnCount: number; headings: string[] } | null;
+      likelyApplicantTableIndex: number | null;
+    };
   } | null;
   error?: string;
 };
@@ -286,6 +292,13 @@ export default function OnboardingPage() {
                     <p className="mt-1">HTTP: {registerDiscovery.reportInspection.status ?? "—"} · Content type: {registerDiscovery.reportInspection.contentType || "unknown"}</p>
                     <p>Page title: {registerDiscovery.reportInspection.title || "Not provided"} · HTML size: {registerDiscovery.reportInspection.htmlBytes ?? "—"} bytes</p>
                     <p>Tables: {registerDiscovery.reportInspection.tableCount ?? 0} · Register title detected: {registerDiscovery.reportInspection.hasRegisterTitle ? "Yes" : "No"} · Applicant columns detected: {registerDiscovery.reportInspection.hasApplicantFields ? "Yes" : "No"}</p>
+                    {registerDiscovery.reportInspection.parserCompatibility && <div className="mt-2 border-t border-slate-200 pt-2">
+                      <p className="font-semibold">Legacy parser compatibility</p>
+                      <p>HTML rows: {registerDiscovery.reportInspection.parserCompatibility.globalTrCount} · TD cells: {registerDiscovery.reportInspection.parserCompatibility.globalTdCount} · TH cells: {registerDiscovery.reportInspection.parserCompatibility.globalThCount}</p>
+                      <p>Likely applicant table: {registerDiscovery.reportInspection.parserCompatibility.likelyApplicantTableIndex === null ? "Not identified" : registerDiscovery.reportInspection.parserCompatibility.likelyApplicantTableIndex + 1}</p>
+                      {registerDiscovery.reportInspection.parserCompatibility.headerCandidate && <p>Detected headings: {registerDiscovery.reportInspection.parserCompatibility.headerCandidate.headings.join(" · ")}</p>}
+                      {registerDiscovery.reportInspection.parserCompatibility.tableStats.map(table => <p key={table.index}>Table {table.index + 1}: {table.effectiveRowCount} effective rows · {table.maxColumns} max columns · {table.rowsWith14PlusCells} wide rows · {table.rowsContainingJobCardPattern} Job Card rows · leading headings {table.leadingCellCount}</p>)}
+                    </div>}
                     {registerDiscovery.reportInspection.tableSummaries?.map(table => <div key={table.index} className="mt-2">
                       <p className="font-medium">Table {table.index + 1}: {table.rowCount} rows · Column counts: {table.columnCounts.join(", ") || "—"}</p>
                       {table.relevantColumnLabels.length > 0 && <p className="mt-1 break-words">Relevant headings: {table.relevantColumnLabels.join(" · ")}</p>}

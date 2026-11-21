@@ -26,6 +26,7 @@ export default function OnboardingPage() {
   const [loadingPanchayats, setLoadingPanchayats] = useState(false);
   const [saving, setSaving] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
+  const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
   const [error, setError] = useState("");
 
   async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
@@ -71,11 +72,39 @@ export default function OnboardingPage() {
         if (active) {
           setCouncilId(council.id);
           setCouncilName(council.name);
-          if (council.state && council.district && council.block && council.village) setLocationSaved(true);
+          if (council.state && council.district && council.block && council.village) {
+            setLocationSaved(true);
+            setSavedLocation({ state: council.state, district: council.district, block: council.block, village: council.village });
+          }
         }
 
         const entries = await fetchLocations("states");
         if (active) setStates(entries);
+        if (active && council.state && council.district && council.block && council.village) {
+          const selectedState = entries.find(entry => entry.name === council.state);
+          if (selectedState) {
+            setStateUrl(selectedState.url);
+            const districtEntries = await fetchLocations("districts", [selectedState.name]);
+            if (!active) return;
+            setDistricts(districtEntries);
+            const selectedDistrict = districtEntries.find(entry => entry.name === council.district);
+            if (selectedDistrict) {
+              setDistrictUrl(selectedDistrict.url);
+              const blockEntries = await fetchLocations("blocks", [selectedState.name, selectedDistrict.name]);
+              if (!active) return;
+              setBlocks(blockEntries);
+              const selectedBlock = blockEntries.find(entry => entry.name === council.block);
+              if (selectedBlock) {
+                setBlockUrl(selectedBlock.url);
+                const panchayatEntries = await fetchLocations("panchayats", [selectedState.name, selectedDistrict.name, selectedBlock.name]);
+                if (!active) return;
+                setPanchayats(panchayatEntries);
+                const selectedPanchayat = panchayatEntries.find(entry => entry.name === council.village);
+                if (selectedPanchayat) setPanchayatUrl(selectedPanchayat.url);
+              }
+            }
+          }
+        }
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Unable to load your Village Council setup.");
       } finally {
@@ -144,6 +173,7 @@ export default function OnboardingPage() {
         .eq("id", councilId);
       if (updateError) throw updateError;
       setLocationSaved(true);
+      setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save the Village Council location.");
     } finally { setSaving(false); }
@@ -157,7 +187,13 @@ export default function OnboardingPage() {
     <div className="w-full max-w-2xl">
       <div className="mb-8">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700 text-sm font-bold text-white">VC</div>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-blue-700">First-time setup · Step 1 of 3</p>
+        <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-blue-700">First-time setup · 4 steps</p>
+        <ol className="mt-4 grid grid-cols-4 gap-2 text-center">
+          {["Location", "Job Cards", "FTOs", "Review"].map((step, index) => <li key={step} className="min-w-0">
+            <div className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${index === 0 && locationSaved ? "bg-emerald-600 text-white" : index === 0 ? "bg-blue-700 text-white" : "bg-slate-200 text-slate-500"}`}>{index === 0 && locationSaved ? "✓" : index + 1}</div>
+            <p className={`mt-1 truncate text-[11px] font-medium ${index === 0 && locationSaved ? "text-emerald-700" : index === 0 ? "text-blue-700" : "text-slate-400"}`}>{step}</p>
+          </li>)}
+        </ol>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Set up your Village Council</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">Welcome{councilName ? ` to ${councilName}` : ""}. Select your official administrative location. You can update these details later in Settings.</p>
       </div>
@@ -169,10 +205,10 @@ export default function OnboardingPage() {
           {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Your workspace remains locked until the initial Job Card MIS and FTO imports are completed.</p><p className="mt-3 text-xs text-emerald-800">Next: Import Job Cards, then import and verify FTO records.</p></div>}
+        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Step 1 is complete. Your location is saved and will be restored when you return.</p>{savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}<p className="mt-3 text-xs text-emerald-800">Next: Step 2 — Import Job Cards (MIS). Your workspace remains locked until all steps are completed.</p></div>}
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
-          <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : locationSaved ? "Update location" : "Save location"}</button>
+          <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : locationSaved ? "Update saved location" : "Save & continue"}</button>
         </div>
       </form>
     </div>

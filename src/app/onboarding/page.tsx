@@ -25,6 +25,7 @@ export default function OnboardingPage() {
   const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [loadingPanchayats, setLoadingPanchayats] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [locationSaved, setLocationSaved] = useState(false);
   const [error, setError] = useState("");
 
   async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
@@ -62,12 +63,16 @@ export default function OnboardingPage() {
 
         const { data: council, error: councilError } = await supabase
           .from("village_councils")
-          .select("id,name,onboarding_completed_at")
+          .select("id,name,onboarding_completed_at,state,district,block,village")
           .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
         if (councilError) throw councilError;
         if (!council) throw new Error("The assigned Village Council is unavailable.");
         if (council.onboarding_completed_at) { router.replace("/dashboard"); return; }
-        if (active) { setCouncilId(council.id); setCouncilName(council.name); }
+        if (active) {
+          setCouncilId(council.id);
+          setCouncilName(council.name);
+          if (council.state && council.district && council.block && council.village) setLocationSaved(true);
+        }
 
         const entries = await fetchLocations("states");
         if (active) setStates(entries);
@@ -82,6 +87,7 @@ export default function OnboardingPage() {
   }, [router]);
 
   async function selectState(url: string, name: string) {
+    setLocationSaved(false);
     setStateUrl(url); setDistrictUrl(""); setBlockUrl(""); setPanchayatUrl("");
     setDistricts([]); setBlocks([]); setPanchayats([]); setError("");
     if (!url) return;
@@ -92,6 +98,7 @@ export default function OnboardingPage() {
   }
 
   async function selectDistrict(url: string, name: string) {
+    setLocationSaved(false);
     setDistrictUrl(url); setBlockUrl(""); setPanchayatUrl("");
     setBlocks([]); setPanchayats([]); setError("");
     if (!url) return;
@@ -102,6 +109,7 @@ export default function OnboardingPage() {
   }
 
   async function selectBlock(url: string, name: string) {
+    setLocationSaved(false);
     setBlockUrl(url); setPanchayatUrl(""); setPanchayats([]); setError("");
     if (!url) return;
     setLoadingPanchayats(true);
@@ -131,12 +139,11 @@ export default function OnboardingPage() {
           district: district.name,
           block: block.name,
           village: panchayat.name,
-          onboarding_completed_at: now,
           updated_at: now,
         })
         .eq("id", councilId);
       if (updateError) throw updateError;
-      router.replace("/dashboard");
+      setLocationSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save the Village Council location.");
     } finally { setSaving(false); }
@@ -150,7 +157,7 @@ export default function OnboardingPage() {
     <div className="w-full max-w-2xl">
       <div className="mb-8">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700 text-sm font-bold text-white">VC</div>
-        <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-blue-700">First-time setup</p>
+        <p className="mt-6 text-xs font-semibold uppercase tracking-widest text-blue-700">First-time setup · Step 1 of 3</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Set up your Village Council</h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">Welcome{councilName ? ` to ${councilName}` : ""}. Select your official administrative location. You can update these details later in Settings.</p>
       </div>
@@ -159,12 +166,13 @@ export default function OnboardingPage() {
           <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
           {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
           {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-          {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => setPanchayatUrl(event.target.value)} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+          {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
+        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Your workspace remains locked until the initial Job Card MIS and FTO imports are completed.</p><p className="mt-3 text-xs text-emerald-800">Next: Import Job Cards, then import and verify FTO records.</p></div>}
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-400">All four official location levels are required to activate your workspace.</p>
-          <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving setup…" : "Complete setup"}</button>
+          <p className="text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
+          <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : locationSaved ? "Update location" : "Save location"}</button>
         </div>
       </form>
     </div>

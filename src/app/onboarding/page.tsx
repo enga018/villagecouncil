@@ -237,6 +237,7 @@ export default function OnboardingPage() {
       setLocationSaved(true);
       setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
     } catch (err) {
+      if (isAuthenticationFailure(err)) { returnToLogin(); return; }
       setError(err instanceof Error ? err.message : "Unable to save the Village Council location.");
     } finally { setSaving(false); }
   }

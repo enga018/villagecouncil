@@ -25,6 +25,8 @@ type RegisterPreview = {
   activation: string;
 };
 
+type StagedApplicant = { job_card_number: string; jc_number: string; head_of_household: string; applicant_number: string; official_unique_id: string; applicant_name: string; status: string; source_sequence: number };
+
 type RegisterSourceResult = {
   success?: boolean;
   reportInspection?: { preview?: RegisterPreview; error?: string };
@@ -43,6 +45,9 @@ export default function JobCardOnboardingPage() {
   const [location, setLocation] = useState<string[]>([]);
   const [fetching, setFetching] = useState(false);
   const [preview, setPreview] = useState<RegisterPreview | null>(null);
+  const [stagedApplicants, setStagedApplicants] = useState<StagedApplicant[]>([]);
+  const [loadingRegister, setLoadingRegister] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [pageError, setPageError] = useState("");
 
@@ -95,6 +100,8 @@ export default function JobCardOnboardingPage() {
     setFetching(true);
     setError("");
     setPreview(null);
+    setStagedApplicants([]);
+    setExpandedCards([]);
     try {
       const { data, error: invokeError } = await createClient().functions.invoke<RegisterSourceResult>(
         "council-register-source",
@@ -118,10 +125,25 @@ export default function JobCardOnboardingPage() {
       if (!data?.success || !data.reportInspection?.preview) {
         throw new Error(data?.reportInspection?.error || data?.error || "The official register preview was not prepared.");
       }
-      setPreview(data.reportInspection.preview);
+      const prepared = data.reportInspection.preview;
+      setPreview(prepared);
+      setLoadingRegister(true);
+      const supabase = createClient();
+      const allRows: StagedApplicant[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error: rowsError } = await supabase
+          .from("council_register_import_rows").select("row_data")
+          .eq("import_batch_id", prepared.batchId)
+          .order("row_number", { ascending: true }).range(offset, offset + 999);
+        if (rowsError) throw rowsError;
+        allRows.push(...(rows || []).map((item: any) => item.row_data as StagedApplicant));
+        if (!rows || rows.length < 1000) break;
+      }
+      setStagedApplicants(allRows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to prepare the official register preview.");
     } finally {
+      setLoadingRegister(false);
       setFetching(false);
     }
   }
@@ -174,25 +196,54 @@ export default function JobCardOnboardingPage() {
               ["Staged rows", preview.stagedRows],
               ["Active applicants", preview.activeApplicants],
               ["Deleted source rows", preview.sourceDeletedApplicants],
-              ["New Job Cards", preview.newJobCards],
-              ["New applicants", preview.newApplicants],
-              ["Changed applicants", preview.changedApplicants],
-              ["Unchanged applicants", preview.unchangedApplicants],
-              ["Missing existing applicants", preview.missingApplicants],
-              ["Missing existing Job Cards", preview.missingJobCards],
+              ["Job Cards", new Set(stagedApplicants.map(item => item.job_card_number)).size],
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
           </div>
           <div className="mt-5">
-            <h3 className="text-sm font-semibold text-slate-900">Sample applicant records</h3>
-            <div className="mt-2 overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[520px] text-left text-xs">
-                <thead className="bg-slate-50 text-slate-500"><tr><th className="px-3 py-2">Job Card</th><th className="px-3 py-2">Applicant No.</th><th className="px-3 py-2">Applicant</th><th className="px-3 py-2">Head of Household</th></tr></thead>
-                <tbody>{preview.sample.map((item, index) => <tr key={index} className="border-t border-slate-100"><td className="px-3 py-2 font-semibold text-slate-900">{item.jobCardNumber}</td><td className="px-3 py-2">{item.applicantNumber}</td><td className="px-3 py-2">{item.applicantName}</td><td className="px-3 py-2">{item.headOfHousehold}</td></tr>)}</tbody>
-              </table>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Complete Job Card register</h3>
+                <p className="mt-1 text-xs text-slate-500">All Job Cards and source applicants, including deleted applicants, are available for review.</p>
+              </div>
+              <span className="text-xs font-semibold text-slate-600">{new Set(stagedApplicants.map(item => item.job_card_number)).size.toLocaleString()} Job Cards · {stagedApplicants.length.toLocaleString()} applicants</span>
             </div>
+            {loadingRegister ? <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Loading the complete staged register…</p> : (
+              <div className="mt-3 space-y-2">
+                {Array.from(stagedApplicants.reduce((groups, applicant) => {
+                  const key = applicant.job_card_number;
+                  if (!groups.has(key)) groups.set(key, []);
+                  groups.get(key)!.push(applicant);
+                  return groups;
+                }, new Map<string, StagedApplicant[]>()).entries()).map(([card, applicants]) => {
+                  const expanded = expandedCards.includes(card);
+                  const head = applicants.find(item => item.head_of_household)?.head_of_household || "Household head unavailable";
+                  const activeCount = applicants.filter(item => item.status === "active").length;
+                  const deletedCount = applicants.length - activeCount;
+                  return <div key={card} className="overflow-hidden rounded-xl border border-slate-200">
+                    <button type="button" onClick={() => setExpandedCards(current => expanded ? current.filter(item => item !== card) : [...current, card])} aria-expanded={expanded} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-slate-50">
+                      <span className="min-w-0">
+                        <strong className="block break-all text-sm text-slate-950">{card}</strong>
+                        <span className="mt-1 block truncate text-xs text-slate-500">{head}</span>
+                        <span className="mt-1 block text-xs text-slate-500">{applicants.length} applicants · {activeCount} active{deletedCount ? ` · ${deletedCount} deleted` : ""}</span>
+                      </span>
+                      <span className="shrink-0 text-lg text-slate-400">{expanded ? "−" : "+"}</span>
+                    </button>
+                    {expanded && <div className="border-t border-slate-100">
+                      {applicants.sort((a,b) => Number(a.source_sequence) - Number(b.source_sequence)).map((applicant, index) => <div key={applicant.official_unique_id || index} className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900">{applicant.applicant_name}</p>
+                          <p className="mt-0.5 break-all text-xs text-slate-500">Applicant No. {applicant.applicant_number} · {applicant.official_unique_id}</p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${applicant.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{applicant.status === "active" ? "Active" : "Deleted"}</span>
+                      </div>)}
+                    </div>}
+                  </div>;
+                })}
+              </div>
+            )}
           </div>
           <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No canonical Job Card or applicant records have been changed. Import activation will be a separate step after review.</p>
-          <p className="mt-3 text-xs text-slate-500">Next: verify the preview counts and sample records before we implement the activation confirmation.</p>
+          <p className="mt-3 text-xs text-slate-500">Review the complete Job Card register above. No records are activated at this stage.</p>
         </section>}
       </>}
 

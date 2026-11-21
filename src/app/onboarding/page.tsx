@@ -30,6 +30,7 @@ export default function OnboardingPage() {
   const [loadingPanchayats, setLoadingPanchayats] = useState(false);
   const [saving, setSaving] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
   const [error, setError] = useState("");
 
@@ -213,26 +214,36 @@ export default function OnboardingPage() {
           </li>)}
         </ol>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Set up your Village Council</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">Welcome{councilName ? ` to ${councilName}` : ""}. Select your official administrative location. You can update these details later in Settings.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official administrative location is confirmed. Continue with the next setup step." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
-      <form onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div className="space-y-4">
-          <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
-          {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-          {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-          {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-        </div>
-        {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <p className="font-semibold">Official location saved</p>
-          <p className="mt-1">Step 1 is complete. Continue to import the Job Card and Applicant Register.</p>
-          {savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}
-          <button type="button" onClick={() => router.push("/onboarding/job-cards")} className="mt-4 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800">Continue to Step 2</button>
-        </div>}
-        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
-          <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : locationSaved ? "Update saved location" : "Save & continue"}</button>
-        </div>
+      <form onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        {locationSaved && !editingLocation && savedLocation ? <>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-900">Government location</p>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-600"/>Saved</span>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-4">
+            <h2 className="text-xl font-bold tracking-tight text-slate-950">{savedLocation.village}</h2>
+            <p className="mt-1 text-sm text-slate-600">{savedLocation.district} District · {savedLocation.block} Block</p>
+            <p className="mt-1 text-xs text-slate-500">{savedLocation.state}</p>
+          </div>
+          <button type="button" onClick={() => setEditingLocation(true)} className="w-full rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Change location</button>
+          <button type="button" onClick={() => router.push("/onboarding/job-cards")} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800">Continue to Step 2 <span aria-hidden="true">→</span></button>
+          <p className="text-center text-xs text-slate-400">Your workspace remains inactive until all onboarding steps are complete.</p>
+        </> : <>
+          {editingLocation && <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-slate-900">Update Government location</p><button type="button" onClick={() => { setEditingLocation(false); setError(""); }} className="text-sm font-medium text-slate-600 hover:text-slate-900">Cancel</button></div>}
+          <div className="space-y-4">
+            <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
+            {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+            {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+            {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+          </div>
+          {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
+          <div className="border-t border-slate-100 pt-4">
+            <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="w-full rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : editingLocation ? "Save & Continue" : "Save & Continue"}</button>
+            <p className="mt-3 text-center text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
+          </div>
+        </>}
       </form>
     </div>
   </main>;

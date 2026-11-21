@@ -4,7 +4,14 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-async function getDestination(userId: string) {
+function getRequestedPath() {
+  const requested = new URLSearchParams(window.location.search).get("next");
+  return requested && requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/login")
+    ? requested
+    : null;
+}
+
+async function getDestination(userId: string, requestedPath: string | null = null) {
   const supabase = createClient();
   const { data: admin, error: adminError } = await supabase
     .from("platform_superadmins").select("id").eq("user_id", userId).maybeSingle();
@@ -15,7 +22,15 @@ async function getDestination(userId: string) {
     .from("council_memberships").select("id").eq("user_id", userId).eq("is_active", true).maybeSingle();
   if (membershipError) throw membershipError;
   if (!membership) throw new Error("This account has no active Village Council assignment. Contact the platform administrator.");
-  return "/dashboard";
+
+  const { data: council, error: councilError } = await supabase
+    .from("council_tenants").select("onboarding_completed_at")
+    .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
+  if (councilError) throw councilError;
+  if (!council) throw new Error("The assigned Village Council is unavailable.");
+  if (!council.onboarding_completed_at) return "/onboarding";
+
+  return requestedPath || "/dashboard";
 }
 
 export default function LoginPage() {
@@ -31,7 +46,7 @@ export default function LoginPage() {
     async function checkExistingUser() {
       try {
         const { data: { user } } = await createClient().auth.getUser();
-        if (user && active) router.replace(await getDestination(user.id));
+        if (user && active) router.replace(await getDestination(user.id, getRequestedPath()));
       } catch {
         if (active) setError("Unable to verify your account access. Please sign in again.");
       } finally {
@@ -51,7 +66,7 @@ export default function LoginPage() {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
       if (!data.user) throw new Error("Sign-in did not return a user.");
-      router.replace(await getDestination(data.user.id));
+      router.replace(await getDestination(data.user.id, getRequestedPath()));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in. Please try again.");
     } finally {

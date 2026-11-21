@@ -6,6 +6,15 @@ import { createClient } from "@/lib/supabase";
 
 type SourceEntry = { name: string; url: string };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
+type RegisterSourceResult = {
+  success?: boolean;
+  found?: boolean;
+  jurisdictionKey?: string | null;
+  reportPath?: string | null;
+  candidates?: { kind: string; label: string; path: string }[];
+  inspectedPages?: { path: string; status?: number; contentType?: string; error?: string }[];
+  error?: string;
+};
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -28,6 +37,9 @@ export default function OnboardingPage() {
   const [locationSaved, setLocationSaved] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
   const [error, setError] = useState("");
+  const [discoveringRegister, setDiscoveringRegister] = useState(false);
+  const [registerDiscovery, setRegisterDiscovery] = useState<RegisterSourceResult | null>(null);
+  const [registerDiscoveryError, setRegisterDiscoveryError] = useState("");
 
   async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
     const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
@@ -147,6 +159,29 @@ export default function OnboardingPage() {
     finally { setLoadingPanchayats(false); }
   }
 
+  async function discoverRegisterSource() {
+    setDiscoveringRegister(true);
+    setRegisterDiscovery(null);
+    setRegisterDiscoveryError("");
+    try {
+      const { data, error: invokeError } = await createClient().functions.invoke<RegisterSourceResult>("council-register-source", { body: {} });
+      if (invokeError) {
+        let message = invokeError.message || "Could not inspect the official register source.";
+        const context = invokeError.context as Response | undefined;
+        if (context && typeof context.json === "function") {
+          try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
+        }
+        throw new Error(message);
+      }
+      if (!data?.success) throw new Error(data?.error || "The official register source could not be identified.");
+      setRegisterDiscovery(data);
+    } catch (err) {
+      setRegisterDiscoveryError(err instanceof Error ? err.message : "Unable to inspect the official register source.");
+    } finally {
+      setDiscoveringRegister(false);
+    }
+  }
+
   async function saveLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!councilId) return;
@@ -205,7 +240,21 @@ export default function OnboardingPage() {
           {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
         </div>
         {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Step 1 is complete. Your location is saved and will be restored when you return.</p>{savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}<p className="mt-3 text-xs text-emerald-800">Next: Step 2 — Import Job Cards (MIS). Your workspace remains locked until all steps are completed.</p></div>}
+        {locationSaved && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"><p className="font-semibold">Official location saved</p><p className="mt-1">Step 1 is complete. Your location is saved and will be restored when you return.</p>{savedLocation && <p className="mt-2 text-xs text-emerald-800">{savedLocation.state} · {savedLocation.district} · {savedLocation.block} · {savedLocation.village}</p>}<p className="mt-3 text-xs text-emerald-800">Next: Step 2 — Import Job Cards (MIS). Your workspace remains locked until all steps are completed.</p>
+          <div className="mt-4 border-t border-emerald-200 pt-4">
+            <p className="text-sm font-semibold text-emerald-950">Step 2 · Official register source</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-800">First, verify that Puitu can locate this Panchayat's Registration Application Register. This check is read-only and will not import or change records.</p>
+            <button type="button" onClick={() => void discoverRegisterSource()} disabled={discoveringRegister} className="mt-3 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60">{discoveringRegister ? "Checking official source…" : "Check official register source"}</button>
+            {registerDiscoveryError && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{registerDiscoveryError}</p>}
+            {registerDiscovery && <div className="mt-3 rounded-lg border border-emerald-200 bg-white p-3 text-xs text-slate-700">
+              <p className="font-semibold">{registerDiscovery.found ? "Official register source identified" : "Panchayat reached; register link not identified yet"}</p>
+              {registerDiscovery.jurisdictionKey && <p className="mt-1">Official jurisdiction key: <strong>{registerDiscovery.jurisdictionKey}</strong></p>}
+              {registerDiscovery.reportPath && <p className="mt-1 break-all">Report path: {registerDiscovery.reportPath}</p>}
+              {registerDiscovery.candidates?.length ? <div className="mt-2 space-y-1"><p className="font-medium">Detected source references</p>{registerDiscovery.candidates.map((item, index) => <p key={index} className="break-all"><span className="font-medium">{item.kind}:</span> {item.label || item.path} — {item.path}</p>)}</div> : <p className="mt-1 text-slate-500">No registration-report references were found in the inspected page.</p>}
+              <p className="mt-2 text-slate-500">No records were imported or modified.</p>
+            </div>}
+          </div>
+        </div>}
         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
           <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : locationSaved ? "Update saved location" : "Save & continue"}</button>

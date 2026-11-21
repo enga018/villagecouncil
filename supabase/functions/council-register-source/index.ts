@@ -132,11 +132,11 @@ Deno.serve(async (req: Request) => {
   if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
 
   const { data: council, error: councilError } = await adminClient
-    .from("council_tenants").select("state,district,block,village,is_active")
+    .from("council_tenants").select("state,district,block,village,block_url,panchayat_url,is_active")
     .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
   if (councilError) return reply({ error: "Unable to load the assigned council location." }, 500, origin);
-  if (!council || !council.state || !council.district || !council.block || !council.village) {
-    return reply({ error: "Complete and save the official State, District, Block and Panchayat before discovering the register." }, 409, origin);
+  if (!council || !council.state || !council.district || !council.block || !council.village || !council.block_url || !council.panchayat_url) {
+    return reply({ error: "Save the official location, including its Block URL and Panchayat URL, before discovering the register." }, 409, origin);
   }
 
   try {
@@ -172,21 +172,46 @@ Deno.serve(async (req: Request) => {
       return { html, finalUrl: response.url || pageUrl, status: response.status, contentType };
     };
 
-    const names = [council.state, council.district, council.block, council.village];
+    const navigation: Record<string, unknown>[] = [];
     let current = await requestPage(STATE_LIST_URL, "https://vbgramg.dord.gov.in/");
     let entries = extractEntries(current.html, current.finalUrl, EXPECTED_PATHS[0]);
-    const navigation: Record<string, unknown>[] = [{ level: "states", count: entries.length }];
-    for (let i = 0; i < names.length; i++) {
-      const selected = entries.find(entry => entry.name.trim().toLocaleLowerCase() === names[i]!.trim().toLocaleLowerCase());
-      if (!selected) return reply({ success: false, error: "The saved official location was not found at level " + (i + 1) + ": " + names[i], navigation }, 404, origin);
-      current = await requestPage(selected.url, current.finalUrl);
-      navigation.push({ level: ["state", "district", "block", "panchayat"][i], selectedName: selected.name, status: current.status, finalPath: new URL(current.finalUrl).pathname });
-      if (i < names.length - 1) {
-        entries = extractEntries(current.html, current.finalUrl, EXPECTED_PATHS[i + 1]);
-        navigation.push({ level: ["districts", "blocks", "panchayats"][i], count: entries.length });
-        if (!entries.length) return reply({ success: false, error: "No official child locations were found after " + names[i], navigation }, 502, origin);
+    navigation.push({ level: "states", count: entries.length });
+    const stateEntry = entries.find(entry => entry.name.trim().toLocaleLowerCase() === council.state!.trim().toLocaleLowerCase());
+    if (!stateEntry) return reply({ success: false, error: "The saved State was not found in the official State list.", navigation }, 404, origin);
+    current = await requestPage(stateEntry.url, current.finalUrl);
+    navigation.push({ level: "state", selectedName: stateEntry.name, status: current.status, finalPath: new URL(current.finalUrl).pathname });
+
+    entries = extractEntries(current.html, current.finalUrl, EXPECTED_PATHS[1]);
+    navigation.push({ level: "districts", count: entries.length });
+    const districtEntry = entries.find(entry => entry.name.trim().toLocaleLowerCase() === council.district!.trim().toLocaleLowerCase());
+    if (!districtEntry) return reply({ success: false, error: "The saved District was not found under the selected State.", navigation }, 404, origin);
+    current = await requestPage(districtEntry.url, current.finalUrl);
+    navigation.push({ level: "district", selectedName: districtEntry.name, status: current.status, finalPath: new URL(current.finalUrl).pathname });
+
+    const validateSavedUrl = (raw: string, expectedPath: RegExp, label: string) => {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== "https:" || !["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"].includes(parsed.hostname) || !expectedPath.test(parsed.pathname) || !parsed.searchParams.has("payload")) {
+        throw new Error("The saved " + label + " URL is invalid or does not match the official VBGRAMG navigation path. Please update the saved location.");
       }
+      return parsed.href;
+    };
+    const savedBlockUrl = validateSavedUrl(council.block_url, EXPECTED_PATHS[2], "Block");
+    current = await requestPage(savedBlockUrl, current.finalUrl);
+    navigation.push({ level: "block", selectedName: council.block, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_block_url" });
+
+    entries = extractEntries(current.html, current.finalUrl, EXPECTED_PATHS[3]);
+    navigation.push({ level: "panchayats", count: entries.length });
+    const savedPanchayatUrl = validateSavedUrl(council.panchayat_url, EXPECTED_PATHS[3], "Panchayat");
+    const matchingPanchayat = entries.find(entry => {
+      const candidate = new URL(entry.url);
+      const saved = new URL(savedPanchayatUrl);
+      return candidate.pathname === saved.pathname && candidate.searchParams.get("payload") === saved.searchParams.get("payload");
+    });
+    if (!matchingPanchayat) {
+      return reply({ success: false, error: "The saved Panchayat URL was not found under the saved Block URL. Update the official location to refresh both navigation URLs.", navigation }, 409, origin);
     }
+    current = await requestPage(savedPanchayatUrl, current.finalUrl);
+    navigation.push({ level: "panchayat", selectedName: council.village, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_panchayat_url" });
 
     let inspectedPages = [{ path: new URL(current.finalUrl).pathname, status: current.status, contentType: current.contentType, html: current.html }];
     let allCandidates = inspectHtml(current.html, current.finalUrl);

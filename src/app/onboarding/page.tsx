@@ -82,7 +82,7 @@ export default function OnboardingPage() {
 
         const { data: council, error: councilError } = await supabase
           .from("council_tenants")
-          .select("id,name,onboarding_completed_at,state,district,block,village")
+          .select("id,name,onboarding_completed_at,state,district,block,village,block_url,panchayat_url")
           .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
         if (councilError) throw councilError;
         if (!council) throw new Error("The assigned Village Council is unavailable.");
@@ -209,6 +209,8 @@ export default function OnboardingPage() {
           district: district.name,
           block: block.name,
           village: panchayat.name,
+          block_url: block.url,
+          panchayat_url: panchayat.url,
           updated_at: now,
         })
         .eq("id", councilId);

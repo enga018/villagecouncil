@@ -55,11 +55,14 @@ function inspectRegisterStructure(html: string) {
   const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(match => match[1]);
   const tableSummaries = tables.map((table, index) => {
     const rows = [...table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
-    const firstRows = rows.slice(0, 5).map(row =>
-      [...row[1].matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)]
-        .map(cell => cleanText(cell[1])).filter(Boolean)
+    const columnCounts = rows.slice(0, 3).map(row =>
+      [...row[1].matchAll(/<t[hd]\b[^>]*>/gi)].length
     );
-    return { index, rowCount: rows.length, firstRows };
+    const safeLabels = [...table.matchAll(/<t[hd]\b[^>]*>([\s\S]*?)<\/t[hd]>/gi)]
+      .map(cell => cleanText(cell[1]))
+      .filter(label => /job.?card|applicant|household|caste|father|husband|gender|age|receipt|issue date|remarks|disabled|minority|verified|registration/i.test(label))
+      .slice(0, 30);
+    return { index, rowCount: rows.length, columnCounts, relevantColumnLabels: [...new Set(safeLabels)] };
   });
   const title = cleanText(html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "");
   const text = cleanText(html);

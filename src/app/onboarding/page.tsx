@@ -22,6 +22,11 @@ type RegisterSourceResult = {
   error?: string;
 };
 
+function isAuthenticationFailure(error: unknown, response?: Response) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+  return response?.status === 401 || /auth session missing|authentication required|invalid or expired session|jwt expired|unauthorized|\b401\b/.test(message);
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [councilId, setCouncilId] = useState("");
@@ -47,6 +52,11 @@ export default function OnboardingPage() {
   const [registerDiscovery, setRegisterDiscovery] = useState<RegisterSourceResult | null>(null);
   const [registerDiscoveryError, setRegisterDiscoveryError] = useState("");
 
+  function returnToLogin() {
+    const requestedPath = window.location.pathname + window.location.search;
+    router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
+  }
+
   async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
     const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
       body: { action, selectedNames },
@@ -54,6 +64,10 @@ export default function OnboardingPage() {
     if (invokeError) {
       let message = invokeError.message || "Could not contact the official location source.";
       const context = invokeError.context as Response | undefined;
+      if (isAuthenticationFailure(invokeError, context)) {
+        returnToLogin();
+        throw new Error("Your session has expired. Returning you to sign in…");
+      }
       if (context && typeof context.json === "function") {
         try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
       }
@@ -72,7 +86,7 @@ export default function OnboardingPage() {
         const supabase = createClient();
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw userError;
-        if (!user) { router.replace("/login"); return; }
+        if (!user) { returnToLogin(); return; }
 
         const { data: membership, error: membershipError } = await supabase
           .from("council_memberships").select("village_council_id")
@@ -124,6 +138,7 @@ export default function OnboardingPage() {
           }
         }
       } catch (err) {
+        if (active && isAuthenticationFailure(err)) { returnToLogin(); return; }
         if (active) setError(err instanceof Error ? err.message : "Unable to load your Village Council setup.");
       } finally {
         if (active) { setLoading(false); setLoadingStates(false); }
@@ -174,6 +189,10 @@ export default function OnboardingPage() {
       if (invokeError) {
         let message = invokeError.message || "Could not inspect the official register source.";
         const context = invokeError.context as Response | undefined;
+        if (isAuthenticationFailure(invokeError, context)) {
+          returnToLogin();
+          throw new Error("Your session has expired. Returning you to sign in…");
+        }
         if (context && typeof context.json === "function") {
           try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
         }

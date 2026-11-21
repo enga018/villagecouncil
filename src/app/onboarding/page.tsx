@@ -6,6 +6,14 @@ import { createClient } from "@/lib/supabase";
 
 type SourceEntry = { name: string; url: string };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
+type RegisterPreview = {
+  batchId: string; status: string; sourceTable: number; sourceRows: number; stagedRows: number;
+  activeApplicants: number; sourceDeletedApplicants: number; existingJobCards: number; newJobCards: number;
+  changedJobCards: number; existingApplicants: number; newApplicants: number; changedApplicants: number;
+  unchangedApplicants: number; missingApplicants: number; missingJobCards: number;
+  sample: { jobCardNumber: string; headOfHousehold: string; applicantNumber: string; applicantName: string }[];
+  activation: string;
+};
 type RegisterSourceResult = {
   success?: boolean;
   found?: boolean;
@@ -14,6 +22,7 @@ type RegisterSourceResult = {
   candidates?: { kind: string; label: string; path: string }[];
   inspectedPages?: { path: string; status?: number; contentType?: string; error?: string }[];
   reportInspection?: {
+    preview?: RegisterPreview;
     path?: string; status?: number; contentType?: string; error?: string;
     title?: string; htmlBytes?: number; tableCount?: number;
     hasRegisterTitle?: boolean; hasApplicantFields?: boolean;
@@ -57,6 +66,9 @@ export default function OnboardingPage() {
   const [discoveringRegister, setDiscoveringRegister] = useState(false);
   const [registerDiscovery, setRegisterDiscovery] = useState<RegisterSourceResult | null>(null);
   const [registerDiscoveryError, setRegisterDiscoveryError] = useState("");
+  const [preparingPreview, setPreparingPreview] = useState(false);
+  const [registerPreview, setRegisterPreview] = useState<RegisterPreview | null>(null);
+  const [registerPreviewError, setRegisterPreviewError] = useState("");
 
   function returnToLogin() {
     const requestedPath = window.location.pathname + window.location.search;
@@ -213,6 +225,33 @@ export default function OnboardingPage() {
     }
   }
 
+  async function prepareRegisterPreview() {
+    setPreparingPreview(true);
+    setRegisterPreview(null);
+    setRegisterPreviewError("");
+    try {
+      const { data, error: invokeError } = await createClient().functions.invoke<RegisterSourceResult>("council-register-source", { body: { action: "prepare-preview" } });
+      if (invokeError) {
+        let message = invokeError.message || "Could not prepare the MIS import preview.";
+        const context = invokeError.context as Response | undefined;
+        if (isAuthenticationFailure(invokeError, context)) {
+          returnToLogin();
+          throw new Error("Your session has expired. Returning you to sign in…");
+        }
+        if (context && typeof context.json === "function") {
+          try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
+        }
+        throw new Error(message);
+      }
+      if (!data?.success || !data.reportInspection?.preview) throw new Error(data?.error || "The official register preview was not prepared.");
+      setRegisterPreview(data.reportInspection.preview);
+    } catch (err) {
+      setRegisterPreviewError(err instanceof Error ? err.message : "Unable to prepare the MIS import preview.");
+    } finally {
+      setPreparingPreview(false);
+    }
+  }
+
   async function saveLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!councilId) return;
@@ -306,7 +345,31 @@ export default function OnboardingPage() {
                   </>}
               </div>}
               {registerDiscovery.candidates?.length ? <div className="mt-2 space-y-1"><p className="font-medium">Detected source references</p>{registerDiscovery.candidates.map((item, index) => <p key={index} className="break-all"><span className="font-medium">{item.kind}:</span> {item.label || item.path} — {item.path}</p>)}</div> : <p className="mt-1 text-slate-500">No registration-report references were found in the inspected page.</p>}
-              <p className="mt-2 text-slate-500">No records were imported or modified.</p>
+              <p className="mt-2 text-slate-500">The source check is read-only. It does not import or modify records.</p>
+              {registerDiscovery.found && <div className="mt-3 border-t border-emerald-100 pt-3">
+                <p className="font-semibold text-slate-800">Prepare Job Card import preview</p>
+                <p className="mt-1 text-slate-600">Fetch and parse the official register into a review-only staging batch. Existing Job Cards and applicants will not be changed or activated.</p>
+                <button type="button" onClick={() => void prepareRegisterPreview()} disabled={preparingPreview} className="mt-2 rounded-lg bg-blue-700 px-4 py-2.5 font-semibold text-white disabled:opacity-60">{preparingPreview ? "Preparing preview…" : "Prepare import preview"}</button>
+                {registerPreviewError && <p role="alert" className="mt-2 rounded-md bg-red-50 p-2 text-red-700">{registerPreviewError}</p>}
+                {registerPreview && <div className="mt-3 rounded-md bg-blue-50 p-3 text-slate-700">
+                  <p className="font-semibold text-blue-950">Import preview staged — awaiting review</p>
+                  <p className="mt-1">Batch: <code>{registerPreview.batchId}</code></p>
+                  <p>Source table {registerPreview.sourceTable} · {registerPreview.sourceRows.toLocaleString()} source rows · {registerPreview.stagedRows.toLocaleString()} staged rows</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <p>Active applicants: <strong>{registerPreview.activeApplicants.toLocaleString()}</strong></p>
+                    <p>New Job Cards: <strong>{registerPreview.newJobCards.toLocaleString()}</strong></p>
+                    <p>New applicants: <strong>{registerPreview.newApplicants.toLocaleString()}</strong></p>
+                    <p>Changed applicants: <strong>{registerPreview.changedApplicants.toLocaleString()}</strong></p>
+                    <p>Unchanged applicants: <strong>{registerPreview.unchangedApplicants.toLocaleString()}</strong></p>
+                    <p>Source-deleted applicants: <strong>{registerPreview.sourceDeletedApplicants.toLocaleString()}</strong></p>
+                    <p>Missing existing applicants: <strong>{registerPreview.missingApplicants.toLocaleString()}</strong></p>
+                    <p>Missing existing Job Cards: <strong>{registerPreview.missingJobCards.toLocaleString()}</strong></p>
+                  </div>
+                  <p className="mt-2 font-medium">Sample parsed records</p>
+                  {registerPreview.sample.map((item,index) => <p key={index} className="mt-1">{item.jobCardNumber} · {item.applicantNumber} · {item.applicantName} · Household: {item.headOfHousehold}</p>)}
+                  <p className="mt-2 font-semibold text-blue-950">{registerPreview.activation}</p>
+                </div>}
+              </div>}
             </div>}
           </div>
         </div>}

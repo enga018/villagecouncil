@@ -26,7 +26,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       if (userError) throw userError;
       if (!user) {
         setState({ status: "signed_out" });
-        router.replace("/login");
+        const requestedPath = window.location.pathname + window.location.search;
+        router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
         return;
       }
 
@@ -52,6 +53,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
       setState({ status: "ready", tenant: { membership, council } });
     } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+      if (/auth session missing|invalid or expired session|jwt expired|unauthorized|\\b401\\b/.test(message)) {
+        const requestedPath = window.location.pathname + window.location.search;
+        router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
+        return;
+      }
       setState({ status: "error", message: error instanceof Error ? error.message : "Unable to verify your council access." });
     }
   }, [router]);

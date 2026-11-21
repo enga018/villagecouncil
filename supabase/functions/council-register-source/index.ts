@@ -488,7 +488,7 @@ Deno.serve(async (req: Request) => {
           }
           const cardMap = new Map(existingCards.map(row => [row.job_card_number, row]));
           const applicantMap = new Map(existingApplicants.map(row => [row.source_record_key, row]));
-          const sourceKeys = new Set(parsed.rows.map(row => String(row.source_record_key)));
+          const sourceKeySet = new Set(parsed.rows.map(row => String(row.source_record_key)));
           const sourceCards = new Map<string,string>();
           const activeCardNumbers = new Set<string>();
           for (const row of parsed.rows) {
@@ -508,7 +508,7 @@ Deno.serve(async (req: Request) => {
             else if (compareFields.some(field => String(old[field] ?? "") !== String(row[field] ?? ""))) changedApplicants++;
             else unchangedApplicants++;
           }
-          const missingApplicants = existingApplicants.filter(row => row.status === "active" && !sourceKeys.has(row.source_record_key)).length;
+          const missingApplicants = existingApplicants.filter(row => row.status === "active" && !sourceKeySet.has(row.source_record_key)).length;
           const missingCards = existingCards.filter(row => row.status === "active" && !sourceCards.has(row.job_card_number)).length;
           const inactiveJobCards = [...sourceCards.keys()].filter(number => !activeCardNumbers.has(number)).length;
           const { data: batch, error: batchError } = await adminClient.from("council_register_import_batches").insert({
@@ -551,7 +551,7 @@ Deno.serve(async (req: Request) => {
             throw error;
           }
           reportInspection.preview = {
-            batchId: batch.id, status: "pending_review",
+            batchId: batch.id, status: "pending_review", validation,
             sourceTable: parsed.tableIndex + 1, sourceRows: parsed.sourceRowCount,
             stagedRows: parsed.rows.length, activeApplicants: parsed.active.length,
             deletedApplicants: parsed.deletedCount, inactiveJobCards,

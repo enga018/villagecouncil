@@ -437,6 +437,37 @@ Deno.serve(async (req: Request) => {
         if (action === "prepare-preview") {
           const parsed = parseOfficialRegister(reportPage.html, council.village!);
           const tenantId = membership.village_council_id;
+
+          // Validate normalized identities and numbering before creating a review batch.
+          const sourceKeys = parsed.rows.map(row => String(row.source_record_key));
+          const officialIds = parsed.rows.map(row => String(row.official_unique_id));
+          const requiredFieldsPresent = parsed.rows.every(row =>
+            Boolean(row.job_card_number && row.head_of_household && row.applicant_name &&
+              row.applicant_number && row.official_unique_id && row.source_record_key &&
+              (row.status === "active" || row.status === "deleted"))
+          );
+          const numberingValid = parsed.rows.every(row =>
+            String(row.applicant_number) === String(row.source_sequence) &&
+            String(row.official_unique_id) === String(row.job_card_number) + "/" + String(row.applicant_number)
+          );
+          const identityValid = new Set(sourceKeys).size === sourceKeys.length &&
+            new Set(officialIds).size === officialIds.length;
+          if (!requiredFieldsPresent || !numberingValid || !identityValid) {
+            throw new Error("Register validation failed: required fields, applicant numbering, or unique identities are inconsistent. No import batch was created.");
+          }
+          const activeJobCardNumbers = new Set(parsed.active.map(row => String(row.job_card_number)));
+          const allJobCardNumbers = new Set(parsed.rows.map(row => String(row.job_card_number)));
+          const validation = {
+            passed: true,
+            stagedRowsMatch: true,
+            requiredFieldsPresent: true,
+            uniqueSourceKeys: true,
+            uniqueOfficialIds: true,
+            applicantNumbering: true,
+            activeJobCards: activeJobCardNumbers.size,
+            inactiveJobCards: allJobCardNumbers.size - activeJobCardNumbers.size,
+            checkedRows: parsed.rows.length,
+          };
           const existingCards: any[] = [];
           const existingApplicants: any[] = [];
           for (let offset = 0; ; offset += 1000) {
@@ -470,7 +501,7 @@ Deno.serve(async (req: Request) => {
             if (!old) newCards++;
             else if (old.head_of_household !== household) changedCards++;
           }
-          const compareFields = ["applicant_name","caste","father_husband_name","gender","age","application_received_date","job_card_issue_date","remarks","is_disabled","is_minority","job_card_verified_date"];
+          const compareFields = ["applicant_name","caste","father_husband_name","gender","age","application_received_date","job_card_issue_date","remarks","is_disabled","is_minority","job_card_verified_date","status"];
           for (const row of parsed.rows) {
             const old = applicantMap.get(String(row.source_record_key));
             if (!old) newApplicants++;
@@ -544,7 +575,6 @@ Deno.serve(async (req: Request) => {
       candidates: allCandidates.slice(0, 30).map(({ kind, label, path }) => ({ kind, label, path })),
       inspectedPages: inspectedPages.map(({ path, status, contentType, error }) => ({ path, status, contentType, error })),
       navigation,
-      dataChanged: false,
       dataChanged: false,
       note: action === "prepare-preview"
         ? "All source applicants, including deleted applicants, were parsed and staged for review. Job Cards with no active applicants are retained as inactive. Canonical records were not activated or modified."

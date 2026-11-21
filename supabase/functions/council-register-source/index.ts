@@ -531,6 +531,14 @@ Deno.serve(async (req: Request) => {
               const { error } = await adminClient.from("council_register_import_rows").insert(payload);
               if (error) throw error;
             }
+            const { count: stagedCount, error: countError } = await adminClient.from("council_register_import_rows")
+              .select("row_number", { count: "exact", head: true })
+              .eq("import_batch_id", batch.id).eq("village_council_id", tenantId);
+            if (countError) throw countError;
+            validation.stagedRowsMatch = stagedCount === parsed.rows.length;
+            if (!validation.stagedRowsMatch) {
+              throw new Error("Staging row-count verification failed. Expected " + parsed.rows.length + " rows but stored " + String(stagedCount) + ".");
+            }
             const { error: finishError } = await adminClient.from("council_register_import_batches")
               .update({ status: "pending", error_message: null }).eq("id", batch.id).eq("village_council_id", tenantId);
             if (finishError) throw finishError;

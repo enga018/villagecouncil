@@ -129,7 +129,7 @@ function SuperadminDashboard() {
       </div>
       <div className="px-4 pt-7"><p className="px-3 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Workspace</p>
         <nav aria-label="Superadmin navigation" className="mt-3 space-y-1">
-          {navigation.map(item => <div key={item.id} title={item.upcoming ? "This section will be implemented in a later stage." : undefined}>
+          {navigation.map(item => <div key={item.id} title={("upcoming" in item && item.upcoming) ? "This section will be implemented in a later stage." : undefined}>
             {item.id === "overview" || item.id === "councils" ?
               <a href={item.id === "overview" ? "#overview" : "#councils"} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition ${item.id === "overview" ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}>
                 <Icon name={item.icon} className="h-[18px] w-[18px]"/><span>{item.label}</span>{item.id === "councils" && <span className="ml-auto rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{councils.length}</span>}

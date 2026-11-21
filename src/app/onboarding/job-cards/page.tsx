@@ -175,7 +175,7 @@ export default function JobCardOnboardingPage() {
           </div>
           <div className="mt-6 border-t border-slate-100 pt-5">
             <h2 className="text-base font-semibold text-slate-950">Official applicant register</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">We will read the Government register, calculate Applicant Numbers and Unique IDs in source order, and prepare a review-only import batch. Deleted source rows are retained in the review batch so numbering remains consistent, but they will not become active applicants.</p>
+            <p className="mt-1 text-sm leading-6 text-slate-600">We will read the Government register, calculate Applicant Numbers and Unique IDs in source order, and prepare a review-only import batch. Deleted source rows are used only to calculate the original Applicant Numbers and Unique IDs. They are excluded before staging and will not be imported.</p>
             <button type="button" onClick={() => void preparePreview()} disabled={fetching} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
               {fetching ? "Fetching and preparing preview…" : preview ? "Fetch register again" : "Fetch official register"}
             </button>
@@ -195,7 +195,6 @@ export default function JobCardOnboardingPage() {
               ["Source rows", preview.sourceRows],
               ["Staged rows", preview.stagedRows],
               ["Active applicants", preview.activeApplicants],
-              ["Deleted source rows", preview.sourceDeletedApplicants],
               ["Job Cards", new Set(stagedApplicants.map(item => item.job_card_number)).size],
             ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{Number(value).toLocaleString()}</p></div>)}
           </div>
@@ -203,7 +202,7 @@ export default function JobCardOnboardingPage() {
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">Complete Job Card register</h3>
-                <p className="mt-1 text-xs text-slate-500">All Job Cards and source applicants, including deleted applicants, are available for review.</p>
+                <p className="mt-1 text-xs text-slate-500">Only Job Cards with active applicants are shown. Deleted source rows are excluded after numbering is calculated.</p>
               </div>
               <span className="text-xs font-semibold text-slate-600">{new Set(stagedApplicants.map(item => item.job_card_number)).size.toLocaleString()} Job Cards · {stagedApplicants.length.toLocaleString()} applicants</span>
             </div>

@@ -200,18 +200,14 @@ Deno.serve(async (req: Request) => {
     navigation.push({ level: "block", selectedName: council.block, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_block_url" });
 
     entries = extractEntries(current.html, current.finalUrl, EXPECTED_PATHS[3]);
-    navigation.push({ level: "panchayats", count: entries.length });
+    navigation.push({ level: "panchayat_links_on_saved_block", count: entries.length });
     const savedPanchayatUrl = validateSavedUrl(council.panchayat_url, EXPECTED_PATHS[3], "Panchayat");
-    const matchingPanchayat = entries.find(entry => {
-      const candidate = new URL(entry.url);
-      const saved = new URL(savedPanchayatUrl);
-      return candidate.pathname === saved.pathname && candidate.searchParams.get("payload") === saved.searchParams.get("payload");
-    });
-    if (!matchingPanchayat) {
-      return reply({ success: false, error: "The saved Panchayat URL was not found under the saved Block URL. Update the official location to refresh both navigation URLs.", navigation }, 409, origin);
-    }
+
+    // Use the exact Panchayat URL saved during onboarding. Do not compare encrypted
+    // payloads against links regenerated in this session: VBGRAMG may issue a new
+    // payload for the same Panchayat in each navigation session.
     current = await requestPage(savedPanchayatUrl, current.finalUrl);
-    navigation.push({ level: "panchayat", selectedName: council.village, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_panchayat_url" });
+    navigation.push({ level: "panchayat", selectedName: council.village, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_panchayat_url_direct" });
 
     let inspectedPages = [{ path: new URL(current.finalUrl).pathname, status: current.status, contentType: current.contentType, html: current.html }];
     let allCandidates = inspectHtml(current.html, current.finalUrl);

@@ -183,7 +183,7 @@ function parseOfficialRegister(html: string, village: string) {
   const col=(names:string[])=>{const keys=header.map(key);let i=keys.findIndex(v=>names.includes(v));return i>=0?i:keys.findIndex(v=>names.some(a=>v.includes(a)||a.includes(v)));};
   const ix={house:col(["head of household","head of household name"]),caste:col(["caste"]),name:col(["name of applicant","applicant name"]),father:col(["father husband name","father name","husband name"]),gender:col(["gender","sex"]),age:col(["age"]),received:col(["date of receipt of application request for registration","date of receipt of application"]),job:col(["job card number","jobcard number"]),issue:col(["job card issue date"]),remarks:col(["reasons if job card not issued any other remarks","reasons if job card not issued","remarks"]),disabled:col(["disabled"]),minority:col(["minority"]),verified:col(["job card verified on date"])};
   if([ix.house,ix.name,ix.job].some(v=>v<0))throw new Error("Required household, applicant-name or Job Card columns are missing.");
-  const rows:Record<string,unknown>[]=[], review:string[]=[], seen=new Set<string>(), households=new Map<string,string>(), sequences=new Map<string,number>();
+  const rows:Record<string,unknown>[]=[], review:string[]=[], identityOccurrences=new Map<string,number>(), households=new Map<string,string>(), sequences=new Map<string,number>();
   let deletedCount=0;
   for(let n=3;n<selected.rows.length;n++){
     const row=selected.rows[n], content=row.join(" ").trim();
@@ -196,8 +196,13 @@ function parseOfficialRegister(html: string, village: string) {
     if(!house){review.push("Missing household head for Job Card "+card+" at source row "+(n+1));continue;}
     const remarks=ix.remarks>=0?String(row[ix.remarks]??"").trim():"", name=raw.replace(/\*/g,"").trim();
     const status=rawHouse.includes("*")||raw.includes("*")||/\bdeleted\b/i.test(remarks)?"deleted":"active";
-    const sourceKey=card.toUpperCase()+"|"+normalizeApplicantName(name);
-    if(seen.has(sourceKey)){review.push("Duplicate applicant identity for Job Card "+card+" and name "+name);continue;}seen.add(sourceKey);
+    const identityBase=card.toUpperCase()+"|"+normalizeApplicantName(name);
+    // The legacy VB-GRAMG importer supports repeated applicant names on one
+    // Job Card by consuming matching records in source order. The new register
+    // has no applicant-number/Unique-ID columns, so retain each occurrence with
+    // a deterministic ordinal instead of rejecting a legitimate duplicate.
+    const occurrence=(identityOccurrences.get(identityBase)||0)+1;identityOccurrences.set(identityBase,occurrence);
+    const sourceKey=occurrence===1?identityBase:identityBase+"|DUP"+occurrence;
     const seq=(sequences.get(card)||0)+1;sequences.set(card,seq);
     const val=(i:number)=>i>=0?String(row[i]??"").trim():"";
     rows.push({source_record_key:sourceKey,source_sequence:seq,job_card_number:card,head_of_household:house,applicant_number:String(seq),applicant_name:name,caste:val(ix.caste),father_husband_name:val(ix.father),gender:val(ix.gender),age:val(ix.age),application_received_date:val(ix.received),job_card_issue_date:val(ix.issue),remarks,is_disabled:val(ix.disabled),is_minority:val(ix.minority),job_card_verified_date:val(ix.verified),status,source_row_number:n+1});

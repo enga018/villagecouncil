@@ -415,6 +415,93 @@ Deno.serve(async (req: Request) => {
         if (action === "prepare-preview") {
           const parsed = parseOfficialRegister(reportPage.html, council.village!);
           const tenantId = membership.village_council_id;
+          const existingCards: any[] = [];
+          const existingApplicants: any[] = [];
+          for (let offset = 0; ; offset += 1000) {
+            const { data, error } = await adminClient.from("council_job_cards")
+              .select("id,job_card_number,head_of_household,status")
+              .eq("village_council_id", tenantId).order("job_card_number").range(offset, offset + 999);
+            if (error) throw error;
+            existingCards.push(...(data || []));
+            if (!data || data.length < 1000) break;
+          }
+          for (let offset = 0; ; offset += 1000) {
+            const { data, error } = await adminClient.from("council_applicants")
+              .select("id,job_card_id,source_record_key,applicant_number,applicant_name,caste,father_husband_name,gender,age,application_received_date,job_card_issue_date,remarks,is_disabled,is_minority,job_card_verified_date,status")
+              .eq("village_council_id", tenantId).order("source_record_key").range(offset, offset + 999);
+            if (error) throw error;
+            existingApplicants.push(...(data || []));
+            if (!data || data.length < 1000) break;
+          }
+          const cardMap = new Map(existingCards.map(row => [row.job_card_number, row]));
+          const applicantMap = new Map(existingApplicants.map(row => [row.source_record_key, row]));
+          const activeKeys = new Set(parsed.active.map(row => String(row.source_record_key)));
+          const activeCards = new Map<string,string>();
+          for (const row of parsed.active) activeCards.set(String(row.job_card_number), String(row.head_of_household));
+          let newCards = 0, changedCards = 0, newApplicants = 0, changedApplicants = 0, unchangedApplicants = 0;
+          for (const [number, household] of activeCards) {
+            const old = cardMap.get(number);
+            if (!old) newCards++;
+            else if (old.head_of_household !== household) changedCards++;
+          }
+          const compareFields = ["applicant_name","caste","father_husband_name","gender","age","application_received_date","job_card_issue_date","remarks","is_disabled","is_minority","job_card_verified_date"];
+          for (const row of parsed.active) {
+            const old = applicantMap.get(String(row.source_record_key));
+            if (!old) newApplicants++;
+            else if (compareFields.some(field => String(old[field] ?? "") !== String(row[field] ?? ""))) changedApplicants++;
+            else unchangedApplicants++;
+          }
+          const missingApplicants = existingApplicants.filter(row => row.status === "active" && !activeKeys.has(row.source_record_key)).length;
+          const missingCards = existingCards.filter(row => row.status === "active" && !activeCards.has(row.job_card_number)).length;
+          const { data: batch, error: batchError } = await adminClient.from("council_register_import_batches").insert({
+            village_council_id: tenantId,
+            source: "official_registration_register",
+            source_location_key: [council.state,council.district,council.block,council.village].join(" | "),
+            status: "processing",
+            imported_by: userData.user.id,
+            total_rows: parsed.rows.length,
+          }).select("id").single();
+          if (batchError) throw batchError;
+          try {
+            for (let offset = 0; offset < parsed.rows.length; offset += 200) {
+              const payload = parsed.rows.slice(offset, offset + 200).map((row, index) => ({
+                village_council_id: tenantId,
+                import_batch_id: batch.id,
+                row_number: Number(row.source_row_number) || offset + index + 1,
+                row_data: row,
+              }));
+              const { error } = await adminClient.from("council_register_import_rows").insert(payload);
+              if (error) throw error;
+            }
+            const { error: finishError } = await adminClient.from("council_register_import_batches")
+              .update({ status: "pending", error_message: null }).eq("id", batch.id).eq("village_council_id", tenantId);
+            if (finishError) throw finishError;
+          } catch (error) {
+            await adminClient.from("council_register_import_rows").delete().eq("import_batch_id", batch.id);
+            await adminClient.from("council_register_import_batches").update({
+              status: "failed", completed_at: new Date().toISOString(),
+              error_message: error instanceof Error ? error.message.slice(0,1000) : "Staging failed",
+            }).eq("id", batch.id);
+            throw error;
+          }
+          reportInspection.preview = {
+            batchId: batch.id, status: "pending_review",
+            sourceTable: parsed.tableIndex + 1, sourceRows: parsed.sourceRowCount,
+            stagedRows: parsed.rows.length, activeApplicants: parsed.active.length,
+            sourceDeletedApplicants: parsed.deletedCount,
+            existingJobCards: existingCards.length, newJobCards: newCards, changedJobCards: changedCards,
+            existingApplicants: existingApplicants.length, newApplicants, changedApplicants,
+            unchangedApplicants, missingApplicants, missingJobCards: missingCards,
+            sample: parsed.active.slice(0, 8).map(row => ({
+              jobCardNumber: row.job_card_number, headOfHousehold: row.head_of_household,
+              applicantNumber: row.applicant_number, applicantName: row.applicant_name,
+            })),
+            activation: "Not activated. Existing Job Cards and applicants were not modified.",
+          };
+        }
+        if (action === "prepare-preview") {
+          const parsed = parseOfficialRegister(reportPage.html, council.village!);
+          const tenantId = membership.village_council_id;
           const [existingCards, existingApplicants] = await Promise.all([
             adminClient.from("council_job_cards").select("id,job_card_number,head_of_household,status").eq("village_council_id", tenantId),
             adminClient.from("council_applicants").select("id,job_card_id,source_record_key,applicant_number,applicant_name,caste,father_husband_name,gender,age,application_received_date,job_card_issue_date,remarks,is_disabled,is_minority,job_card_verified_date,status").eq("village_council_id", tenantId),

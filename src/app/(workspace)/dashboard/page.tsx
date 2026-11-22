@@ -14,16 +14,6 @@ const modules = [
 ];
 
 export default function DashboardPage() {
-  return () => { active = false; };
-  }, []);
-
-  const metrics = [
-    ["Total Job Cards", stats?.totalCards],
-    ["Active Job Cards", stats?.activeCards],
-    ["Total Applicants", stats?.totalApplicants],
-    ["Active Applicants", stats?.activeApplicants],
-  ];
-
   return (
     <div className="space-y-8">
       <section>

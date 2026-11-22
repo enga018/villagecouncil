@@ -55,6 +55,8 @@ export default function FtoOnboardingPage() {
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [stagedFtos, setStagedFtos] = useState<FtoRecord[]>([]);
   const [loadingFtos, setLoadingFtos] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [activationResult, setActivationResult] = useState<{ totalRows: number; batchId: string } | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [pageError, setPageError] = useState("");
@@ -155,6 +157,24 @@ export default function FtoOnboardingPage() {
     }
   }
 
+  async function activateRegister() {
+    if (!preview?.batchId || activating) return;
+    const approved = window.confirm(`Activate this reviewed FTO register for ${councilName}? This will write ${stagedFtos.length.toLocaleString()} FTO records to the operational register.`);
+    if (!approved) return;
+    setActivating(true);
+    setError("");
+    try {
+      const { data, error: activateError } = await createClient()
+        .rpc("activate_council_fto_import", { p_batch_id: preview.batchId });
+      if (activateError) throw activateError;
+      setActivationResult(data as { totalRows: number; batchId: string });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to activate the reviewed FTO register.");
+    } finally {
+      setActivating(false);
+    }
+  }
+
   const pageSize = 25;
   const pageCount = Math.max(1, Math.ceil(stagedFtos.length / pageSize));
   const visibleFtos = stagedFtos.slice((page - 1) * pageSize, page * pageSize);
@@ -192,7 +212,9 @@ export default function FtoOnboardingPage() {
           <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="text-xs font-semibold uppercase tracking-wider text-blue-700">Preview ready · awaiting review</p><h2 className="mt-1 text-lg font-semibold text-slate-950">Official FTO register parsed successfully</h2></div>
-              <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">Not activated</span>
+              <span className={`rounded-full ${activationResult ? "bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800" : "bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"}`}>
+                {activationResult ? "Activated" : "Not activated"}
+              </span>
             </div>
             <p className="mt-2 break-all text-xs text-slate-500">Batch ID: {preview.batchId}</p>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -248,7 +270,16 @@ export default function FtoOnboardingPage() {
               </div>
             </div>
 
-            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No canonical FTO records have been changed. Import activation remains a separate, explicit step.</p>
+            {activationResult ? (
+              <p className="mt-3 text-xs text-emerald-800">{Number(activationResult.totalRows || 0).toLocaleString()} FTO records activated. These are available in the operational FTO module.</p>
+            ) : (
+              <>
+                <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No FTO records have been changed. Import activation remains a separate, explicit step.</p>
+                <button type="button" onClick={() => void activateRegister()} disabled={activating || !preview.validation?.passed || stagedFtos.length === 0} className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+                  {activating ? "Activating register…" : "Activate reviewed FTO register"}
+                </button>
+              </>
+            )}
           </section>
         )}
 

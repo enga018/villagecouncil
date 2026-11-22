@@ -4,9 +4,6 @@ import Link from "next/link";
 
 const steps = [
   { label: "Government location", short: "Location", href: "/onboarding" },
-  { label: "Job Card register", short: "Job Cards", href: "/onboarding/job-cards" },
-  { label: "FTO discovery", short: "FTOs", href: "/onboarding/ftos" },
-  { label: "Review & activation", short: "Review", href: "/onboarding/review" },
 ];
 
 export default function OnboardingShell({

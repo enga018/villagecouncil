@@ -37,7 +37,7 @@ export default function OnboardingShell({
           </div>
 
           <nav aria-label="Onboarding steps" className="mb-7 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <ol className="grid grid-cols-4 gap-1 sm:gap-3">
+            <ol className="grid grid-cols-1 gap-1 sm:gap-3">
               {steps.map((step, index) => {
                 const complete = index < activeStep;
                 const current = index === activeStep;

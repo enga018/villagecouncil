@@ -74,7 +74,9 @@ export default function JobCardsPage() {
             .from("council_applicants")
             .select("id,job_card_id,applicant_number,applicant_name,official_unique_id,status,caste,father_husband_name,gender,age")
             .eq("village_council_id", councilId)
+            .order("job_card_id", { ascending: true })
             .order("source_sequence", { ascending: true })
+            .order("id", { ascending: true })
             .range(offset, offset + 999);
           if (applicantsError) throw applicantsError;
           people.push(...(data || []));

@@ -12,7 +12,6 @@ export interface VillageCouncil {
   district: string | null;
   block: string | null;
   village: string | null;
-  block_url: string | null;
   panchayat_url: string | null;
   onboarding_completed_at: string | null;
   created_at: string;

@@ -254,8 +254,8 @@ export default function FtoOnboardingPage() {
 
         <OnboardingActions
           back={{ label: "Back to Step 2", href: "/onboarding/job-cards" }}
-          next={{ label: "Continue", disabled: true }}
-          note="FTO discovery and import is the next implementation task."
+          next={{ label: "Continue to Step 4", href: "/onboarding/review" }}
+          note="FTO import is optional for now. You can continue without it."
         />
       </div>
     </OnboardingShell>

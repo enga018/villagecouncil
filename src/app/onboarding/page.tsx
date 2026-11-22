@@ -199,6 +199,8 @@ export default function OnboardingPage() {
           district: district.name,
           block: block.name,
           village: panchayat.name,
+          state_url: state.url,
+          district_url: district.url,
           block_url: block.url,
           panchayat_url: panchayat.url,
           updated_at: now,

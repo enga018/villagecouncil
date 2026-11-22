@@ -35,7 +35,7 @@ export default function JobCardsPage() {
   const [refetching, setRefetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [lastFetched, setLastFetched] = useState<string | null>(null);
-  const [fetchResult, setFetchResult] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
+  const [kpiChanges, setKpiChanges] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
   const pageSize = 20;
 
   useEffect(() => {
@@ -105,7 +105,6 @@ export default function JobCardsPage() {
     if (refetching) return;
     setRefetching(true);
     setFetchError("");
-    setFetchResult(null);
     try {
       const supabase = createClient();
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -222,16 +221,28 @@ export default function JobCardsPage() {
         if (!rows || rows.length < 1000) break;
       }
 
+      const previousKpis = {
+        totalCards: jobCards.length,
+        activeCards: jobCards.filter(card => card.status === "active").length,
+        totalApplicants: applicants.length,
+        activeApplicants: applicants.filter(person => person.status === "active").length,
+      };
+      const nextKpis = {
+        totalCards: cards.length,
+        activeCards: cards.filter(card => card.status === "active").length,
+        totalApplicants: people.length,
+        activeApplicants: people.filter(person => person.status === "active").length,
+      };
+      setKpiChanges({
+        totalCards: nextKpis.totalCards - previousKpis.totalCards,
+        activeCards: nextKpis.activeCards - previousKpis.activeCards,
+        totalApplicants: nextKpis.totalApplicants - previousKpis.totalApplicants,
+        activeApplicants: nextKpis.activeApplicants - previousKpis.activeApplicants,
+      });
       setJobCards(cards);
       setApplicants(people);
       setPage(1);
       setExpanded([]);
-      setFetchResult({
-        totalCards: validation.activeJobCards + validation.inactiveJobCards,
-        activeCards: validation.activeJobCards,
-        totalApplicants: validation.checkedRows,
-        activeApplicants: preview.activeApplicants,
-      });
       setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Unable to refetch the Job Card register.");
@@ -251,6 +262,7 @@ export default function JobCardsPage() {
   }, [applicants]);
 
   const activeCards = jobCards.filter(card => card.status === "active").length;
+  const activeApplicants = applicants.filter(person => person.status === "active").length;
   const filteredCards = useMemo(() => {
     const term = query.trim().toLowerCase();
     return jobCards.filter(card => {
@@ -293,29 +305,28 @@ export default function JobCardsPage() {
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
       {fetchError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{fetchError}</div>}
-      {fetchResult && (
-        <section aria-live="polite" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-slate-900">Job Card register updated</p>
-          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.totalCards.toLocaleString()}</p><p className="text-xs text-slate-500">Total Job Cards</p></div>
-            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.activeCards.toLocaleString()}</p><p className="text-xs text-slate-500">Active Job Cards</p></div>
-            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.totalApplicants.toLocaleString()}</p><p className="text-xs text-slate-500">Total Applicants</p></div>
-            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.activeApplicants.toLocaleString()}</p><p className="text-xs text-slate-500">Active Applicants</p></div>
-          </div>
-        </section>
-      )}
-
-      <section className="grid gap-3 sm:grid-cols-3">
-        {[
-          ["Total Job Cards", jobCards.length],
-          ["Active Job Cards", activeCards],
-          ["Total Applicants", applicants.length],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950">{loading ? "—" : Number(value).toLocaleString()}</p>
-          </div>
-        ))}
+      <section aria-label="Job Card register summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {([
+          ["totalCards", "Total Job Cards", jobCards.length],
+          ["activeCards", "Active Job Cards", activeCards],
+          ["totalApplicants", "Total Applicants", applicants.length],
+          ["activeApplicants", "Active Applicants", activeApplicants],
+        ] as const).map(([key, label, value]) => {
+          const change = kpiChanges?.[key] ?? 0;
+          return (
+            <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">{label}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <p className="text-2xl font-semibold tabular-nums text-slate-950">{loading ? "—" : value.toLocaleString()}</p>
+                {!loading && kpiChanges !== null && change !== 0 && (
+                  <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums ${change > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                    {change > 0 ? "+" : "−"}{Math.abs(change).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

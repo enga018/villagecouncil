@@ -126,7 +126,13 @@ export default function JobCardsPage() {
         reportInspection?: { preview?: {
           batchId: string;
           stagedRows: number;
-          validation?: { passed: boolean; stagedRowsMatch: boolean; checkedRows: number };
+          validation?: {
+            passed: boolean;
+            stagedRowsMatch: boolean;
+            checkedRows: number;
+            activeJobCards: number;
+            inactiveJobCards: number;
+          };
           activeJobCards: number;
           inactiveJobCards: number;
           activeApplicants: number;

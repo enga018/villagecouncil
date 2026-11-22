@@ -1,17 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
 const modules = [
-  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC" },
-  { title: "Register", description: "Maintain the official registration register.", href: "/register", mark: "RG" },
-  { title: "FTO Monitoring", description: "Monitor FTO progress from First Signatory onward.", href: "/fto-monitoring", mark: "FTO" },
-  { title: "Contributions", description: "Review contribution charges and outstanding balances.", href: "/contributions", mark: "CN" },
-  { title: "CO Calculation", description: "Prepare and review CO calculations.", href: "/co-calculation", mark: "CO" },
-  { title: "Payments", description: "Record and review payments.", href: "/payments", mark: "PY" },
-  { title: "Reports", description: "View and export council reports.", href: "/reports", mark: "RP" },
-  { title: "Settings", description: "Configure the council workspace.", href: "/settings", mark: "ST" },
+  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC", available: true },
+  { title: "Register", description: "Official registration register tools are not available yet.", mark: "RG", available: false },
+  { title: "FTO Monitoring", description: "FTO discovery and monitoring are being prepared.", mark: "FTO", available: false },
+  { title: "Contributions", description: "Contribution ledger is not available yet.", mark: "CN", available: false },
+  { title: "CO Calculation", description: "CO calculation tools are not available yet.", mark: "CO", available: false },
+  { title: "Payments", description: "Payment recording is not available yet.", mark: "PY", available: false },
+  { title: "Reports", description: "Council reports are not available yet.", mark: "RP", available: false },
+  { title: "Settings", description: "Workspace settings are not available yet.", mark: "ST", available: false },
 ];
 
 export default function DashboardPage() {
@@ -96,19 +97,27 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-slate-900">Modules</h2>
             <p className="mt-1 text-sm text-slate-500">Core Village Council operations</p>
           </div>
-          <span className="text-xs text-slate-400">8 modules</span>
+          <span className="text-xs text-slate-400">1 available · 7 coming soon</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {modules.map(module => (
-            <a key={module.href} href={module.href} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 min-w-11 items-center justify-center rounded-xl bg-slate-100 px-2 text-xs font-bold text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-700">{module.mark}</div>
-                <span className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span>
-              </div>
-              <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
-            </a>
-          ))}
+          {modules.map(module => {
+            const content = (
+              <>
+                <div className="flex items-start justify-between">
+                  <div className={`flex h-11 min-w-11 items-center justify-center rounded-xl px-2 text-xs font-bold ${module.available ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{module.mark}</div>
+                  {module.available
+                    ? <span className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span>
+                    : <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">Coming soon</span>}
+                </div>
+                <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
+              </>
+            );
+            const className = `group rounded-2xl border bg-white p-5 shadow-sm ${module.available ? "border-slate-200 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md" : "border-slate-100 opacity-75"}`;
+            return module.available && module.href
+              ? <Link key={module.title} href={module.href} className={className}>{content}</Link>
+              : <div key={module.title} aria-disabled="true" className={className}>{content}</div>;
+          })}
         </div>
       </section>
     </div>

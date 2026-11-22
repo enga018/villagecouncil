@@ -191,22 +191,18 @@ export default function OnboardingPage() {
     }
     setSaving(true); setError("");
     try {
-      const now = new Date().toISOString();
-      const { error: updateError } = await createClient()
-        .from("council_tenants")
-        .update({
-          state: state.name,
-          district: district.name,
-          block: block.name,
-          village: panchayat.name,
-          state_url: state.url,
-          district_url: district.url,
-          block_url: block.url,
-          panchayat_url: panchayat.url,
-          updated_at: now,
-        })
-        .eq("id", councilId);
-      if (updateError) throw updateError;
+      const { error: saveError } = await createClient().rpc("save_council_location", {
+        p_council_id: councilId,
+        p_state: state.name,
+        p_district: district.name,
+        p_block: block.name,
+        p_village: panchayat.name,
+        p_state_url: state.url,
+        p_district_url: district.url,
+        p_block_url: block.url,
+        p_panchayat_url: panchayat.url,
+      });
+      if (saveError) throw saveError;
       setLocationSaved(true);
       setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
       router.push("/onboarding/job-cards");

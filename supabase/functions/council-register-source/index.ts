@@ -276,11 +276,17 @@ Deno.serve(async (req: Request) => {
   const action = requestBody?.action === "prepare-preview" ? "prepare-preview" : "discover";
 
   const { data: council, error: councilError } = await adminClient
-    .from("council_tenants").select("state,district,block,village,block_url,panchayat_url,is_active")
+    .from("council_tenants").select("state,district,block,village,panchayat_url,is_active")
     .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
   if (councilError) return reply({ error: "Unable to load the assigned council location." }, 500, origin);
-  if (!council || !council.state || !council.district || !council.block || !council.village || !council.block_url || !council.panchayat_url) {
-    return reply({ error: "Save the official location, including its Block URL and Panchayat URL, before discovering the register." }, 409, origin);
+  if (!council || !council.state || !council.district || !council.block || !council.village || !council.panchayat_url) {
+    return reply({ error: "Save the official location, including its Panchayat URL, before discovering the register." }, 409, origin);
+  }
+
+  const { data: blockUrl, error: blockUrlError } = await adminClient
+    .rpc("get_block_navigation_url", { p_state: council.state, p_district: council.district, p_block: council.block });
+  if (blockUrlError || !blockUrl) {
+    return reply({ error: "The shared Block navigation URL is unavailable. Re-save the Government location in Step 1." }, 409, origin);
   }
 
   try {
@@ -386,7 +392,7 @@ Deno.serve(async (req: Request) => {
       }
       return parsed.href;
     };
-    const savedBlockUrl = validateSavedUrl(council.block_url, EXPECTED_PATHS[2], "Block");
+    const savedBlockUrl = validateSavedUrl(blockUrl, EXPECTED_PATHS[2], "Block");
     current = await requestPage(savedBlockUrl, current.finalUrl);
     navigation.push({ level: "block", selectedName: council.block, status: current.status, finalPath: new URL(current.finalUrl).pathname, source: "saved_block_url" });
 

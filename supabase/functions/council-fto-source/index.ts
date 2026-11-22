@@ -43,12 +43,18 @@ Deno.serve(async (req: Request) => {
 
   const { data: council, error: councilError } = await adminClient
     .from("council_tenants")
-    .select("id,state,district,block,village,block_url,panchayat_url,onboarding_completed_at")
+    .select("id,state,district,block,village,panchayat_url,onboarding_completed_at")
     .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
   if (councilError) return reply({ error: "Unable to load the Village Council." }, 500, origin);
   if (!council) return reply({ error: "The assigned Village Council is unavailable." }, 403, origin);
-  if (!council.state || !council.district || !council.block || !council.village || !council.block_url) {
+  if (!council.state || !council.district || !council.block || !council.village) {
     return reply({ error: "Complete the Government location step before FTO discovery." }, 400, origin);
+  }
+
+  const { data: blockUrl, error: blockUrlError } = await adminClient
+    .rpc("get_block_navigation_url", { p_state: council.state, p_district: council.district, p_block: council.block });
+  if (blockUrlError || !blockUrl) {
+    return reply({ error: "The shared Block navigation URL is unavailable. Re-save the Government location in Step 1." }, 409, origin);
   }
 
   let body: { action?: string; batchId?: string };

@@ -291,7 +291,7 @@ export default function OnboardingPage() {
       <div>
         <p className="text-sm font-medium text-blue-700">Government location · Step 1</p>
         <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Confirm your Government location</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official administrative location is confirmed. Continue with the next setup step." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official location is saved. Continue to automatic workspace setup." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
       <form id="location-form" onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         {locationSaved && !editingLocation && savedLocation ? <>
@@ -322,7 +322,7 @@ export default function OnboardingPage() {
             ? { label: nextStepLabel, onClick: () => router.push(nextStepHref) }
             : { label: saving ? "Saving location…" : "Save & Continue", type: "submit", form: "location-form", disabled: saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats }
         }
-        note={locationSaved && !editingLocation && savedLocation ? "Your workspace remains inactive until all onboarding steps are complete." : "Saving this location does not complete onboarding or activate the workspace."}
+        note={locationSaved && !editingLocation && savedLocation ? "Your Job Card register will be imported automatically before the workspace opens." : "Saving this location starts automatic Job Card setup."}
       />
     </div>
   </OnboardingShell>;

@@ -77,7 +77,6 @@ export default function OnboardingPage() {
   const [locationSaved, setLocationSaved] = useState(false);
   const [editingLocation, setEditingLocation] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
-  const [registerCompleted, setRegisterCompleted] = useState(false);
   const [error, setError] = useState("");
 
   const returnToLogin = useCallback(() => {
@@ -152,16 +151,6 @@ export default function OnboardingPage() {
         if (!council) throw new Error("The assigned Village Council is unavailable.");
         if (council.onboarding_completed_at) { router.replace("/dashboard"); return; }
 
-        const { data: completedBatch } = await supabase
-          .from("council_register_import_batches")
-          .select("id,source_location_key")
-          .eq("village_council_id", membership.village_council_id)
-          .eq("source", "official_registration_register")
-          .eq("status", "completed")
-          .order("completed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
         if (active) {
           setCouncilId(council.id);
           setCouncilName(council.name);
@@ -169,8 +158,6 @@ export default function OnboardingPage() {
             setLocationSaved(true);
             setSavedLocation({ state: council.state, district: council.district, block: council.block, village: council.village });
           }
-          const importedVillage = String(completedBatch?.source_location_key || "").split(" | ").at(-1) || "";
-          setRegisterCompleted(Boolean(completedBatch) && importedVillage === council.village);
         }
 
         const entries = await fetchLocations("states");
@@ -271,7 +258,6 @@ export default function OnboardingPage() {
       });
       if (saveError) throw saveError;
       setLocationSaved(true);
-      setRegisterCompleted(false);
       setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
       router.push("/onboarding/job-cards");
     } catch (err) {
@@ -283,8 +269,8 @@ export default function OnboardingPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Loading your Village Council setup…</p></main>;
 
   const dropdownClass = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100";
-  const nextStepHref = registerCompleted ? "/onboarding/ftos" : "/onboarding/job-cards";
-  const nextStepLabel = registerCompleted ? "Continue to Step 3" : "Continue to Step 2";
+  const nextStepHref = "/onboarding/job-cards";
+  const nextStepLabel = "Continue setup";
 
   return <OnboardingShell activeStep={0}>
     <div className="mx-auto max-w-3xl space-y-6">

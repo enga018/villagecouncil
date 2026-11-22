@@ -1,15 +1,72 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
+
 const modules = [
-  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC" },
-  { title: "Register", description: "Maintain the official registration register.", href: "/register", mark: "RG" },
-  { title: "FTO Monitoring", description: "Monitor FTO progress from First Signatory onward.", href: "/fto-monitoring", mark: "FTO" },
-  { title: "Contributions", description: "Review contribution charges and outstanding balances.", href: "/contributions", mark: "CN" },
-  { title: "CO Calculation", description: "Prepare and review CO calculations.", href: "/co-calculation", mark: "CO" },
-  { title: "Payments", description: "Record and review payments.", href: "/payments", mark: "PY" },
-  { title: "Reports", description: "View and export council reports.", href: "/reports", mark: "RP" },
-  { title: "Settings", description: "Configure the council workspace.", href: "/settings", mark: "ST" },
+  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC", available: true },
+  { title: "Register", description: "Official registration register tools are not available yet.", mark: "RG", available: false },
+  { title: "FTO Monitoring", description: "FTO discovery and monitoring are being prepared.", mark: "FTO", available: false },
+  { title: "Contributions", description: "Contribution ledger is not available yet.", mark: "CN", available: false },
+  { title: "CO Calculation", description: "CO calculation tools are not available yet.", mark: "CO", available: false },
+  { title: "Payments", description: "Payment recording is not available yet.", mark: "PY", available: false },
+  { title: "Reports", description: "Council reports are not available yet.", mark: "RP", available: false },
+  { title: "Settings", description: "Workspace settings are not available yet.", mark: "ST", available: false },
 ];
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function loadStats() {
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) throw new Error("Your session has expired. Please sign in again.");
+
+        const { data: membership, error: membershipError } = await supabase
+          .from("council_memberships")
+          .select("village_council_id")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (membershipError) throw membershipError;
+        if (!membership) throw new Error("This account has no active Village Council assignment.");
+
+        const councilId = membership.village_council_id;
+        const [totalCards, activeCards, totalApplicants, activeApplicants] = await Promise.all([
+          supabase.from("council_job_cards").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+          supabase.from("council_job_cards").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
+          supabase.from("council_applicants").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+          supabase.from("council_applicants").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
+        ]);
+        const failure = totalCards.error || activeCards.error || totalApplicants.error || activeApplicants.error;
+        if (failure) throw failure;
+        if (active) setStats({
+          totalCards: totalCards.count || 0,
+          activeCards: activeCards.count || 0,
+          totalApplicants: totalApplicants.count || 0,
+          activeApplicants: activeApplicants.count || 0,
+        });
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Unable to load Dashboard statistics.");
+      }
+    }
+    void loadStats();
+    return () => { active = false; };
+  }, []);
+
+  const metrics = [
+    ["Total Job Cards", stats?.totalCards],
+    ["Active Job Cards", stats?.activeCards],
+    ["Total Applicants", stats?.totalApplicants],
+    ["Active Applicants", stats?.activeApplicants],
+  ];
+
   return (
     <div className="space-y-8">
       <section>
@@ -19,16 +76,17 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Dashboard</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Your Village Council workspace. Choose a module to get started.</p>
           </div>
-          <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">Initial application shell</span>
         </div>
       </section>
 
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
+
       <section aria-label="Dashboard summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {["Total Job Cards", "Active Applicants", "FTOs Pending", "Contribution Outstanding"].map((label) => (
-          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {metrics.map(([label, value]) => (
+          <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">{label}</div>
-            <div className="mt-3 text-2xl font-semibold tracking-tight text-slate-300">—</div>
-            <div className="mt-1 text-xs text-slate-400">Data connection not configured</div>
+            <div className="mt-3 text-2xl font-semibold tracking-tight tabular-nums text-slate-950">{value === undefined ? "—" : value.toLocaleString()}</div>
+            <div className="mt-1 text-xs text-slate-400">{stats ? "Live council records" : "Loading council records…"}</div>
           </div>
         ))}
       </section>
@@ -39,25 +97,28 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-slate-900">Modules</h2>
             <p className="mt-1 text-sm text-slate-500">Core Village Council operations</p>
           </div>
-          <span className="text-xs text-slate-400">8 modules</span>
+          <span className="text-xs text-slate-400">1 available · 7 coming soon</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {modules.map((module) => (
-            <a key={module.href} href={module.href} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 min-w-11 items-center justify-center rounded-xl bg-slate-100 px-2 text-xs font-bold text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-700">{module.mark}</div>
-                <span className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span>
-              </div>
-              <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
-            </a>
-          ))}
+          {modules.map(module => {
+            const content = (
+              <>
+                <div className="flex items-start justify-between">
+                  <div className={`flex h-11 min-w-11 items-center justify-center rounded-xl px-2 text-xs font-bold ${module.available ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{module.mark}</div>
+                  {module.available
+                    ? <span className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span>
+                    : <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">Coming soon</span>}
+                </div>
+                <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
+                <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
+              </>
+            );
+            const className = `group rounded-2xl border bg-white p-5 shadow-sm ${module.available ? "border-slate-200 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md" : "border-slate-100 opacity-75"}`;
+            return module.available && module.href
+              ? <Link key={module.title} href={module.href} className={className}>{content}</Link>
+              : <div key={module.title} aria-disabled="true" className={className}>{content}</div>;
+          })}
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 sm:p-6">
-        <h2 className="font-semibold text-slate-900">Workspace status</h2>
-        <p className="mt-1 text-sm leading-6 text-slate-500">The navigation and page structure are in place. Authentication, village selection from the protected account mapping, and live module data will be connected in subsequent implementation steps.</p>
       </section>
     </div>
   );

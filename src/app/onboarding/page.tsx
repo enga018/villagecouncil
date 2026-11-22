@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
 import OnboardingActions from "@/components/app/OnboardingActions";
 
-type SourceEntry = { name: string; url: string };
+type SourceEntry = { name: string; url: string; available?: boolean };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
 function isAuthenticationFailure(error: unknown, response?: Response) {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
@@ -77,7 +77,6 @@ export default function OnboardingPage() {
   const [locationSaved, setLocationSaved] = useState(false);
   const [editingLocation, setEditingLocation] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
-  const [registerCompleted, setRegisterCompleted] = useState(false);
   const [error, setError] = useState("");
 
   const returnToLogin = useCallback(() => {
@@ -85,30 +84,48 @@ export default function OnboardingPage() {
     router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
   }, [router]);
 
-  const fetchLocations = useCallback(async (action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) => {
+  const fetchLocations = useCallback(async (action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = [], availabilityCouncilId?: string) => {
     const supabase = createClient();
-    const cached = await readCachedLocations(supabase, action, selectedNames);
-    if (cached.length) return cached;
+    let entries = await readCachedLocations(supabase, action, selectedNames);
+    if (!entries.length) {
+      const { data, error: invokeError } = await supabase.functions.invoke<SourceResult>("location-master-source", {
+        body: { action, selectedNames },
+      });
+      if (invokeError) {
+        let message = invokeError.message || "Could not contact the official location source.";
+        const context = invokeError.context as Response | undefined;
+        if (isAuthenticationFailure(invokeError, context)) {
+          returnToLogin();
+          throw new Error("Your session has expired. Returning you to sign in…");
+        }
+        if (context && typeof context.json === "function") {
+          try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
+        }
+        throw new Error(message);
+      }
+      if (!data?.success || !Array.isArray(data.entries) || !data.entries.length) {
+        throw new Error(data?.error || "The official location list was empty or could not be parsed.");
+      }
+      entries = data.entries;
+    }
 
-    const { data, error: invokeError } = await supabase.functions.invoke<SourceResult>("location-master-source", {
-      body: { action, selectedNames },
-    });
-    if (invokeError) {
-      let message = invokeError.message || "Could not contact the official location source.";
-      const context = invokeError.context as Response | undefined;
-      if (isAuthenticationFailure(invokeError, context)) {
-        returnToLogin();
-        throw new Error("Your session has expired. Returning you to sign in…");
-      }
-      if (context && typeof context.json === "function") {
-        try { const detail = await context.json() as { error?: string }; if (detail.error) message = detail.error; } catch {}
-      }
-      throw new Error(message);
+    if (action === "panchayats" && availabilityCouncilId) {
+      const { data: unavailableIds, error: unavailableError } = await supabase.rpc("get_unavailable_panchayat_ids", { p_council_id: availabilityCouncilId });
+      if (unavailableError) throw unavailableError;
+      const [stateName, districtName, blockName] = selectedNames;
+      const { data: stateRow, error: stateError } = await supabase.from("location_states").select("id").eq("official_name", stateName).maybeSingle();
+      if (stateError || !stateRow) throw stateError || new Error("The selected State is unavailable.");
+      const { data: districtRow, error: districtError } = await supabase.from("location_districts").select("id").eq("state_id", stateRow.id).eq("official_name", districtName).maybeSingle();
+      if (districtError || !districtRow) throw districtError || new Error("The selected District is unavailable.");
+      const { data: blockRow, error: blockError } = await supabase.from("location_blocks").select("id").eq("district_id", districtRow.id).eq("official_name", blockName).maybeSingle();
+      if (blockError || !blockRow) throw blockError || new Error("The selected Block is unavailable.");
+      const { data: panchayatRows, error: panchayatError } = await supabase.from("location_panchayats").select("id,official_name").eq("block_id", blockRow.id);
+      if (panchayatError) throw panchayatError;
+      const unavailable = new Set((unavailableIds || []) as string[]);
+      const unavailableNames = new Set((panchayatRows || []).filter(row => unavailable.has(row.id)).map(row => row.official_name));
+      entries = entries.map(entry => ({ ...entry, available: !unavailableNames.has(entry.name) }));
     }
-    if (!data?.success || !Array.isArray(data.entries) || !data.entries.length) {
-      throw new Error(data?.error || "The official location list was empty or could not be parsed.");
-    }
-    return data.entries;
+    return entries;
   }, [returnToLogin]);
 
   useEffect(() => {
@@ -134,16 +151,6 @@ export default function OnboardingPage() {
         if (!council) throw new Error("The assigned Village Council is unavailable.");
         if (council.onboarding_completed_at) { router.replace("/dashboard"); return; }
 
-        const { data: completedBatch } = await supabase
-          .from("council_register_import_batches")
-          .select("id,source_location_key")
-          .eq("village_council_id", membership.village_council_id)
-          .eq("source", "official_registration_register")
-          .eq("status", "completed")
-          .order("completed_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
         if (active) {
           setCouncilId(council.id);
           setCouncilName(council.name);
@@ -151,8 +158,6 @@ export default function OnboardingPage() {
             setLocationSaved(true);
             setSavedLocation({ state: council.state, district: council.district, block: council.block, village: council.village });
           }
-          const importedVillage = String(completedBatch?.source_location_key || "").split(" | ").at(-1) || "";
-          setRegisterCompleted(Boolean(completedBatch) && importedVillage === council.village);
         }
 
         const entries = await fetchLocations("states");
@@ -173,7 +178,7 @@ export default function OnboardingPage() {
               const selectedBlock = blockEntries.find(entry => entry.name === council.block);
               if (selectedBlock) {
                 setBlockUrl(selectedBlock.url);
-                const panchayatEntries = await fetchLocations("panchayats", [selectedState.name, selectedDistrict.name, selectedBlock.name]);
+                const panchayatEntries = await fetchLocations("panchayats", [selectedState.name, selectedDistrict.name, selectedBlock.name], council.id);
                 if (!active) return;
                 setPanchayats(panchayatEntries);
                 const selectedPanchayat = panchayatEntries.find(entry => entry.name === council.village);
@@ -220,7 +225,7 @@ export default function OnboardingPage() {
     setBlockUrl(url); setPanchayatUrl(""); setPanchayats([]); setError("");
     if (!url) return;
     setLoadingPanchayats(true);
-    try { setPanchayats(await fetchLocations("panchayats", [states.find(entry => entry.url === stateUrl)?.name || "", districts.find(entry => entry.url === districtUrl)?.name || "", name])); }
+    try { setPanchayats(await fetchLocations("panchayats", [states.find(entry => entry.url === stateUrl)?.name || "", districts.find(entry => entry.url === districtUrl)?.name || "", name], councilId)); }
     catch (err) { setError(err instanceof Error ? err.message : "Unable to retrieve Panchayats."); }
     finally { setLoadingPanchayats(false); }
   }
@@ -236,6 +241,8 @@ export default function OnboardingPage() {
       setError("Select a State / UT, District, Block and Panchayat before continuing.");
       return;
     }
+    const locationChanged = Boolean(savedLocation) && (savedLocation!.state !== state.name || savedLocation!.district !== district.name || savedLocation!.block !== block.name || savedLocation!.village !== panchayat.name);
+    if (locationChanged && !window.confirm("Changing the village will permanently delete this council’s previously imported Job Cards, applicants, Register import history, FTO records and FTO import history. This cannot be undone. Continue?")) return;
     setSaving(true); setError("");
     try {
       const { error: saveError } = await createClient().rpc("save_council_location", {
@@ -262,15 +269,15 @@ export default function OnboardingPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Loading your Village Council setup…</p></main>;
 
   const dropdownClass = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100";
-  const nextStepHref = registerCompleted ? "/onboarding/ftos" : "/onboarding/job-cards";
-  const nextStepLabel = registerCompleted ? "Continue to Step 3" : "Continue to Step 2";
+  const nextStepHref = "/onboarding/job-cards";
+  const nextStepLabel = "Continue setup";
 
   return <OnboardingShell activeStep={0}>
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <p className="text-sm font-medium text-blue-700">Government location · Step 1</p>
         <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Confirm your Government location</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official administrative location is confirmed. Continue with the next setup step." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official location is saved. Continue to automatic workspace setup." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
       <form id="location-form" onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         {locationSaved && !editingLocation && savedLocation ? <>
@@ -290,7 +297,7 @@ export default function OnboardingPage() {
             <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">1. State / UT</span><select required value={stateUrl} onChange={event => void selectState(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingStates} className={dropdownClass}><option value="">{loadingStates ? "Loading States / UTs…" : "Select a State / UT"}</option>{states.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>
             {(stateUrl || loadingDistricts) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">2. District</span><select required value={districtUrl} onChange={event => void selectDistrict(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingDistricts || !districts.length} className={dropdownClass}><option value="">{loadingDistricts ? "Fetching Districts…" : "Select a District"}</option>{districts.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
             {(districtUrl || loadingBlocks) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">3. Block</span><select required value={blockUrl} onChange={event => void selectBlock(event.target.value, event.target.selectedOptions[0]?.text || "")} disabled={loadingBlocks || !blocks.length} className={dropdownClass}><option value="">{loadingBlocks ? "Fetching Blocks…" : "Select a Block"}</option>{blocks.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
-            {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
+            {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url} disabled={entry.available === false}>{entry.name}{entry.available === false ? " (Already assigned)" : ""}</option>)}</select></label>}
           </div>
           {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
         </>}
@@ -301,7 +308,7 @@ export default function OnboardingPage() {
             ? { label: nextStepLabel, onClick: () => router.push(nextStepHref) }
             : { label: saving ? "Saving location…" : "Save & Continue", type: "submit", form: "location-form", disabled: saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats }
         }
-        note={locationSaved && !editingLocation && savedLocation ? "Your workspace remains inactive until all onboarding steps are complete." : "Saving this location does not complete onboarding or activate the workspace."}
+        note={locationSaved && !editingLocation && savedLocation ? "Your Job Card register will be imported automatically before the workspace opens." : "Saving this location starts automatic Job Card setup."}
       />
     </div>
   </OnboardingShell>;

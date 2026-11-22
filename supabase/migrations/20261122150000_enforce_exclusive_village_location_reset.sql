@@ -123,25 +123,25 @@ begin
   insert into public.location_states (official_name, navigation_url)
   values (p_state, p_state_url)
   on conflict (official_name) do update
-    set navigation_url = coalesce(public.location_states.navigation_url, excluded.navigation_url)
+    set navigation_url = coalesce(location_states.navigation_url, excluded.navigation_url)
   returning id into v_state_id;
 
   insert into public.location_districts (state_id, official_name, navigation_url)
   values (v_state_id, p_district, p_district_url)
   on conflict (state_id, official_name) do update
-    set navigation_url = coalesce(public.location_districts.navigation_url, excluded.navigation_url)
+    set navigation_url = coalesce(location_districts.navigation_url, excluded.navigation_url)
   returning id into v_district_id;
 
   insert into public.location_blocks (district_id, official_name, navigation_url)
   values (v_district_id, p_block, p_block_url)
   on conflict (district_id, official_name) do update
-    set navigation_url = coalesce(public.location_blocks.navigation_url, excluded.navigation_url)
+    set navigation_url = coalesce(location_blocks.navigation_url, excluded.navigation_url)
   returning id into v_block_id;
 
   insert into public.location_panchayats (block_id, official_name, navigation_url)
   values (v_block_id, p_village, p_panchayat_url)
   on conflict (block_id, official_name) do update
-    set navigation_url = coalesce(public.location_panchayats.navigation_url, excluded.navigation_url)
+    set navigation_url = coalesce(location_panchayats.navigation_url, excluded.navigation_url)
   returning id into v_panchayat_id;
 
   -- This UPDATE reserves the new village under the unique index. If another

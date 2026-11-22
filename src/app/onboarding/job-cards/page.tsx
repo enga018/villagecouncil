@@ -112,7 +112,6 @@ export default function JobCardOnboardingPage() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    let active = true;
 
     async function startSetup() {
       try {
@@ -170,13 +169,11 @@ export default function JobCardOnboardingPage() {
           return;
         }
 
-        if (!active) return;
         setCouncilId(council.id);
         setCouncilName(council.name);
         setLocation([council.state, council.district, council.block, council.village]);
         await importRegister(council.id);
       } catch (err) {
-        if (!active) return;
         if (isAuthenticationFailure(err)) {
           returnToLogin();
           return;
@@ -188,7 +185,6 @@ export default function JobCardOnboardingPage() {
     }
 
     void startSetup();
-    return () => { active = false; };
   }, [importRegister, returnToLogin, router]);
 
   return (

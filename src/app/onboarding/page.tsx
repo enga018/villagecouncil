@@ -290,7 +290,7 @@ export default function OnboardingPage() {
       <div>
         <p className="text-sm font-medium text-blue-700">Government location · Step 1</p>
         <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Confirm your Government location</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official location is saved. Continue to automatic workspace setup." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official location is saved. Continue to your workspace." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
       <form id="location-form" onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         {locationSaved && !editingLocation && savedLocation ? <>

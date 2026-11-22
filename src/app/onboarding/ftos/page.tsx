@@ -179,7 +179,7 @@ export default function FtoOnboardingPage() {
             </div>
             <div className="mt-6 border-t border-slate-100 pt-5">
               <h2 className="text-base font-semibold text-slate-950">Official FTO register</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Discover Fund Transfer Orders by navigating State → District → FTO Status → Block → First Signatory, then review the individual FTO records before activation.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Discover Fund Transfer Orders from your saved Block, navigating Block → FTO Status → First Signatory, then review the individual FTO records before activation.</p>
               <button type="button" onClick={() => void preparePreview()} disabled={fetching} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
                 {fetching ? "Fetching and preparing preview…" : preview ? "Fetch FTO register again" : "Fetch official FTO register"}
               </button>

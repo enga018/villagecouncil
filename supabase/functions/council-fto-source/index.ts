@@ -47,7 +47,7 @@ Deno.serve(async (req: Request) => {
     .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
   if (councilError) return reply({ error: "Unable to load the Village Council." }, 500, origin);
   if (!council) return reply({ error: "The assigned Village Council is unavailable." }, 403, origin);
-  if (!council.state || !council.district || !council.block || !council.village) {
+  if (!council.state || !council.district || !council.block || !council.village || !council.block_url) {
     return reply({ error: "Complete the Government location step before FTO discovery." }, 400, origin);
   }
 
@@ -63,17 +63,19 @@ Deno.serve(async (req: Request) => {
   }
 
   // --- prepare-preview -----------------------------------------------------
-  // The FTO tracking report navigation is: State → District → FTO Status →
-  // Block → First Signatory → individual FTO records.
+  // The FTO tracking report navigation starts from the saved block_url
+  // (chosen in Step 1): block_url → FTO Status → First Signatory →
+  // individual FTO records.
   //
   // This navigation has NOT yet been reverse-engineered against the live
   // VBGRAMG portal. The established register importer (council-register-source)
   // documents the session/cookie handling and ASP.NET postback pattern that
-  // the FTO importer must follow, but the FTO menu URLs, the FTO Status filter
-  // values, and the FTO report table headings must be confirmed first.
+  // the FTO importer must follow, but the FTO menu item on the block page,
+  // the FTO Status filter values, the First Signatory selection, and the FTO
+  // report table headings must be confirmed first.
   return reply({
     success: false,
-    error: "FTO discovery is not yet wired to the VBGRAMG portal. The FTO tracking navigation (State → District → FTO Status → Block → First Signatory) still needs to be reverse-engineered.",
+    error: "FTO discovery is not yet wired to the VBGRAMG portal. The FTO tracking navigation (block_url → FTO Status → First Signatory) still needs to be reverse-engineered.",
     noDataChanged: true,
   }, 501, origin);
 });

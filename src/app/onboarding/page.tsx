@@ -13,6 +13,49 @@ function isAuthenticationFailure(error: unknown, response?: Response) {
   return response?.status === 401 || /auth session missing|authentication required|invalid or expired session|jwt expired|unauthorized|\b401\b/.test(message);
 }
 
+async function readCachedLocations(
+  supabase: ReturnType<typeof createClient>,
+  action: "states" | "districts" | "blocks" | "panchayats",
+  selectedNames: string[],
+): Promise<SourceEntry[]> {
+  const mapRows = (rows: { official_name: string; navigation_url: string | null }[] | null): SourceEntry[] =>
+    (rows || []).filter((row) => row.navigation_url).map((row) => ({ name: row.official_name, url: row.navigation_url as string }));
+
+  try {
+    if (action === "states") {
+      const { data } = await supabase.from("location_states").select("official_name,navigation_url").order("official_name");
+      return mapRows(data);
+    }
+
+    const stateName = selectedNames[0];
+    const { data: state } = await supabase.from("location_states").select("id").eq("official_name", stateName).maybeSingle();
+    if (!state) return [];
+
+    if (action === "districts") {
+      const { data } = await supabase.from("location_districts").select("official_name,navigation_url").eq("state_id", state.id).order("official_name");
+      return mapRows(data);
+    }
+
+    const districtName = selectedNames[1];
+    const { data: district } = await supabase.from("location_districts").select("id").eq("state_id", state.id).eq("official_name", districtName).maybeSingle();
+    if (!district) return [];
+
+    if (action === "blocks") {
+      const { data } = await supabase.from("location_blocks").select("official_name,navigation_url").eq("district_id", district.id).order("official_name");
+      return mapRows(data);
+    }
+
+    const blockName = selectedNames[2];
+    const { data: block } = await supabase.from("location_blocks").select("id").eq("district_id", district.id).eq("official_name", blockName).maybeSingle();
+    if (!block) return [];
+
+    const { data } = await supabase.from("location_panchayats").select("official_name,navigation_url").eq("block_id", block.id).order("official_name");
+    return mapRows(data);
+  } catch {
+    return [];
+  }
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [councilId, setCouncilId] = useState("");
@@ -43,7 +86,11 @@ export default function OnboardingPage() {
   }, [router]);
 
   const fetchLocations = useCallback(async (action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) => {
-    const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
+    const supabase = createClient();
+    const cached = await readCachedLocations(supabase, action, selectedNames);
+    if (cached.length) return cached;
+
+    const { data, error: invokeError } = await supabase.functions.invoke<SourceResult>("location-master-source", {
       body: { action, selectedNames },
     });
     if (invokeError) {

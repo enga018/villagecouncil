@@ -64,6 +64,45 @@ Deno.serve(async (req: Request) => {
   if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
   const userClient = createClient(url, publishableKey, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } });
   const adminClient = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+
+  // Best-effort sync-on-demand: persist the full list scraped at each level so
+  // later councils can read it from the DB instead of re-scraping the portal.
+  async function cacheLocationList(
+    table: "location_states" | "location_districts" | "location_blocks" | "location_panchayats",
+    parentColumn: "state_id" | "district_id" | "block_id" | null,
+    parentId: string | null,
+    entries: { name: string; url: string }[],
+  ) {
+    if (!entries.length) return;
+    try {
+      const rows = entries.map((entry) => {
+        const row: Record<string, unknown> = { official_name: entry.name, navigation_url: entry.url };
+        if (parentColumn && parentId) row[parentColumn] = parentId;
+        return row;
+      });
+      const onConflict = parentColumn ? `${parentColumn},official_name` : "official_name";
+      await adminClient.from(table).upsert(rows, { onConflict });
+    } catch {
+      // Cache write is best-effort; the live scrape result is still returned.
+    }
+  }
+
+  async function resolveLocationId(
+    table: "location_states" | "location_districts" | "location_blocks",
+    name: string,
+    parentColumn?: "state_id" | "district_id",
+    parentId?: string | null,
+  ): Promise<string | null> {
+    try {
+      let query = adminClient.from(table).select("id").eq("official_name", name);
+      if (parentColumn && parentId) query = query.eq(parentColumn, parentId);
+      const { data } = await query.maybeSingle();
+      return data?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
   const { data: membership, error: membershipError } = await adminClient
@@ -126,6 +165,7 @@ Deno.serve(async (req: Request) => {
     let currentHtml = statePage.html;
     let currentUrl = statePage.finalUrl;
     let entries = extractEntries(currentHtml, currentUrl, expectedPaths[0]);
+    await cacheLocationList("location_states", null, null, entries);
     if (body.action === "states") {
       if (!entries.length) return reply({ success: false, error: "No State / UT links were found.", diagnostic: statePage.diagnostic }, 502, origin);
       return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: statePage.diagnostic }, 200, origin);
@@ -133,6 +173,8 @@ Deno.serve(async (req: Request) => {
 
     let selectedUrl = "";
     let lastDiagnostic = statePage.diagnostic;
+    let stateId: string | null = null;
+    let districtId: string | null = null;
     for (let i = 0; i < selectedNames.length; i++) {
       const selected = entries.find(entry => entry.name.trim().toLocaleLowerCase() === selectedNames[i].trim().toLocaleLowerCase());
       if (!selected) return reply({ success: false, error: "The selected official location was not found: " + selectedNames[i], diagnostic: lastDiagnostic }, 404, origin);
@@ -142,6 +184,16 @@ Deno.serve(async (req: Request) => {
       currentUrl = nextPage.finalUrl;
       lastDiagnostic = nextPage.diagnostic;
       entries = extractEntries(currentHtml, currentUrl, expectedPaths[i + 1]);
+      if (i === 0) {
+        stateId = await resolveLocationId("location_states", selected.name);
+        await cacheLocationList("location_districts", "state_id", stateId, entries);
+      } else if (i === 1) {
+        districtId = await resolveLocationId("location_districts", selected.name, "state_id", stateId);
+        await cacheLocationList("location_blocks", "district_id", districtId, entries);
+      } else if (i === 2) {
+        const blockId = await resolveLocationId("location_blocks", selected.name, "district_id", districtId);
+        await cacheLocationList("location_panchayats", "block_id", blockId, entries);
+      }
     }
     if (!entries.length) return reply({ success: false, error: "No official location links were found for this level.", diagnostic: lastDiagnostic }, 502, origin);
     return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: lastDiagnostic }, 200, origin);

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
 
 const modules = [
   { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC", available: true },
@@ -14,6 +16,61 @@ const modules = [
 ];
 
 export default function DashboardPage() {
+  const [activeJobCards, setActiveJobCards] = useState<number | null>(null);
+  const [activeApplicants, setActiveApplicants] = useState<number | null>(null);
+  const [kpiError, setKpiError] = useState("");
+
+  useEffect(() => {
+    let current = true;
+
+    async function loadJobCardSummary() {
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        if (!user) throw new Error("Your session has expired. Please sign in again.");
+
+        const { data: membership, error: membershipError } = await supabase
+          .from("council_memberships")
+          .select("village_council_id")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (membershipError) throw membershipError;
+        if (!membership) throw new Error("No active Village Council assignment was found.");
+
+        const councilId = membership.village_council_id;
+        const [cardsResult, applicantsResult] = await Promise.all([
+          supabase
+            .from("council_job_cards")
+            .select("id", { count: "exact", head: true })
+            .eq("village_council_id", councilId)
+            .eq("status", "active"),
+          supabase
+            .from("council_applicants")
+            .select("id", { count: "exact", head: true })
+            .eq("village_council_id", councilId)
+            .eq("status", "active"),
+        ]);
+
+        if (cardsResult.error) throw cardsResult.error;
+        if (applicantsResult.error) throw applicantsResult.error;
+        if (current) {
+          setActiveJobCards(cardsResult.count ?? 0);
+          setActiveApplicants(applicantsResult.count ?? 0);
+          setKpiError("");
+        }
+      } catch (error) {
+        if (current) {
+          setKpiError(error instanceof Error ? error.message : "Unable to load Job Cards summary.");
+        }
+      }
+    }
+
+    void loadJobCardSummary();
+    return () => { current = false; };
+  }, []);
+
   return (
     <div className="space-y-8">
       <section>
@@ -25,6 +82,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {kpiError && <p role="status" className="text-xs text-slate-500">{kpiError}</p>}
 
       <section>
         <div className="mb-4 flex items-center justify-between">
@@ -46,6 +105,18 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
+                {module.title === "Job Cards" && (
+                  <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
+                    <div>
+                      <p className="text-xl font-semibold tabular-nums text-slate-950">{activeJobCards === null ? "—" : activeJobCards.toLocaleString("en-IN")}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Active Job Cards</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-semibold tabular-nums text-slate-950">{activeApplicants === null ? "—" : activeApplicants.toLocaleString("en-IN")}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">Active Applicants</p>
+                    </div>
+                  </div>
+                )}
               </>
             );
             const className = `group rounded-2xl border bg-white p-5 shadow-sm ${module.available ? "border-slate-200 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md" : "border-slate-100 opacity-75"}`;

@@ -284,7 +284,7 @@ export default function JobCardsPage() {
             <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.activeApplicants.toLocaleString()}</p><p className="text-xs text-slate-500">Active Applicants</p></div>
           </div>
         </section>
-      )}}
+      )}
 
       <section className="grid gap-3 sm:grid-cols-3">
         {[

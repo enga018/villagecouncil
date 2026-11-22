@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
+import OnboardingActions from "@/components/app/OnboardingActions";
 
 type SourceEntry = { name: string; url: string };
 type SourceResult = { success?: boolean; entries?: SourceEntry[]; error?: string };
@@ -33,6 +34,7 @@ export default function OnboardingPage() {
   const [locationSaved, setLocationSaved] = useState(false);
   const [editingLocation, setEditingLocation] = useState(false);
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
+  const [registerCompleted, setRegisterCompleted] = useState(false);
   const [error, setError] = useState("");
 
   const returnToLogin = useCallback(() => {
@@ -84,6 +86,17 @@ export default function OnboardingPage() {
         if (councilError) throw councilError;
         if (!council) throw new Error("The assigned Village Council is unavailable.");
         if (council.onboarding_completed_at) { router.replace("/dashboard"); return; }
+
+        const { data: completedBatch } = await supabase
+          .from("council_register_import_batches")
+          .select("id,source_location_key")
+          .eq("village_council_id", membership.village_council_id)
+          .eq("source", "official_registration_register")
+          .eq("status", "completed")
+          .order("completed_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
         if (active) {
           setCouncilId(council.id);
           setCouncilName(council.name);
@@ -91,6 +104,8 @@ export default function OnboardingPage() {
             setLocationSaved(true);
             setSavedLocation({ state: council.state, district: council.district, block: council.block, village: council.village });
           }
+          const importedVillage = String(completedBatch?.source_location_key || "").split(" | ").at(-1) || "";
+          setRegisterCompleted(Boolean(completedBatch) && importedVillage === council.village);
         }
 
         const entries = await fetchLocations("states");
@@ -202,6 +217,8 @@ export default function OnboardingPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Loading your Village Council setup…</p></main>;
 
   const dropdownClass = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100";
+  const nextStepHref = registerCompleted ? "/onboarding/ftos" : "/onboarding/job-cards";
+  const nextStepLabel = registerCompleted ? "Continue to Step 3" : "Continue to Step 2";
 
   return <OnboardingShell activeStep={0}>
     <div className="mx-auto max-w-3xl space-y-6">
@@ -210,7 +227,7 @@ export default function OnboardingPage() {
         <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Confirm your Government location</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">{locationSaved && !editingLocation ? "Your official administrative location is confirmed. Continue with the next setup step." : `Welcome${councilName ? ` to ${councilName}` : ""}. Select your official administrative location.`}</p>
       </div>
-      <form onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <form id="location-form" onSubmit={saveLocation} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         {locationSaved && !editingLocation && savedLocation ? <>
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-slate-900">Government location</p>
@@ -222,8 +239,6 @@ export default function OnboardingPage() {
             <p className="mt-1 text-xs text-slate-500">{savedLocation.state}</p>
           </div>
           <button type="button" onClick={() => setEditingLocation(true)} className="w-full rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Change location</button>
-          <button type="button" onClick={() => router.push("/onboarding/job-cards")} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800">Continue to Step 2 <span aria-hidden="true">→</span></button>
-          <p className="text-center text-xs text-slate-400">Your workspace remains inactive until all onboarding steps are complete.</p>
         </> : <>
           {editingLocation && <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-slate-900">Update Government location</p><button type="button" onClick={() => { setEditingLocation(false); setError(""); }} className="text-sm font-medium text-slate-600 hover:text-slate-900">Cancel</button></div>}
           <div className="space-y-4">
@@ -233,12 +248,16 @@ export default function OnboardingPage() {
             {(blockUrl || loadingPanchayats) && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">4. Panchayat / Village</span><select required value={panchayatUrl} onChange={event => { setLocationSaved(false); setPanchayatUrl(event.target.value); }} disabled={loadingPanchayats || !panchayats.length} className={dropdownClass}><option value="">{loadingPanchayats ? "Fetching Panchayats…" : "Select a Panchayat / Village"}</option>{panchayats.map(entry => <option key={entry.url} value={entry.url}>{entry.name}</option>)}</select></label>}
           </div>
           {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
-          <div className="border-t border-slate-100 pt-4">
-            <button type="submit" disabled={saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats} className="w-full rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{saving ? "Saving location…" : editingLocation ? "Save & Continue" : "Save & Continue"}</button>
-            <p className="mt-3 text-center text-xs text-slate-400">Saving this location does not complete onboarding or activate the workspace.</p>
-          </div>
         </>}
       </form>
+      <OnboardingActions
+        next={
+          locationSaved && !editingLocation && savedLocation
+            ? { label: nextStepLabel, onClick: () => router.push(nextStepHref) }
+            : { label: saving ? "Saving location…" : "Save & Continue", type: "submit", form: "location-form", disabled: saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats }
+        }
+        note={locationSaved && !editingLocation && savedLocation ? "Your workspace remains inactive until all onboarding steps are complete." : "Saving this location does not complete onboarding or activate the workspace."}
+      />
     </div>
   </OnboardingShell>;
 }

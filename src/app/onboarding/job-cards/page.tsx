@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
+import OnboardingActions from "@/components/app/OnboardingActions";
 
 type RegisterPreview = {
   batchId: string;
@@ -390,7 +391,6 @@ export default function JobCardOnboardingPage() {
               ].map((item) => { const [label, value] = item as [string, unknown]; return <div key={label} className="rounded-lg bg-white/70 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-1 text-lg font-semibold text-emerald-950">{Number(value || 0).toLocaleString()}</p></div>; })}
             </div>
             <p className="mt-3 text-xs leading-5 text-emerald-900">Missing existing applicants: {Number(activationResult.missing_applicants_for_manual_review || 0).toLocaleString()} · Missing Job Cards: {Number(activationResult.missing_job_cards_for_manual_review || 0).toLocaleString()}. These records were not deactivated.</p>
-            <button type="button" onClick={() => router.push("/onboarding/ftos")} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 sm:w-auto">Continue to Step 3: FTO Discovery <span aria-hidden="true">→</span></button>
           </div> : <>
             <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm leading-5 text-amber-900">{preview.activation} No canonical Job Card or applicant records have been changed. Import activation remains a separate, explicit step.</p>
             <button type="button" onClick={() => void activateRegister()} disabled={activating || fetching || !preview.validation?.passed || stagedApplicants.length !== preview.stagedRows} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
@@ -412,14 +412,14 @@ export default function JobCardOnboardingPage() {
             ].map((item) => { const [label, value] = item as [string, unknown]; return <div key={label} className="rounded-lg bg-white/70 p-3"><p className="text-xs text-emerald-800">{label}</p><p className="mt-1 text-lg font-semibold text-emerald-950">{Number(value || 0).toLocaleString()}</p></div>; })}
           </div>
           <p className="mt-3 text-xs leading-5 text-emerald-900">This initial register is already established. Future register updates must be imported from the operational Job Cards module.</p>
-          <button type="button" onClick={() => router.push("/onboarding/ftos")} className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 sm:w-auto">Continue to Step 3: FTO Discovery <span aria-hidden="true">→</span></button>
         </section>}
       </>}
 
-      <footer className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <button type="button" onClick={() => router.push("/onboarding")} className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">Back to Step 1</button>
-        <p className="text-xs text-slate-400">Your workspace remains locked until onboarding is completed.</p>
-      </footer>
+      <OnboardingActions
+        back={{ label: "Back to Step 1", href: "/onboarding" }}
+        next={{ label: "Continue to Step 3", href: "/onboarding/ftos", disabled: !activationResult }}
+        note={activationResult ? "Register activated. Continue to FTO discovery." : "Activate the reviewed register to continue."}
+      />
     </div>
   </OnboardingShell>;
 }

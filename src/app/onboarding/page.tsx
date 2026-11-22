@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
@@ -35,12 +35,12 @@ export default function OnboardingPage() {
   const [savedLocation, setSavedLocation] = useState<{ state: string; district: string; block: string; village: string } | null>(null);
   const [error, setError] = useState("");
 
-  function returnToLogin() {
+  const returnToLogin = useCallback(() => {
     const requestedPath = window.location.pathname + window.location.search;
     router.replace(`/login?next=${encodeURIComponent(requestedPath)}`);
-  }
+  }, [router]);
 
-  async function fetchLocations(action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) {
+  const fetchLocations = useCallback(async (action: "states" | "districts" | "blocks" | "panchayats", selectedNames: string[] = []) => {
     const { data, error: invokeError } = await createClient().functions.invoke<SourceResult>("location-master-source", {
       body: { action, selectedNames },
     });
@@ -60,7 +60,7 @@ export default function OnboardingPage() {
       throw new Error(data?.error || "The official location list was empty or could not be parsed.");
     }
     return data.entries;
-  }
+  }, [returnToLogin]);
 
   useEffect(() => {
     let active = true;
@@ -129,7 +129,7 @@ export default function OnboardingPage() {
     }
     void loadCouncilAndStates();
     return () => { active = false; };
-  }, [router]);
+  }, [router, returnToLogin, fetchLocations]);
 
   async function selectState(url: string, name: string) {
     setLocationSaved(false);

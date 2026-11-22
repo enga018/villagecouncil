@@ -65,7 +65,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
-    void resolveTenant();
+    window.setTimeout(() => void resolveTenant(), 0);
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (["SIGNED_OUT", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
         window.setTimeout(() => void resolveTenant(), 0);

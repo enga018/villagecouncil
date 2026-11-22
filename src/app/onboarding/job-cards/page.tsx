@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import OnboardingShell from "@/components/app/OnboardingShell";
@@ -62,9 +62,9 @@ export default function JobCardOnboardingPage() {
   const [error, setError] = useState("");
   const [pageError, setPageError] = useState("");
 
-  function returnToLogin() {
+  const returnToLogin = useCallback(() => {
     router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-  }
+  }, [router]);
 
   useEffect(() => {
     let active = true;
@@ -132,7 +132,7 @@ export default function JobCardOnboardingPage() {
     }
     void loadSetup();
     return () => { active = false; };
-  }, [router]);
+  }, [router, returnToLogin]);
 
   async function activateRegister() {
     if (!preview?.batchId || !preview.validation?.passed || stagedApplicants.length !== preview.stagedRows) return;
@@ -195,7 +195,7 @@ export default function JobCardOnboardingPage() {
           .eq("import_batch_id", prepared.batchId)
           .order("row_number", { ascending: true }).range(offset, offset + 999);
         if (rowsError) throw rowsError;
-        allRows.push(...(rows || []).map((item: any) => item.row_data as StagedApplicant));
+        allRows.push(...(rows || []).map((item: { row_data: StagedApplicant }) => item.row_data));
         if (!rows || rows.length < 1000) break;
       }
       setStagedApplicants(allRows);

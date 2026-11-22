@@ -7,7 +7,7 @@ export default function FtoOnboardingPage() {
     <OnboardingShell activeStep={2}>
       <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
         <p className="text-sm font-medium text-blue-700">FTO discovery · Step 3</p>
-        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Discover your council's FTO records</h2>
+        <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">Discover your council&apos;s FTO records</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           The Job Card register has been established. The next step is to discover and import FTO records for your Government location.
         </p>

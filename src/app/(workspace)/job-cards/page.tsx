@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -8,7 +8,7 @@ export default function JobCardsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
 
-  const visibleCount = useMemo(() => 0, [query, status]);
+  const visibleCount = 0;
 
   return (
     <div className="space-y-7">

@@ -180,7 +180,7 @@ function parseOfficialRegister(html: string, village: string) {
   if(!selected) throw new Error("Could not identify applicant table headings.");
   if(header.length<14||header.length>15) throw new Error("Unexpected applicant heading count: "+header.length+".");
   if(header.length===15&&!String(header[14]??"").trim())header=header.slice(0,14);
-  const col=(names:string[])=>{const keys=header.map(key);let i=keys.findIndex(v=>names.includes(v));return i>=0?i:keys.findIndex(v=>names.some(a=>v.includes(a)||a.includes(v)));};
+  const col=(names:string[])=>{const keys=header.map(key);const i=keys.findIndex(v=>names.includes(v));return i>=0?i:keys.findIndex(v=>names.some(a=>v.includes(a)||a.includes(v)));};
   const ix={house:col(["head of household","head of household name"]),caste:col(["caste"]),name:col(["name of applicant","applicant name"]),father:col(["father husband name","father name","husband name"]),gender:col(["gender","sex"]),age:col(["age"]),received:col(["date of receipt of application request for registration","date of receipt of application"]),job:col(["job card number","jobcard number"]),issue:col(["job card issue date"]),remarks:col(["reasons if job card not issued any other remarks","reasons if job card not issued","remarks"]),disabled:col(["disabled"]),minority:col(["minority"]),verified:col(["job card verified on date"])};
   if([ix.house,ix.name,ix.job].some(v=>v<0))throw new Error("Required household, applicant-name or Job Card columns are missing.");
   const rows:Record<string,unknown>[]=[], review:string[]=[], identityOccurrences=new Map<string,number>(), households=new Map<string,string>(), sequences=new Map<string,number>();
@@ -468,8 +468,8 @@ Deno.serve(async (req: Request) => {
             inactiveJobCards: allJobCardNumbers.size - activeJobCardNumbers.size,
             checkedRows: parsed.rows.length,
           };
-          const existingCards: any[] = [];
-          const existingApplicants: any[] = [];
+          const existingCards: { id: string; job_card_number: string; head_of_household: string; status: string }[] = [];
+          const existingApplicants: { [key: string]: unknown; id: string; job_card_id: string; source_record_key: string; applicant_number: string; applicant_name: string; caste: string; father_husband_name: string; gender: string; age: string; application_received_date: string; job_card_issue_date: string; remarks: string; is_disabled: boolean; is_minority: boolean; job_card_verified_date: string; status: string }[] = [];
           for (let offset = 0; ; offset += 1000) {
             const { data, error } = await adminClient.from("council_job_cards")
               .select("id,job_card_number,head_of_household,status")

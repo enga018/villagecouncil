@@ -32,6 +32,10 @@ export default function JobCardsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [refetching, setRefetching] = useState(false);
+  const [fetchError, setFetchError] = useState("");
+  const [lastFetched, setLastFetched] = useState<string | null>(null);
+  const [fetchResult, setFetchResult] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
   const pageSize = 20;
 
   useEffect(() => {
@@ -97,6 +101,126 @@ export default function JobCardsPage() {
     return () => { active = false; };
   }, []);
 
+  async function refetchJobCards() {
+    if (refetching) return;
+    setRefetching(true);
+    setFetchError("");
+    setFetchResult(null);
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Your session has expired. Please sign in again.");
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("council_memberships")
+        .select("village_council_id")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership) throw new Error("This account has no active Village Council assignment.");
+
+      const { data, error: invokeError } = await supabase.functions.invoke<{
+        success?: boolean;
+        reportInspection?: { preview?: {
+          batchId: string;
+          stagedRows: number;
+          validation?: { passed: boolean; stagedRowsMatch: boolean; checkedRows: number };
+          activeJobCards: number;
+          inactiveJobCards: number;
+          activeApplicants: number;
+          deletedApplicants: number;
+        }; error?: string };
+        error?: string;
+      }>("council-register-source", { body: { action: "prepare-preview" } });
+      if (invokeError) {
+        let message = invokeError.message || "Could not fetch the official Job Card register.";
+        const context = invokeError.context as Response | undefined;
+        if (context && typeof context.json === "function") {
+          try {
+            const detail = await context.json() as { error?: string };
+            if (detail.error) message = detail.error;
+          } catch {}
+        }
+        throw new Error(message);
+      }
+      const preview = data?.reportInspection?.preview;
+      if (!data?.success || !preview?.batchId) {
+        throw new Error(data?.reportInspection?.error || data?.error || "The official register could not be prepared.");
+      }
+      if (!preview.validation?.passed || !preview.validation.stagedRowsMatch) {
+        throw new Error("The official register did not pass validation. Existing records were not changed.");
+      }
+
+      let stagedCount = 0;
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error: rowsError } = await supabase
+          .from("council_register_import_rows")
+          .select("row_number")
+          .eq("import_batch_id", preview.batchId)
+          .order("row_number", { ascending: true })
+          .range(offset, offset + 999);
+        if (rowsError) throw rowsError;
+        stagedCount += rows?.length || 0;
+        if (!rows || rows.length < 1000) break;
+      }
+      if (stagedCount !== preview.stagedRows) {
+        throw new Error("Register verification was incomplete. Existing records were not changed.");
+      }
+
+      const { data: activation, error: activationError } = await supabase
+        .rpc("activate_council_register_import", { p_batch_id: preview.batchId });
+      if (activationError) throw activationError;
+      if (!activation?.success) throw new Error("The Job Card refetch did not complete successfully.");
+
+      const councilId = membership.village_council_id;
+      const cards: JobCard[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error } = await supabase
+          .from("council_job_cards")
+          .select("id,job_card_number,head_of_household,status")
+          .eq("village_council_id", councilId)
+          .order("job_card_number", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        cards.push(...(rows || []));
+        if (!rows || rows.length < 1000) break;
+      }
+
+      const people: Applicant[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error } = await supabase
+          .from("council_applicants")
+          .select("id,job_card_id,applicant_number,applicant_name,official_unique_id,status,caste,father_husband_name,gender,age")
+          .eq("village_council_id", councilId)
+          .order("job_card_id", { ascending: true })
+          .order("source_sequence", { ascending: true })
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        people.push(...(rows || []));
+        if (!rows || rows.length < 1000) break;
+      }
+
+      setJobCards(cards);
+      setApplicants(people);
+      setPage(1);
+      setExpanded([]);
+      setFetchResult({
+        totalCards: preview.activeJobCards + preview.inactiveJobCards,
+        activeCards: preview.activeJobCards,
+        totalApplicants: preview.validation.checkedRows,
+        activeApplicants: preview.activeApplicants,
+      });
+      setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Unable to refetch the Job Card register.");
+    } finally {
+      setRefetching(false);
+    }
+  }
+
   const applicantsByCard = useMemo(() => {
     const groups = new Map<string, Applicant[]>();
     for (const person of applicants) {
@@ -127,13 +251,40 @@ export default function JobCardsPage() {
 
   return (
     <div className="space-y-7">
-      <section>
-        <p className="text-sm font-medium text-blue-700">Core records</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Job Cards</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Households and their applicants for your Village Council.</p>
+      <section className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-blue-700">Core records</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Job Cards</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Households and their applicants for your Village Council.</p>
+          {lastFetched && <p className="mt-2 text-xs text-slate-500">Last fetched: {lastFetched}</p>}
+        </div>
+        <button
+          type="button"
+          onClick={() => void refetchJobCards()}
+          disabled={refetching || loading}
+          aria-busy={refetching}
+          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="1.7">
+            <path d="M16.5 7.5A6.8 6.8 0 0 0 4.2 5.2L2.5 7M2.5 7V3.8M2.5 7h3.2M3.5 12.5a6.8 6.8 0 0 0 12.3 2.3l1.7-1.8m0 0v3.2m0-3.2h-3.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Refetch Job Cards
+        </button>
       </section>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
+      {fetchError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{fetchError}</div>}
+      {fetchResult && (
+        <section aria-live="polite" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-900">Job Card register updated</p>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.totalCards.toLocaleString()}</p><p className="text-xs text-slate-500">Total Job Cards</p></div>
+            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.activeCards.toLocaleString()}</p><p className="text-xs text-slate-500">Active Job Cards</p></div>
+            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.totalApplicants.toLocaleString()}</p><p className="text-xs text-slate-500">Total Applicants</p></div>
+            <div><p className="text-2xl font-semibold tabular-nums text-slate-950">{fetchResult.activeApplicants.toLocaleString()}</p><p className="text-xs text-slate-500">Active Applicants</p></div>
+          </div>
+        </section>
+      )}}
 
       <section className="grid gap-3 sm:grid-cols-3">
         {[

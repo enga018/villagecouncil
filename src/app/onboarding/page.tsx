@@ -257,9 +257,9 @@ export default function OnboardingPage() {
         p_panchayat_url: panchayat.url,
       });
       if (saveError) throw saveError;
-      setLocationSaved(true);
-      setSavedLocation({ state: state.name, district: district.name, block: block.name, village: panchayat.name });
-      router.push("/onboarding/job-cards");
+      const { error: completeError } = await createClient().rpc("complete_council_onboarding", { p_council_id: councilId });
+      if (completeError) throw completeError;
+      router.replace("/dashboard");
     } catch (err) {
       if (isAuthenticationFailure(err)) { returnToLogin(); return; }
       setError(err instanceof Error ? err.message : "Unable to save the Village Council location.");
@@ -269,8 +269,21 @@ export default function OnboardingPage() {
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Loading your Village Council setup…</p></main>;
 
   const dropdownClass = "min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100";
-  const nextStepHref = "/onboarding/job-cards";
-  const nextStepLabel = "Continue setup";
+  async function completeSavedLocation() {
+    if (!councilId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const { error: completeError } = await createClient().rpc("complete_council_onboarding", { p_council_id: councilId });
+      if (completeError) throw completeError;
+      router.replace("/dashboard");
+    } catch (err) {
+      if (isAuthenticationFailure(err)) { returnToLogin(); return; }
+      setError(err instanceof Error ? err.message : "Unable to complete onboarding.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return <OnboardingShell activeStep={0}>
     <div className="mx-auto max-w-3xl space-y-6">
@@ -305,10 +318,10 @@ export default function OnboardingPage() {
       <OnboardingActions
         next={
           locationSaved && !editingLocation && savedLocation
-            ? { label: nextStepLabel, onClick: () => router.push(nextStepHref) }
+            ? { label: saving ? "Opening workspace…" : "Continue to Dashboard", onClick: () => void completeSavedLocation(), disabled: saving }
             : { label: saving ? "Saving location…" : "Save & Continue", type: "submit", form: "location-form", disabled: saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats }
         }
-        note={locationSaved && !editingLocation && savedLocation ? "Your Job Card register will be imported automatically before the workspace opens." : "Saving this location starts automatic Job Card setup."}
+        note={locationSaved && !editingLocation && savedLocation ? "Your Government location is saved. Job Cards and FTOs can be imported later from their respective pages." : "Save your Government location to finish onboarding and open your workspace."}
       />
     </div>
   </OnboardingShell>;

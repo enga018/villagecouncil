@@ -153,6 +153,19 @@ export default function JobCardsPage() {
         throw new Error("The official register did not pass validation. Existing records were not changed.");
       }
 
+      // Validate the complete result summary before activating the staged import.
+      // Job Card counts are returned inside preview.validation by the Edge Function.
+      const validation = preview.validation;
+      const summaryValues = [
+        validation.activeJobCards,
+        validation.inactiveJobCards,
+        validation.checkedRows,
+        preview.activeApplicants,
+      ];
+      if (summaryValues.some(value => typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+        throw new Error("The official register returned incomplete summary counts. Existing records were not changed.");
+      }
+
       let stagedCount = 0;
       for (let offset = 0; ; offset += 1000) {
         const { data: rows, error: rowsError } = await supabase
@@ -208,9 +221,9 @@ export default function JobCardsPage() {
       setPage(1);
       setExpanded([]);
       setFetchResult({
-        totalCards: preview.activeJobCards + preview.inactiveJobCards,
-        activeCards: preview.activeJobCards,
-        totalApplicants: preview.validation.checkedRows,
+        totalCards: validation.activeJobCards + validation.inactiveJobCards,
+        activeCards: validation.activeJobCards,
+        totalApplicants: validation.checkedRows,
         activeApplicants: preview.activeApplicants,
       });
       setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));

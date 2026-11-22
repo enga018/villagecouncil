@@ -35,7 +35,7 @@ export default function JobCardOnboardingPage() {
     router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }, [router]);
 
-  const importRegister = useCallback(async (targetCouncilId: string, targetCouncilName: string) => {
+  const importRegister = useCallback(async (targetCouncilId: string) => {
     setReadyToRetry(false);
     setError("");
     try {
@@ -174,7 +174,7 @@ export default function JobCardOnboardingPage() {
         setCouncilId(council.id);
         setCouncilName(council.name);
         setLocation([council.state, council.district, council.block, council.village]);
-        await importRegister(council.id, council.name);
+        await importRegister(council.id);
       } catch (err) {
         if (!active) return;
         if (isAuthenticationFailure(err)) {
@@ -219,7 +219,7 @@ export default function JobCardOnboardingPage() {
             <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
               <p className="text-sm leading-6 text-red-800">{error}</p>
               {readyToRetry && councilId && (
-                <button type="button" onClick={() => void importRegister(councilId, councilName)} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
+                <button type="button" onClick={() => void importRegister(councilId)} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">
                   Retry automatic setup
                 </button>
               )}

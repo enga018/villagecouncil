@@ -19,6 +19,22 @@ where lower(btrim(s.official_name)) = lower(btrim(c.state))
   and lower(btrim(p.official_name)) = lower(btrim(c.village))
   and c.location_panchayat_id is null;
 
+-- Do not enable exclusivity if an existing configured council could not be
+-- mapped to a canonical village. Resolve any such mapping before deployment.
+do $
+begin
+  if exists (
+    select 1
+    from public.council_tenants c
+    where c.is_active = true
+      and nullif(btrim(c.village), '') is not null
+      and c.location_panchayat_id is null
+  ) then
+    raise exception 'Cannot enforce exclusive village assignment: an active council location could not be matched to the official Panchayat master.';
+  end if;
+end;
+$;
+
 create unique index if not exists council_tenants_one_active_council_per_village
   on public.council_tenants(location_panchayat_id)
   where is_active = true and location_panchayat_id is not null;

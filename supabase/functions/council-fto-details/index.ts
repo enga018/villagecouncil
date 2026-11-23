@@ -362,6 +362,7 @@ async function main(req: Request, origin: string | null) {
           unresolved_transaction_count: unresolvedCount,
           last_inspected_at: new Date().toISOString(),
           last_error: null,
+          import_activated_at: null,
           updated_at: new Date().toISOString(),
         });
         results.push({

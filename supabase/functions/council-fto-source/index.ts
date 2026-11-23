@@ -428,7 +428,7 @@ async function main(req: Request, origin: string | null) {
       throw new Error("The selected District link did not open a page validated as FTO Status.");
     }
     const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : districtPage.url;
-    await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl.kind === "postback" ? ftoStatusControl : null });
+    await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl });
     navigation.push({ step: "fto_status", source: "discovered_and_saved", label: ftoStatusControl.label, path: new URL(ftoStatusPage.url).pathname });
   }
 
@@ -458,7 +458,7 @@ async function main(req: Request, origin: string | null) {
     const savedUrl = listControl.kind === "link" ? listControl.href! : ftoStatusPage.url;
     await saveSharedNavigation(admin, {
       districtId: district.id, blockId: block.id, type: "first_signatory_list",
-      url: savedUrl, control: listControl.kind === "postback" ? listControl : null,
+      url: savedUrl, control: listControl,
       parentNavigation: listControl.kind === "postback" ? ftoStatusParentNavigation : null,
     });
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });

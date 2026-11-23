@@ -115,3 +115,7 @@ src/
 ## Legacy Files
 
 Old vanilla HTML/JS files are preserved in `_legacy/` for reference.
+
+## Technical Documentation
+
+- [FTO Monitoring](docs/fto-monitoring.md) — Government discovery flow, Panchayat-based ownership, validation, refetch policy, import activation, and current limitations.

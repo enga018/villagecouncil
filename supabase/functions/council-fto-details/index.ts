@@ -1,0 +1,358 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { normalizeVillage } from "../_shared/fto-domain.ts";
+import { parseGovernmentFtoDetailHtml } from "../_shared/fto-html-parser.ts";
+
+const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
+const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
+const DETAIL_PATH = "/vbgramg/fto/fto_trasction_dtl.aspx";
+type Candidate = { detailUrl: string; listingRow: string[]; listingHeaders?: string[]; ftoNumber: string };
+type Transaction = {
+  ftoNumber: string;
+  jobCardNumber: string;
+  referenceNumber: string;
+  status: "processed" | "rejected" | "deferred" | "other";
+  normalizedStatus: "processed" | "rejected" | "blank" | "other";
+  governmentStatus: string;
+  amount: string;
+  jobCardNo: string;
+  referenceNo: string;
+  amountToBeCredited: string;
+  creditAmount: string;
+  transactionDate: string;
+  processedDate: string;
+  rejectionReason: string;
+  village: string;
+  villageName: string;
+  personName: string;
+  primaryAccountHolder: string;
+  sourceRow: Array<{ name: string; value: string }>;
+};
+
+function cors(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://villagecouncil.enga.in",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
+function reply(body: Record<string, unknown>, status: number, origin: string | null) {
+  return new Response(JSON.stringify(body), { status, headers: { ...cors(origin), "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+async function readJsonBody(req: Request, maxBytes: number) {
+  const declaredLength = Number(req.headers.get("Content-Length") || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) throw new Error("Request body is too large.");
+  if (!req.body) throw new Error("Request body is empty.");
+  const reader = req.body.getReader(), chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) { await reader.cancel(); throw new Error("Request body is too large."); }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+async function fingerprintCandidate(candidate: Candidate) {
+  const source = JSON.stringify({
+    detailUrl: candidate.detailUrl,
+    listingRow: candidate.listingRow,
+    listingHeaders: candidate.listingHeaders,
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+
+
+function validateGovernmentTransactions(transactions: Transaction[], listingRow: string[]) {
+  const errors: string[] = [], refs = new Set<string>();
+  for (let index = 0; index < transactions.length; index++) {
+    const tx = transactions[index], label = "Government row " + (index + 1);
+    if (!tx.jobCardNumber) errors.push(label + ": missing or invalid Job Card Number.");
+    if (!tx.village) errors.push(label + ": missing Panchayat name in the Job Card/Panchayat cell.");
+    if (!tx.referenceNumber) errors.push(label + ": missing Reference Number.");
+    const ref = String(tx.referenceNumber || "").trim().toUpperCase();
+    if (ref && refs.has(ref)) errors.push(label + ": duplicate Reference Number " + ref + ".");
+    if (ref) refs.add(ref);
+    if (!tx.creditAmount) errors.push(label + ": missing or invalid Credit Amount.");
+    if (tx.normalizedStatus === "other") errors.push(label + ": unrecognized Government status.");
+  }
+  const sum = (rows: Transaction[]) => rows.reduce((n, tx) => n + Number(tx.creditAmount || 0), 0);
+  const countAt = (i: number) => { const v = String(listingRow[i] ?? "").replace(/,/g, "").trim(); return /^\d+$/.test(v) ? Number(v) : null; };
+  const amountAt = (i: number) => { const v = String(listingRow[i] ?? "").replace(/[₹,\s]/g, ""); return /^\d+(?:\.\d+)?$/.test(v) ? Number(v) : null; };
+  const checks = [
+    { label: "Processed count", expected: countAt(8), actual: transactions.filter(tx => tx.normalizedStatus === "processed").length },
+    { label: "Rejected count", expected: countAt(10), actual: transactions.filter(tx => tx.normalizedStatus === "rejected").length },
+    { label: "Processed amount", expected: amountAt(9), actual: sum(transactions.filter(tx => tx.normalizedStatus === "processed")) },
+    { label: "Rejected amount", expected: amountAt(11), actual: sum(transactions.filter(tx => tx.normalizedStatus === "rejected")) },
+    { label: "Total amount", expected: amountAt(7), actual: sum(transactions) },
+  ];
+  for (const check of checks) {
+    if (check.expected === null) errors.push("Government listing " + check.label + " is missing or invalid.");
+    else if (Math.abs(check.expected - check.actual) >= 0.005) errors.push("Government listing " + check.label + " does not reconcile with detail rows.");
+  }
+  return errors;
+}
+async function getPage(url: string, ftoNumber: string) {
+  const parsed = new URL(url);
+  if (!GOVERNMENT_HOSTS.has(parsed.hostname) || parsed.pathname.toLowerCase() !== DETAIL_PATH || !parsed.searchParams.has("payload"))
+    throw new Error("FTO " + ftoNumber + " has an invalid Government detail URL.");
+  const response = await fetch(parsed.href, {
+    method: "GET", redirect: "follow",
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Encoding": "identity",
+      "Cache-Control": "no-cache",
+      "Pragma": "no-cache",
+    },
+    signal: AbortSignal.timeout(12000),
+  });
+  const html = await response.text();
+  if (!response.ok) throw new Error("Government detail request returned HTTP " + response.status + ".");
+  const finalUrl = new URL(response.url || parsed.href);
+  if (!GOVERNMENT_HOSTS.has(finalUrl.hostname) || finalUrl.pathname.toLowerCase() !== DETAIL_PATH)
+    throw new Error("FTO " + ftoNumber + " redirected outside the expected Government detail page.");
+  return parseGovernmentFtoDetailHtml(html, ftoNumber);
+
+}
+function base64UrlToBytes(value: string) {
+  if (!/^[A-Za-z0-9_-]+$/.test(value) || value.length > 2_000_000) throw new Error("Invalid or oversized FTO manifest token.");
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - value.length % 4) % 4);
+  return Uint8Array.from(atob(padded), char => char.charCodeAt(0));
+}
+async function openManifest(token: string, serviceKey: string) {
+  const bytes = base64UrlToBytes(token);
+  if (bytes.length < 29) throw new Error("FTO manifest token is incomplete.");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("COUNCIL-FTO-MANIFEST-v1:" + serviceKey));
+  const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["decrypt"]);
+  const clear = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, key, bytes.slice(12));
+  const manifest = JSON.parse(new TextDecoder().decode(clear));
+  if (manifest?.v !== 1 || !Number.isFinite(manifest.exp) || manifest.exp < Date.now() ||
+      !Array.isArray(manifest.candidates) || !manifest.context || !manifest.context.panchayatName)
+    throw new Error("FTO manifest has expired or is invalid. Run FTO discovery again.");
+  return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string; panchayatName: string }; candidates: Candidate[] };
+}
+async function main(req: Request, origin: string | null) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+  const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
+  const publishableKey = publishableKeys ? JSON.parse(publishableKeys).default : Deno.env.get("SUPABASE_ANON_KEY");
+  const secretKey = secretKeys ? JSON.parse(secretKeys).default : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !publishableKey || !secretKey) return reply({ error: "Server configuration is incomplete." }, 500, origin);
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
+  const userClient = createClient(supabaseUrl, publishableKey, {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const admin = createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: userData, error: userError } = await userClient.auth.getUser();
+  if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
+  const { data: membership, error: membershipError } = await admin.from("council_memberships")
+    .select("village_council_id").eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
+  if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
+  if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
+  const tenantId = membership.village_council_id;
+  const body = await readJsonBody(req, 2_200_000);
+  const dryRun = body.dryRun === true;
+  const manifestToken = String(body.manifestToken || "");
+  const batchId = String(body.batchId || "");
+  const requested: string[] = Array.isArray(body.ftoNumbers)
+    ? (body.ftoNumbers as unknown[]).map((value: unknown) => String(value || "").trim()).filter((value: string) => Boolean(value))
+    : [];
+  if (!manifestToken || !batchId || requested.length < 1 || requested.length > 5 ||
+      new Set(requested.map(value => value.toUpperCase())).size !== requested.length) {
+    return reply({ error: "Provide a valid manifest, batch ID, and between one and five distinct FTO numbers." }, 400, origin);
+  }
+  const manifest = await openManifest(manifestToken, secretKey);
+  if (manifest.context.tenantId !== tenantId || manifest.context.batchId !== batchId)
+    return reply({ error: "The FTO manifest does not belong to this Village Council or import batch." }, 403, origin);
+
+  const { data: council, error: councilError } = await admin.from("council_tenants")
+    .select("id,location_panchayat_id,is_active").eq("id", tenantId).eq("is_active", true).maybeSingle();
+  if (councilError || !council?.location_panchayat_id) return reply({ error: "The assigned Village Council location is unavailable." }, 409, origin);
+  const { data: panchayat, error: panchayatError } = await admin.from("location_panchayats")
+    .select("id,block_id,official_name").eq("id", council.location_panchayat_id).maybeSingle();
+  if (panchayatError || !panchayat?.block_id || !panchayat.official_name) return reply({ error: "The Panchayat mapping is unavailable." }, 409, origin);
+  if (normalizeVillage(manifest.context.panchayatName) !== normalizeVillage(panchayat.official_name))
+    return reply({ error: "The FTO manifest Panchayat does not match this Village Council." }, 403, origin);
+  const { data: block, error: blockError } = await admin.from("location_blocks")
+    .select("id,district_id,official_name").eq("id", panchayat.block_id).maybeSingle();
+  if (blockError || !block?.district_id) return reply({ error: "The Block mapping is unavailable." }, 409, origin);
+  const { data: district, error: districtError } = await admin.from("location_districts")
+    .select("id").eq("id", block.district_id).maybeSingle();
+  if (districtError || !district || manifest.context.blockId !== block.id || manifest.context.districtId !== district.id)
+    return reply({ error: "The FTO manifest jurisdiction does not match this Village Council." }, 403, origin);
+
+  const { data: batch, error: batchError } = await admin.from("council_fto_import_batches")
+    .select("id,status,total_rows,village_council_id").eq("id", batchId).eq("village_council_id", tenantId).maybeSingle();
+  if (batchError || !batch) return reply({ error: "The FTO import batch was not found for this Village Council." }, 404, origin);
+  if (!["processing", "pending"].includes(batch.status)) return reply({ error: "This FTO import batch is no longer available for processing." }, 409, origin);
+  if (Number(batch.total_rows) !== manifest.candidates.length) return reply({ error: "The FTO manifest does not match the batch's discovered record count." }, 409, origin);
+
+  const candidateByNumber = new Map<string, { candidate: Candidate; rowNumber: number }>();
+  manifest.candidates.forEach((candidate, index) => {
+    candidateByNumber.set(String(candidate.ftoNumber || "").trim().toUpperCase(), { candidate, rowNumber: index + 1 });
+  });
+  const selected: Array<{ candidate: Candidate; rowNumber: number; requestedNumber: string }> = requested.map((number: string) => {
+    const item = candidateByNumber.get(number.toUpperCase());
+    if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
+    return { ...item, requestedNumber: number };
+  });
+  const targetPanchayat = normalizeVillage(panchayat.official_name);
+  const selectedRowNumbers = selected.map(item => item.rowNumber);
+  const { data: existingRows, error: existingRowsError } = await admin.from("council_fto_import_rows")
+    .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);
+  if (existingRowsError) throw new Error("Could not check previously processed FTOs: " + existingRowsError.message);
+  const alreadyStaged = new Set((existingRows || []).map((row: { row_number: number }) => Number(row.row_number)));
+  // Dry runs deliberately refetch even already-staged FTOs, but never write staged rows or inspection history.
+  const pending = dryRun ? selected : selected.filter(item => !alreadyStaged.has(item.rowNumber));
+  const results: Record<string, unknown>[] = [];
+  const stagedRows: Record<string, unknown>[] = [];
+  const inspectionRows: Record<string, unknown>[] = [];
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(2, pending.length) }, async () => {
+    while (cursor < pending.length) {
+      const item = pending[cursor++];
+      try {
+        const transactions = await getPage(item.candidate.detailUrl, item.candidate.ftoNumber);
+        const validationErrors = validateGovernmentTransactions(transactions, item.candidate.listingRow || []);
+        if (validationErrors.length) {
+          results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
+          continue;
+        }
+        const matching: Transaction[] = transactions.filter((tx: Transaction) =>
+          normalizeVillage(tx.village) === targetPanchayat
+        );
+        const unmatchedCount = transactions.length - matching.length;
+        const scope = matching.length ? "IN_SCOPE" : "OUT_OF_SCOPE";
+        const listingRow = item.candidate.listingRow || [];
+        const ftoRow = {
+          scope,
+          panchayat_name: panchayat.official_name,
+          fto_number: item.candidate.ftoNumber,
+          fto_date: listingRow[5] || "",
+          fto_status: "",
+          block: block.official_name,
+          first_signatory: "",
+          beneficiary_count: String(matching.length),
+          wage_amount: matching.reduce((sum: number, tx: Transaction) => sum + Number(tx.creditAmount || 0), 0).toFixed(2),
+          source_record_key: item.candidate.ftoNumber,
+          government_transaction_count: transactions.length,
+          matching_transaction_count: matching.length,
+          unmatched_transaction_count: unmatchedCount,
+          transactions: matching,
+        };
+        stagedRows.push({
+          village_council_id: tenantId,
+          import_batch_id: batchId,
+          row_number: item.rowNumber,
+          row_data: ftoRow,
+        });
+        const unresolvedCount = matching.filter((tx: Transaction) =>
+          tx.normalizedStatus !== "processed" && tx.normalizedStatus !== "rejected"
+        ).length;
+        inspectionRows.push({
+          village_council_id: tenantId,
+          fto_number: item.candidate.ftoNumber,
+          listing_fingerprint: await fingerprintCandidate(item.candidate),
+          inspection_result: scope === "IN_SCOPE" ? "matched" : "no_match",
+          matching_transaction_count: matching.length,
+          unresolved_transaction_count: unresolvedCount,
+          last_inspected_at: new Date().toISOString(),
+          last_error: null,
+          import_activated_at: null,
+          updated_at: new Date().toISOString(),
+        });
+        results.push({
+          ftoNumber: item.candidate.ftoNumber,
+          kind: scope === "IN_SCOPE" ? "village_match" : "out_of_village",
+          governmentTransactionCount: transactions.length,
+          matchingTransactionCount: matching.length,
+          excludedTransactionCount: unmatchedCount,
+          matchedJobCards: [...new Set(matching.map((tx: Transaction) => String(tx.jobCardNumber).trim().toUpperCase()))],
+        });
+      } catch (error) {
+        results.push({
+          ftoNumber: item.candidate.ftoNumber,
+          kind: "fetch_failure",
+          error: error instanceof Error ? error.message : "FTO detail processing failed.",
+        });
+      }
+    }
+  });
+  await Promise.all(workers);
+
+  if (dryRun) {
+    const successful = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+    const failed = results.filter(result => result.kind === "validation_failure" || result.kind === "fetch_failure").length;
+    return reply({
+      success: failed === 0 && successful === requested.length,
+      dryRun: true,
+      writesPerformed: false,
+      batchId,
+      requestedCount: requested.length,
+      fetchedCount: pending.length,
+      successfulCount: successful,
+      failedCount: failed,
+      results,
+      message: failed === 0
+        ? "Live Government detail pages were fetched and parsed successfully. No FTO records or inspection history were changed."
+        : "The live parser test found one or more fetch or validation failures. No FTO records or inspection history were changed.",
+    }, 200, origin);
+  }
+
+  if (stagedRows.length) {
+    const { error: stageError } = await admin.from("council_fto_import_rows")
+      .upsert(stagedRows, { onConflict: "import_batch_id,row_number" });
+    if (stageError) throw new Error("Could not stage the village-filtered FTO results: " + stageError.message);
+  }
+  if (inspectionRows.length) {
+    const { error: inspectionError } = await admin.from("council_fto_inspections")
+      .upsert(inspectionRows, { onConflict: "village_council_id,fto_number" });
+    if (inspectionError) throw new Error("FTO details were staged, but inspection history could not be saved: " + inspectionError.message);
+  }
+  const { count: stagedCount, error: countError } = await admin.from("council_fto_import_rows")
+    .select("row_number", { count: "exact", head: true })
+    .eq("import_batch_id", batchId).eq("village_council_id", tenantId);
+  if (countError) throw new Error("Could not verify FTO processing progress: " + countError.message);
+  const batchComplete = stagedCount === Number(batch.total_rows);
+  if (batchComplete && batch.status === "processing") {
+    const { error: finishError } = await admin.from("council_fto_import_batches")
+      .update({ status: "pending", error_message: null })
+      .eq("id", batchId).eq("village_council_id", tenantId).eq("status", "processing");
+    if (finishError) throw new Error("All FTOs were processed, but the review batch could not be finalized: " + finishError.message);
+  }
+  return reply({
+    success: true,
+    batchId,
+    requestedCount: requested.length,
+    alreadyStagedCount: alreadyStaged.size,
+    fetchedCount: pending.length,
+    stagedThisRequest: stagedRows.length,
+    stagedTotal: stagedCount || 0,
+    totalFtos: batch.total_rows,
+    batchComplete,
+    results: [...results, ...selected.filter(item => alreadyStaged.has(item.rowNumber)).map(item => ({ ftoNumber: item.candidate.ftoNumber, kind: "already_staged" }))],
+    message: batchComplete
+      ? "All FTO details have been parsed. Only transactions whose FTO Panchayat matches this Village Council are included."
+      : "FTO details processed for this batch. Retry any failed FTO numbers; no manual import fallback is available.",
+  }, 200, origin);
+}
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
+  if (req.method !== "POST") return reply({ error: "Method not allowed." }, 405, origin);
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return reply({ error: "Origin not allowed." }, 403, origin);
+  try {
+    return await main(req, origin);
+  } catch (error) {
+    return reply({ success: false, error: error instanceof Error ? error.message : "FTO detail processing failed." }, 502, origin);
+  }
+});

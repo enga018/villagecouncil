@@ -34,11 +34,19 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: FTO domain regression tests
+        run: |
+          deno test supabase/functions/_shared/fto-domain.test.ts
+          deno test supabase/functions/_shared/fto-refetch.test.ts
+          deno test supabase/functions/_shared/fto-html-parser.test.ts
+
       - name: Check Edge Functions
         run: |
           deno check --node-modules-dir=auto supabase/functions/location-master-source/index.ts
           deno check supabase/functions/submit-council-onboarding-request/index.ts
           deno check supabase/functions/create-village-council/index.ts
+          deno check --node-modules-dir=auto supabase/functions/council-fto-source/index.ts
+          deno check --node-modules-dir=auto supabase/functions/council-fto-details/index.ts
 
       - name: ESLint
         run: npm run lint

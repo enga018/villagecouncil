@@ -102,7 +102,7 @@ begin
     nullif(tx.value->>'amountToBeCredited', '')::numeric,
     nullif(tx.value->>'creditAmount', '')::numeric,
     coalesce(nullif(tx.value->>'governmentStatus', ''), 'blank'),
-    tx.value->>'normalizedStatus',
+    tx.value->>'status',
     nullif(tx.value->>'rejectionReason', ''),
     nullif(tx.value->>'village', ''),
     coalesce(tx.value->'sourceRow', '[]'::jsonb),

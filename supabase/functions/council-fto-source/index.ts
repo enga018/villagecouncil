@@ -165,18 +165,19 @@ async function activateControl(jars: Jar, page: PortalPage, control: Control): P
   if (!GOVERNMENT_HOSTS.has(new URL(finalUrl).hostname)) throw new Error("VBGRAMG postback redirected outside the official Government hosts.");
   return { html, url: finalUrl, status: response.status, contentType };
 }
-function cacheNavigationData(control: Control) {
+function cacheNavigationData(control: Control | null, parentNavigation?: Record<string, unknown> | null) {
   return {
-    label: control.label,
-    mode: control.kind,
-    href: control.kind === "link" ? control.href : null,
-    inputName: control.inputName || null,
-    inputValue: control.inputValue || null,
+    label: control?.label || "Direct Government navigation",
+    mode: control?.kind || "direct",
+    href: control?.kind === "link" ? control.href : null,
+    inputName: control?.inputName || null,
+    inputValue: control?.inputValue || null,
+    parentNavigation: parentNavigation || null,
   };
 }
 async function saveSharedNavigation(admin: any, values: {
   districtId: string; blockId: string | null; type: "fto_status" | "first_signatory_list";
-  url: string; control: Control | null;
+  url: string; control: Control | null; parentNavigation?: Record<string, unknown> | null;
 }) {
   const filters = admin.from("shared_fto_navigation").select("id")
     .eq("district_id", values.districtId).eq("navigation_type", values.type).eq("is_active", true);
@@ -191,7 +192,7 @@ async function saveSharedNavigation(admin: any, values: {
     navigation_url: values.url,
     control_target: values.control?.kind === "postback" ? values.control.target || "" : null,
     control_argument: values.control?.kind === "postback" ? values.control.argument || "" : null,
-    navigation_data: values.control ? cacheNavigationData(values.control) : { mode: "direct" },
+    navigation_data: cacheNavigationData(values.control, values.parentNavigation),
     verified_at: new Date().toISOString(),
     is_active: true,
     updated_at: new Date().toISOString(),
@@ -202,7 +203,19 @@ async function saveSharedNavigation(admin: any, values: {
   if (write.error) throw new Error("Could not save the shared FTO navigation link: " + write.error.message);
 }
 async function openCachedNavigation(jars: Jar, record: any, referer: string): Promise<PortalPage> {
-  const parent = await requestPage(jars, record.navigation_url, referer);
+  let parent = await requestPage(jars, record.navigation_url, referer);
+  const parentNavigation = record.navigation_data?.parentNavigation;
+  if (parentNavigation?.control_target) {
+    const parentControl: Control = {
+      kind: "postback",
+      label: String(parentNavigation.label || "Saved parent navigation"),
+      target: String(parentNavigation.control_target || ""),
+      argument: String(parentNavigation.control_argument || ""),
+      inputName: parentNavigation.inputName || undefined,
+      inputValue: parentNavigation.inputValue || undefined,
+    };
+    parent = await activateControl(jars, parent, parentControl);
+  }
   if (!record.control_target) return parent;
   const control: Control = {
     kind: "postback",
@@ -365,6 +378,7 @@ async function main(req: Request, origin: string | null) {
   let navigationCacheUpdated = false;
   let ftoStatusPage: PortalPage | null = null;
   let ftoStatusControl: Control | null = null;
+  let ftoStatusParentNavigation: Record<string, unknown> | null = null;
   const { data: cachedStatus, error: cachedStatusError } = await admin.from("shared_fto_navigation")
     .select("navigation_url,control_target,control_argument,navigation_data")
     .eq("district_id", district.id).eq("navigation_type", "fto_status").eq("is_active", true).maybeSingle();
@@ -372,6 +386,15 @@ async function main(req: Request, origin: string | null) {
   if (cachedStatus) {
     try {
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
+      if (cachedStatus.control_target) {
+        ftoStatusParentNavigation = {
+          control_target: cachedStatus.control_target,
+          control_argument: cachedStatus.control_argument,
+          label: cachedStatus.navigation_data?.label || "Saved FTO Status",
+          inputName: cachedStatus.navigation_data?.inputName || null,
+          inputValue: cachedStatus.navigation_data?.inputValue || null,
+        };
+      }
       if (!/fto\s+status/i.test(cleanText(ftoStatusPage.html))) throw new Error("Cached link did not open the FTO Status report.");
       navigation.push({ step: "fto_status", source: "shared_cache", path: new URL(ftoStatusPage.url).pathname });
     } catch {
@@ -384,6 +407,15 @@ async function main(req: Request, origin: string | null) {
     ftoStatusControl = findFtoStatusControl(districtPage.html, districtPage.url);
     if (!ftoStatusControl) return reply({ success: false, error: "The FTO Status link was not found on the saved District page.", navigation }, 502, origin);
     ftoStatusPage = await activateControl(jars, districtPage, ftoStatusControl);
+    if (ftoStatusControl.kind === "postback") {
+      ftoStatusParentNavigation = {
+        control_target: ftoStatusControl.target || "",
+        control_argument: ftoStatusControl.argument || "",
+        label: ftoStatusControl.label,
+        inputName: ftoStatusControl.inputName || null,
+        inputValue: ftoStatusControl.inputValue || null,
+      };
+    }
     if (!/fto\s+status/i.test(cleanText(ftoStatusPage.html))) {
       throw new Error("The selected District link did not open a page validated as FTO Status.");
     }
@@ -417,7 +449,11 @@ async function main(req: Request, origin: string | null) {
       throw new Error("The signed-FTO count for Block '" + block.official_name + "' did not open a validated First Signatory listing.");
     }
     const savedUrl = listControl.kind === "link" ? listControl.href! : ftoStatusPage.url;
-    await saveSharedNavigation(admin, { districtId: district.id, blockId: block.id, type: "first_signatory_list", url: savedUrl, control: listControl.kind === "postback" ? listControl : null });
+    await saveSharedNavigation(admin, {
+      districtId: district.id, blockId: block.id, type: "first_signatory_list",
+      url: savedUrl, control: listControl.kind === "postback" ? listControl : null,
+      parentNavigation: ftoStatusParentNavigation,
+    });
     navigationCacheUpdated = true;
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });
   }

@@ -355,11 +355,11 @@ function discoverCandidates(html: string, baseUrl: string): Candidate[] {
   }
   return candidates;
 }
-async function makeManifestToken(serviceKey: string, candidates: Candidate[], jobCardNumbers: string[], context: { tenantId: string; districtId: string; blockId: string; batchId: string }) {
+async function makeManifestToken(serviceKey: string, candidates: Candidate[], context: { tenantId: string; districtId: string; blockId: string; batchId: string; panchayatName: string }) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("COUNCIL-FTO-MANIFEST-v1:" + serviceKey));
   const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const clear = new TextEncoder().encode(JSON.stringify({ v: 1, exp: Date.now() + 45 * 60 * 1000, context, candidates, jobCardNumbers }));
+  const clear = new TextEncoder().encode(JSON.stringify({ v: 1, exp: Date.now() + 45 * 60 * 1000, context, candidates }));
   const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, clear));
   const bytes = new Uint8Array(iv.length + encrypted.length);
   bytes.set(iv); bytes.set(encrypted, iv.length);
@@ -367,25 +367,6 @@ async function makeManifestToken(serviceKey: string, candidates: Candidate[], jo
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
-async function loadCouncilJobCards(admin: SupabaseClient, tenantId: string) {
-  const numbers = new Map<string, string>();
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await admin.from("council_job_cards")
-      .select("job_card_number")
-      .eq("village_council_id", tenantId)
-      .order("job_card_number", { ascending: true })
-      .range(offset, offset + 999);
-    if (error) throw new Error("Could not load the Village Council Job Card register: " + error.message);
-    for (const row of data || []) {
-      const number = String(row.job_card_number || "").trim();
-      if (number && !numbers.has(number.toUpperCase())) numbers.set(number.toUpperCase(), number);
-    }
-    if (!data || data.length < 1000) break;
-  }
-  if (!numbers.size) throw new Error("The Village Council has no registered Job Cards. Import the Job Card register before fetching FTO details.");
-  return [...numbers.values()];
-}
-
 async function main(req: Request, origin: string | null) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
@@ -602,7 +583,6 @@ async function main(req: Request, origin: string | null) {
       message: "The First Signatory listing was checked. All FTOs in the selected Block are already imported for this Village Council; no new import batch was created.",
     }, 200, origin);
   }
-  const jobCardNumbers = await loadCouncilJobCards(admin, council.id);
   const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(candidates.map(item => item.detailUrl).join("\n")));
   const fingerprint = [...new Uint8Array(fingerprintBytes)].map(value => value.toString(16).padStart(2, "0")).join("");
   const { data: importBatch, error: importBatchError } = await admin.from("council_fto_import_batches").insert({
@@ -614,8 +594,9 @@ async function main(req: Request, origin: string | null) {
     total_rows: newCandidates.length,
   }).select("id").single();
   if (importBatchError || !importBatch) throw new Error("Could not create the FTO discovery batch: " + (importBatchError?.message || "Unknown database error."));
-  const manifestToken = await makeManifestToken(secretKey, newCandidates, jobCardNumbers, {
+  const manifestToken = await makeManifestToken(secretKey, newCandidates, {
     tenantId: council.id, districtId: district.id, blockId: block.id, batchId: importBatch.id,
+    panchayatName: panchayat.official_name,
   });
   return reply({
     success: true,
@@ -630,7 +611,6 @@ async function main(req: Request, origin: string | null) {
       ftoCount: newCandidates.length,
       alreadyImportedCount,
       uniqueFtoCount: newCandidates.length,
-      jobCardSnapshotCount: jobCardNumbers.length,
       ftoNumbers: newCandidates.map(item => item.ftoNumber),
       listingFingerprint: fingerprint,
       manifestToken,

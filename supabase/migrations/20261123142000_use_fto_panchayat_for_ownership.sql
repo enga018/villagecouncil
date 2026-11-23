@@ -154,6 +154,19 @@ begin
     updated_at = now();
   get diagnostics v_transaction_count = row_count;
 
+  update public.council_fto_inspections i
+  set import_activated_at = now(),
+      updated_at = now()
+  where i.village_council_id = v_tenant_id
+    and exists (
+      select 1
+      from public.council_fto_import_rows r
+      where r.import_batch_id = p_batch_id
+        and r.village_council_id = v_tenant_id
+        and r.row_data->>'scope' = 'IN_SCOPE'
+        and r.row_data->>'fto_number' = i.fto_number
+    );
+
   update public.council_fto_import_batches
   set status = 'completed',
       completed_at = now(),

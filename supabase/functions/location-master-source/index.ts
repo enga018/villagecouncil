@@ -89,13 +89,13 @@ Deno.serve(async (req: Request) => {
     return reply({ error: "Select each preceding location level before continuing." }, 400, origin);
   }
 
-  async function readCachedLocationList(action: string, names: string[]): Promise<{ name: string; url: string }[]> {
-    const mapRows = (rows: { official_name: string; navigation_url: string | null }[] | null) =>
-      (rows || []).filter(row => row.navigation_url).map(row => ({ name: row.official_name, url: row.navigation_url as string }));
+  async function readCachedLocationList(action: string, names: string[]): Promise<{ id: string; name: string; url: string; available?: boolean }[]> {
+    const mapRows = (rows: { id: string; official_name: string; navigation_url: string | null }[] | null) =>
+      (rows || []).filter(row => row.navigation_url).map(row => ({ id: row.id, name: row.official_name, url: row.navigation_url as string }));
 
     if (action === "states") {
       const { data, error } = await adminClient.from("location_states")
-        .select("official_name,navigation_url").eq("is_active", true).order("official_name");
+        .select("id,official_name,navigation_url").eq("is_active", true).order("official_name");
       if (error) throw error;
       return mapRows(data);
     }
@@ -107,7 +107,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "districts") {
       const { data, error } = await adminClient.from("location_districts")
-        .select("official_name,navigation_url").eq("state_id", state.id).eq("is_active", true).order("official_name");
+        .select("id,official_name,navigation_url").eq("state_id", state.id).eq("is_active", true).order("official_name");
       if (error) throw error;
       return mapRows(data);
     }
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "blocks") {
       const { data, error } = await adminClient.from("location_blocks")
-        .select("official_name,navigation_url").eq("district_id", district.id).eq("is_active", true).order("official_name");
+        .select("id,official_name,navigation_url").eq("district_id", district.id).eq("is_active", true).order("official_name");
       if (error) throw error;
       return mapRows(data);
     }
@@ -130,9 +130,24 @@ Deno.serve(async (req: Request) => {
     if (!block) return [];
 
     const { data, error } = await adminClient.from("location_panchayats")
-      .select("official_name,navigation_url").eq("block_id", block.id).eq("is_active", true).order("official_name");
+      .select("id,official_name,navigation_url").eq("block_id", block.id).eq("is_active", true).order("official_name");
     if (error) throw error;
-    return mapRows(data);
+    const entries = mapRows(data);
+    if (!entries.length) return entries;
+    const ids = entries.map(entry => entry.id);
+    const [assignedResult, pendingResult] = await Promise.all([
+      adminClient.from("council_tenants").select("location_panchayat_id")
+        .in("location_panchayat_id", ids).eq("is_active", true),
+      adminClient.from("council_onboarding_requests").select("location_panchayat_id")
+        .in("location_panchayat_id", ids)
+        .in("status", ["pending", "under_review", "more_information_required"]),
+    ]);
+    if (assignedResult.error || pendingResult.error) throw assignedResult.error || pendingResult.error;
+    const unavailable = new Set([
+      ...(assignedResult.data || []).map(row => row.location_panchayat_id),
+      ...(pendingResult.data || []).map(row => row.location_panchayat_id),
+    ]);
+    return entries.map(entry => ({ ...entry, available: !unavailable.has(entry.id) }));
   }
 
   const expectedPaths = [
@@ -189,7 +204,9 @@ Deno.serve(async (req: Request) => {
     await cacheLocationList("location_states", null, null, entries);
     if (body.action === "states") {
       if (!entries.length) return reply({ success: false, error: "No State / UT links were found.", diagnostic: statePage.diagnostic }, 502, origin);
-      return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: statePage.diagnostic }, 200, origin);
+      const cachedStates = await readCachedLocationList("states", []);
+      if (isPublicRequest && !cachedStates.length) return reply({ success: false, error: "The official State list could not be saved. Please try again." }, 502, origin);
+      return reply({ success: true, level: body.action, count: cachedStates.length || entries.length, entries: cachedStates.length ? cachedStates : entries, cached: false, diagnostic: statePage.diagnostic }, 200, origin);
     }
 
     let selectedUrl = "";
@@ -217,7 +234,9 @@ Deno.serve(async (req: Request) => {
       }
     }
     if (!entries.length) return reply({ success: false, error: "No official location links were found for this level.", diagnostic: lastDiagnostic }, 502, origin);
-    return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: lastDiagnostic }, 200, origin);
+    const cachedResult = await readCachedLocationList(body.action || "", selectedNames);
+    if (isPublicRequest && !cachedResult.length) return reply({ success: false, error: "The official location list could not be saved. Please try again." }, 502, origin);
+    return reply({ success: true, level: body.action, count: cachedResult.length || entries.length, entries: cachedResult.length ? cachedResult : entries, cached: false, diagnostic: lastDiagnostic }, 200, origin);
   } catch (error) {
     return reply({ success: false, error: "Could not retrieve the VBGRAMG location list: " + (error instanceof Error ? error.message : String(error)), noDataChanged: true }, 502, origin);
   }

@@ -290,15 +290,7 @@ function findBlockSignedCountControl(html: string, pageUrl: string, blockName: s
       const attr = attributes(anchor[1]), label = cleanText(anchor[2]);
       if (!/^\d[\d,]*$/.test(label)) continue;
       const control = controlFromMarkup(attr.href || "", attr.onclick || "", label, pageUrl);
-      if (control) return { control, count: Number(label.replace(/,/g, "")), blockRow: blockRow.map(c => c?.text || ""), blockColumn: blockCol ?? null, signedCountColumn: col, headers: Array.from({ length: width }, (_, i) => headerPath(i)) };
-    }
-    // Some GridViews place a numeric link in a child table or wrap the cell in a control.
-    const rowInner = blockRow.map(c => c?.inner || "").join(" ");
-    const fallback = rowInner.match(/<a\b([^>]*)>([\s\S]*?)<\/a>/i);
-    if (fallback) {
-      const label = cleanText(fallback[2]), attr = attributes(fallback[1]);
-      const control = controlFromMarkup(attr.href || "", attr.onclick || "", label, pageUrl);
-      if (control && /^\d[\d,]*$/.test(label)) return { control, count: Number(label.replace(/,/g, "")), blockRow: blockRow.map(c => c?.text || ""), blockColumn: blockCol ?? null, signedCountColumn: null, headers: [] };
+      if (control) return { control, count: Number(label.replace(/,/g, "")) };
     }
   }
   throw new Error("Could not find the First Signatory signed-FTO count for Block '" + blockName + "' in the FTO Status table.");

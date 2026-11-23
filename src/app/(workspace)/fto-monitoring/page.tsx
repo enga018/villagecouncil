@@ -190,7 +190,7 @@ export default function FtoMonitoringPage() {
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       const skipped = Number(data.listing.alreadyImportedCount || 0);
       const initialNotice = "Processing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
-        (skipped ? "; skipped " + formatNumber(skipped) + " already imported FTOs." : ".") +
+        (skipped ? "; skipped " + formatNumber(skipped) + " completed or out-of-village FTOs." : ".") +
         " Matching the Panchayat recorded in each FTO to this Village Council.";
       await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);
     } catch (err) {

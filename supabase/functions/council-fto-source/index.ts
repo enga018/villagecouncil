@@ -485,12 +485,14 @@ async function main(req: Request, origin: string | null) {
           : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusPage.url;
         const expectedMode = currentControl.kind;
         const cachedParent = cachedList.navigation_data?.parentNavigation;
-        const parentMatches = !ftoStatusParentNavigation
+        const parentMatches = currentControl.kind !== "postback"
           ? !cachedParent
-          : cachedParent?.mode === "postback" &&
-            cachedParent?.url === ftoStatusParentNavigation.url &&
-            cachedParent?.control_target === ftoStatusParentNavigation.control_target &&
-            cachedParent?.control_argument === ftoStatusParentNavigation.control_argument;
+          : !ftoStatusParentNavigation
+            ? !cachedParent
+            : cachedParent?.mode === "postback" &&
+              cachedParent?.url === ftoStatusParentNavigation.url &&
+              cachedParent?.control_target === ftoStatusParentNavigation.control_target &&
+              cachedParent?.control_argument === ftoStatusParentNavigation.control_argument;
         const controlMatches = cachedList.navigation_data?.mode === expectedMode &&
           cachedList.navigation_url === expectedUrl &&
           (currentControl.kind !== "postback" ||

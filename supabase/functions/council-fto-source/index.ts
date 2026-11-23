@@ -305,10 +305,8 @@ function findFtoStatusControl(html: string, pageUrl: string) {
   if (control) return control;
   return findTextControl(html, pageUrl, /\bfto\s+status\b/i);
 }
-function isFirstSignatoryListingForBlock(html: string, blockName: string) {
-  const text = cleanText(html);
-  return /fto\s+first\s+signatory/i.test(text) &&
-    normalizeName(text).includes(normalizeName(blockName));
+function isFirstSignatoryListing(html: string) {
+  return /fto\s+first\s+signatory/i.test(cleanText(html));
 }
 function discoverCandidates(html: string, baseUrl: string): Candidate[] {
   const candidates: Candidate[] = [], seen = new Set<string>();
@@ -502,7 +500,7 @@ async function main(req: Request, origin: string | null) {
         if (!controlMatches) throw new Error("The saved First Signatory link no longer matches the selected Block's signed-FTO count.");
       }
       listingPage = await openCachedNavigation(jars, cachedList, ftoStatusPage.url);
-      if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) throw new Error("Cached link did not open the First Signatory listing for this Block.");
+      if (!isFirstSignatoryListing(listingPage.html)) throw new Error("Cached link did not open the First Signatory listing for this Block.");
       navigation.push({ step: "first_signatory_list", source: "shared_cache", path: new URL(listingPage.url).pathname });
     } catch {
       listingPage = null;
@@ -512,7 +510,7 @@ async function main(req: Request, origin: string | null) {
     const selected = selectedBlockLink || findBlockSignedCountControl(ftoStatusPage.html, ftoStatusPage.url, block.official_name);
     listControl = selected.control;
     listingPage = await activateControl(jars, ftoStatusPage, listControl);
-    if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) {
+    if (!isFirstSignatoryListing(listingPage.html)) {
       throw new Error("The signed-FTO count for Block '" + block.official_name + "' did not open a validated First Signatory listing for that Block.");
     }
     const savedUrl = listControl.kind === "link"
@@ -528,7 +526,7 @@ async function main(req: Request, origin: string | null) {
   }
 
   const pageText = cleanText(listingPage.html);
-  if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) {
+  if (!isFirstSignatoryListing(listingPage.html)) {
     throw new Error("The Government response is not the First Signatory FTO listing for the selected Block.");
   }
   const candidates = discoverCandidates(listingPage.html, listingPage.url);

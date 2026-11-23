@@ -160,6 +160,7 @@ async function main(req: Request, origin: string | null) {
   if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
   const tenantId = membership.village_council_id;
   const body = await readJsonBody(req, 2_200_000);
+  const dryRun = body.dryRun === true;
   const manifestToken = String(body.manifestToken || "");
   const batchId = String(body.batchId || "");
   const requested: string[] = Array.isArray(body.ftoNumbers)
@@ -210,7 +211,8 @@ async function main(req: Request, origin: string | null) {
     .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);
   if (existingRowsError) throw new Error("Could not check previously processed FTOs: " + existingRowsError.message);
   const alreadyStaged = new Set((existingRows || []).map((row: { row_number: number }) => Number(row.row_number)));
-  const pending = selected.filter(item => !alreadyStaged.has(item.rowNumber));
+  // Dry runs deliberately refetch even already-staged FTOs, but never write staged rows or inspection history.
+  const pending = dryRun ? selected : selected.filter(item => !alreadyStaged.has(item.rowNumber));
   const results: Record<string, unknown>[] = [];
   const stagedRows: Record<string, unknown>[] = [];
   const inspectionRows: Record<string, unknown>[] = [];
@@ -286,6 +288,25 @@ async function main(req: Request, origin: string | null) {
     }
   });
   await Promise.all(workers);
+
+  if (dryRun) {
+    const successful = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+    const failed = results.filter(result => result.kind === "validation_failure" || result.kind === "fetch_failure").length;
+    return reply({
+      success: failed === 0 && successful === requested.length,
+      dryRun: true,
+      writesPerformed: false,
+      batchId,
+      requestedCount: requested.length,
+      fetchedCount: pending.length,
+      successfulCount: successful,
+      failedCount: failed,
+      results,
+      message: failed === 0
+        ? "Live Government detail pages were fetched and parsed successfully. No FTO records or inspection history were changed."
+        : "The live parser test found one or more fetch or validation failures. No FTO records or inspection history were changed.",
+    }, 200, origin);
+  }
 
   if (stagedRows.length) {
     const { error: stageError } = await admin.from("council_fto_import_rows")

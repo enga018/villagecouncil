@@ -434,12 +434,22 @@ async function main(req: Request, origin: string | null) {
   const manifestToken = await makeManifestToken(secretKey, candidates);
   const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(candidates.map(item => item.detailUrl).join("\n")));
   const fingerprint = [...new Uint8Array(fingerprintBytes)].map(value => value.toString(16).padStart(2, "0")).join("");
+  const { data: importBatch, error: importBatchError } = await admin.from("council_fto_import_batches").insert({
+    village_council_id: council.id,
+    source: "official_fto_register",
+    source_location_key: [district.official_name, block.official_name, panchayat.official_name].join(" | "),
+    status: "processing",
+    imported_by: userData.user.id,
+    total_rows: candidates.length,
+  }).select("id").single();
+  if (importBatchError || !importBatch) throw new Error("Could not create the FTO discovery batch: " + (importBatchError?.message || "Unknown database error."));
   return reply({
     success: true,
     source: "official_vbgramg_first_signatory",
     councilLocation: { district: district.official_name, block: block.official_name, panchayat: panchayat.official_name },
     navigation,
     sharedLinks: { districtFtoStatusSaved: true, blockFirstSignatorySaved: true },
+    batchId: importBatch.id,
     listing: {
       title: cleanText(listingPage.html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ""),
       ftoCount: candidates.length,
@@ -449,8 +459,8 @@ async function main(req: Request, origin: string | null) {
       manifestToken,
       manifestExpiresInSeconds: 2700,
     },
-    databaseChanged: navigationCacheUpdated,
-    note: "Navigation links were verified and saved as shared District/Block data. FTO records have not yet been imported; the detail parser and exact Job Card Number village filter run in the next processing step.",
+    databaseChanged: true,
+    note: "Navigation links were verified and saved as shared District/Block data. A processing batch was opened; no FTO records have been imported. The detail parser and exact Job Card Number village filter run in the next processing step.",
   }, 200, origin);
 }
 

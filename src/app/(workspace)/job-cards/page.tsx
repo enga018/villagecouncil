@@ -98,6 +98,188 @@ export default function JobCardsPage() {
       }
     }
     void loadRecords();
+    return () => { active = false; };
+  }, []);
+
+  async function refetchJobCards() {
+    if (refetching) return;
+    setRefetching(true);
+    setFetchError("");
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Your session has expired. Please sign in again.");
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("council_memberships")
+        .select("village_council_id")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (membershipError) throw membershipError;
+      if (!membership) throw new Error("This account has no active Village Council assignment.");
+
+      const { data, error: invokeError } = await supabase.functions.invoke<{
+        success?: boolean;
+        reportInspection?: { preview?: {
+          batchId: string;
+          stagedRows: number;
+          validation?: {
+            passed: boolean;
+            stagedRowsMatch: boolean;
+            checkedRows: number;
+            activeJobCards: number;
+            inactiveJobCards: number;
+          };
+          activeJobCards: number;
+          inactiveJobCards: number;
+          activeApplicants: number;
+          deletedApplicants: number;
+        }; error?: string };
+        error?: string;
+      }>("council-register-source", { body: { action: "prepare-preview" } });
+      if (invokeError) {
+        let message = invokeError.message || "Could not fetch the official Job Card register.";
+        const context = invokeError.context as Response | undefined;
+        if (context && typeof context.json === "function") {
+          try {
+            const detail = await context.json() as { error?: string };
+            if (detail.error) message = detail.error;
+          } catch {}
+        }
+        throw new Error(message);
+      }
+      const preview = data?.reportInspection?.preview;
+      if (!data?.success || !preview?.batchId) {
+        throw new Error(data?.reportInspection?.error || data?.error || "The official register could not be prepared.");
+      }
+      if (!preview.validation?.passed || !preview.validation.stagedRowsMatch) {
+        throw new Error("The official register did not pass validation. Existing records were not changed.");
+      }
+
+      // Validate the complete result summary before activating the staged import.
+      // Job Card counts are returned inside preview.validation by the Edge Function.
+      const validation = preview.validation;
+      const summaryValues = [
+        validation.activeJobCards,
+        validation.inactiveJobCards,
+        validation.checkedRows,
+        preview.activeApplicants,
+      ];
+      if (summaryValues.some(value => typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+        throw new Error("The official register returned incomplete summary counts. Existing records were not changed.");
+      }
+
+      let stagedCount = 0;
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error: rowsError } = await supabase
+          .from("council_register_import_rows")
+          .select("row_number")
+          .eq("import_batch_id", preview.batchId)
+          .order("row_number", { ascending: true })
+          .range(offset, offset + 999);
+        if (rowsError) throw rowsError;
+        stagedCount += rows?.length || 0;
+        if (!rows || rows.length < 1000) break;
+      }
+      if (stagedCount !== preview.stagedRows) {
+        throw new Error("Register verification was incomplete. Existing records were not changed.");
+      }
+
+      const { data: activation, error: activationError } = await supabase
+        .rpc("activate_council_register_import", { p_batch_id: preview.batchId });
+      if (activationError) throw activationError;
+      if (!activation?.success) throw new Error("The Job Card refetch did not complete successfully.");
+
+      const councilId = membership.village_council_id;
+      const cards: JobCard[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error } = await supabase
+          .from("council_job_cards")
+          .select("id,job_card_number,head_of_household,status")
+          .eq("village_council_id", councilId)
+          .order("job_card_number", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        cards.push(...(rows || []));
+        if (!rows || rows.length < 1000) break;
+      }
+
+      const people: Applicant[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const { data: rows, error } = await supabase
+          .from("council_applicants")
+          .select("id,job_card_id,applicant_number,applicant_name,official_unique_id,status,caste,father_husband_name,gender,age")
+          .eq("village_council_id", councilId)
+          .order("job_card_id", { ascending: true })
+          .order("source_sequence", { ascending: true })
+          .order("id", { ascending: true })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        people.push(...(rows || []));
+        if (!rows || rows.length < 1000) break;
+      }
+
+      const previousKpis = {
+        totalCards: jobCards.length,
+        activeCards: jobCards.filter(card => card.status === "active").length,
+        totalApplicants: applicants.length,
+        activeApplicants: applicants.filter(person => person.status === "active").length,
+      };
+      const nextKpis = {
+        totalCards: cards.length,
+        activeCards: cards.filter(card => card.status === "active").length,
+        totalApplicants: people.length,
+        activeApplicants: people.filter(person => person.status === "active").length,
+      };
+      setKpiChanges({
+        totalCards: nextKpis.totalCards - previousKpis.totalCards,
+        activeCards: nextKpis.activeCards - previousKpis.activeCards,
+        totalApplicants: nextKpis.totalApplicants - previousKpis.totalApplicants,
+        activeApplicants: nextKpis.activeApplicants - previousKpis.activeApplicants,
+      });
+      setJobCards(cards);
+      setApplicants(people);
+      setPage(1);
+      setExpanded([]);
+      setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : "Unable to refetch the Job Card register.");
+    } finally {
+      setRefetching(false);
+    }
+  }
+
+  const applicantsByCard = useMemo(() => {
+    const groups = new Map<string, Applicant[]>();
+    for (const person of applicants) {
+      const group = groups.get(person.job_card_id) || [];
+      group.push(person);
+      groups.set(person.job_card_id, group);
+    }
+    return groups;
+  }, [applicants]);
+
+  const activeCards = jobCards.filter(card => card.status === "active").length;
+  const activeApplicants = applicants.filter(person => person.status === "active").length;
+  const filteredCards = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return jobCards.filter(card => {
+      const people = applicantsByCard.get(card.id) || [];
+      const isActive = card.status === "active";
+      const statusMatches = status === "all" || (status === "active" ? isActive : !isActive);
+      const searchMatches = !term ||
+        card.job_card_number.toLowerCase().includes(term) ||
+        card.head_of_household.toLowerCase().includes(term) ||
+        people.some(person => person.applicant_name.toLowerCase().includes(term) || (person.official_unique_id || "").toLowerCase().includes(term));
+      return statusMatches && searchMatches;
+    });
+  }, [jobCards, applicantsByCard, query, status]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredCards.length / pageSize));
+  const visibleCards = filteredCards.slice((page - 1) * pageSize, page * pageSize);
+
     return (
     <div className="space-y-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

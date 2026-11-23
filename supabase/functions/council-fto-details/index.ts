@@ -100,10 +100,13 @@ function normalizeVillage(value: string) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function extractVillage(value: string, jobCardNumber: string) {
-  const escapedJobCard = jobCardNumber.replace(/[.*+?^${}()|[\\]\\]/g, "\\function extractVillage(value: string, jobCardNumber: string) {
-  const escapedJobCard = jobCardNumber.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\function extractVillage(value: string, jobCardNumber: string) {
-  return String(value || "").replace(jobCardNumber, " ").replace(/[()\[\]{}]/g, " ")
-    .replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim();
+  const source = String(value || "");
+  const cardIndex = source.toLowerCase().indexOf(String(jobCardNumber || "").toLowerCase());
+  const withoutCard = cardIndex >= 0
+    ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + jobCardNumber.length)
+    : source;
+  return withoutCard.replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
+    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
 }");
   return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
     .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")

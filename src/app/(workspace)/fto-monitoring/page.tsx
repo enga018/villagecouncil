@@ -68,11 +68,11 @@ export default function FtoMonitoringPage() {
     });
   }
 
-  async function processNumbers(numbers: string[], currentBatchId: string, token: string, supabase: ReturnType<typeof createClient>) {
+  async function processNumbers(numbers: string[], currentBatchId: string, token: string, supabase: ReturnType<typeof createClient>, initialNotice?: string) {
     if (!numbers.length) return;
     setBusy(true);
     setError("");
-    setNotice("Processing " + formatNumber(numbers.length) + " FTO detail page(s) in batches of five.");
+    setNotice(initialNotice || ("Processing " + formatNumber(numbers.length) + " FTO detail page(s) in batches of five."));
     setPreview(null);
     const failed = new Map<string, string>();
     let staged = progress?.staged || 0;
@@ -166,8 +166,11 @@ export default function FtoMonitoringPage() {
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
-      setNotice("Found " + formatNumber(numbers.length) + " First Signatory FTOs for " + data.councilLocation.block + ". Checking transaction details and matching Job Card Numbers.");
-      await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase);
+      const skipped = Number(data.listing.alreadyImportedCount || 0);
+      const initialNotice = "Processing " + formatNumber(numbers.length) + " new First Signatory FTOs for " + data.councilLocation.block +
+        (skipped ? "; skipped " + formatNumber(skipped) + " already imported FTOs." : ".") +
+        " Matching transaction Job Card Numbers to this Village Council.";
+      await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);
     } catch (err) {
       setError(err instanceof Error ? err.message : "FTO discovery failed.");
       setBusy(false);

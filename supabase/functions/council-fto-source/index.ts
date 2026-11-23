@@ -74,6 +74,7 @@ const baseHeaders = {
 async function requestPage(jars: Jar, pageUrl: string, referer: string): Promise<PortalPage> {
   const target = new URL(pageUrl);
   if (!GOVERNMENT_HOSTS.has(target.hostname)) throw new Error("Refusing to fetch a non-Government URL.");
+  target.protocol = "https:";
   const cookies = cookieHeader(jars, target.hostname);
   const response = await fetch(target.href, {
     method: "GET", redirect: "follow",

@@ -122,6 +122,22 @@ Deno.serve(async (req: Request) => {
     return reply({ error: "An onboarding request for this Panchayat / Village is already being reviewed." }, 409, origin);
   }
 
+  // Basic abuse control without a CAPTCHA: cap repeated submissions per
+  // administrator email and contact phone in a rolling one-hour window.
+  const rateLimitSince = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const [emailRate, phoneRate] = await Promise.all([
+    adminClient.from("council_onboarding_requests").select("id", { count: "exact", head: true })
+      .eq("administrator_email", administratorEmail).gte("created_at", rateLimitSince),
+    adminClient.from("council_onboarding_requests").select("id", { count: "exact", head: true })
+      .eq("requester_phone", requesterPhone).gte("created_at", rateLimitSince),
+  ]);
+  if (emailRate.error || phoneRate.error) {
+    return reply({ error: "Unable to validate the submission rate. Please try again." }, 500, origin);
+  }
+  if ((emailRate.count ?? 0) >= 3 || (phoneRate.count ?? 0) >= 3) {
+    return reply({ error: "Too many requests have been submitted using these contact details. Please try again later." }, 429, origin);
+  }
+
   const { data: request, error: insertError } = await adminClient
     .from("council_onboarding_requests")
     .insert({

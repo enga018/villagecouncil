@@ -203,8 +203,8 @@ async function saveSharedNavigation(admin: any, values: {
   if (write.error) throw new Error("Could not save the shared FTO navigation link: " + write.error.message);
 }
 async function openCachedNavigation(jars: Jar, record: any, referer: string): Promise<PortalPage> {
-  let parent = await requestPage(jars, record.navigation_url, referer);
   const parentNavigation = record.navigation_data?.parentNavigation;
+  let parent = await requestPage(jars, parentNavigation?.url || record.navigation_url, referer);
   if (parentNavigation?.control_target) {
     const parentControl: Control = {
       kind: "postback",
@@ -388,6 +388,7 @@ async function main(req: Request, origin: string | null) {
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
       if (cachedStatus.control_target) {
         ftoStatusParentNavigation = {
+          url: district.navigation_url,
           control_target: cachedStatus.control_target,
           control_argument: cachedStatus.control_argument,
           label: cachedStatus.navigation_data?.label || "Saved FTO Status",
@@ -399,6 +400,7 @@ async function main(req: Request, origin: string | null) {
       navigation.push({ step: "fto_status", source: "shared_cache", path: new URL(ftoStatusPage.url).pathname });
     } catch {
       ftoStatusPage = null;
+      ftoStatusParentNavigation = null;
     }
   }
   if (!ftoStatusPage) {
@@ -409,6 +411,7 @@ async function main(req: Request, origin: string | null) {
     ftoStatusPage = await activateControl(jars, districtPage, ftoStatusControl);
     if (ftoStatusControl.kind === "postback") {
       ftoStatusParentNavigation = {
+        url: districtPage.url,
         control_target: ftoStatusControl.target || "",
         control_argument: ftoStatusControl.argument || "",
         label: ftoStatusControl.label,

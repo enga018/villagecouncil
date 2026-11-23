@@ -2,21 +2,21 @@
 begin;
 
 -- A transaction must be importable even when the Job Card has not been imported locally.
-do $$
+do $
 declare
-  v_constraint text;
+  v_constraint record;
 begin
-  select c.conname into v_constraint
-  from pg_constraint c
-  where c.conrelid = 'public.council_fto_transactions'::regclass
-    and c.confrelid = 'public.council_job_cards'::regclass
-    and c.contype = 'f'
-  limit 1;
-  if v_constraint is not null then
-    execute format('alter table public.council_fto_transactions drop constraint %I', v_constraint);
-  end if;
+  for v_constraint in
+    select c.conname
+    from pg_constraint c
+    where c.conrelid = 'public.council_fto_transactions'::regclass
+      and c.confrelid = 'public.council_job_cards'::regclass
+      and c.contype = 'f'
+  loop
+    execute format('alter table public.council_fto_transactions drop constraint %I', v_constraint.conname);
+  end loop;
 end;
-$$;
+$;
 
 create or replace function public.activate_council_fto_import(p_batch_id uuid)
 returns jsonb
@@ -174,8 +174,5 @@ $$;
 
 revoke execute on function public.activate_council_fto_import(uuid) from public, anon;
 grant execute on function public.activate_council_fto_import(uuid) to authenticated;
-
-commit;
-
 
 commit;

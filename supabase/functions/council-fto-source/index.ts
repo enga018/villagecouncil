@@ -649,7 +649,6 @@ async function main(req: Request, origin: string | null) {
       alreadyImportedCount: skippedCompleted.length + skippedNoMatch.length,
       forceRefresh,
       ftoCount: eligibleCandidates.length,
-      alreadyImportedCount,
       uniqueFtoCount: eligibleCandidates.length,
       ftoNumbers: eligibleCandidates.map(item => item.ftoNumber),
       listingFingerprint: fingerprint,

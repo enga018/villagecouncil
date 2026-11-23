@@ -315,11 +315,11 @@ function discoverCandidates(html: string, baseUrl: string): Candidate[] {
   }
   return candidates;
 }
-async function makeManifestToken(serviceKey: string, candidates: Candidate[]) {
+async function makeManifestToken(serviceKey: string, candidates: Candidate[], context: { tenantId: string; districtId: string; blockId: string; batchId: string }) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("COUNCIL-FTO-MANIFEST-v1:" + serviceKey));
   const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt"]);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const clear = new TextEncoder().encode(JSON.stringify({ v: 1, exp: Date.now() + 45 * 60 * 1000, candidates }));
+  const clear = new TextEncoder().encode(JSON.stringify({ v: 1, exp: Date.now() + 45 * 60 * 1000, context, candidates }));
   const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, clear));
   const bytes = new Uint8Array(iv.length + encrypted.length);
   bytes.set(iv); bytes.set(encrypted, iv.length);
@@ -431,7 +431,6 @@ async function main(req: Request, origin: string | null) {
   const numbers = candidates.map(item => item.ftoNumber).filter(Boolean);
   const uniqueNumbers = new Set(numbers.map(value => value.toUpperCase()));
   if (uniqueNumbers.size !== numbers.length) throw new Error("The First Signatory listing contains duplicate or ambiguous FTO numbers.");
-  const manifestToken = await makeManifestToken(secretKey, candidates);
   const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(candidates.map(item => item.detailUrl).join("\n")));
   const fingerprint = [...new Uint8Array(fingerprintBytes)].map(value => value.toString(16).padStart(2, "0")).join("");
   const { data: importBatch, error: importBatchError } = await admin.from("council_fto_import_batches").insert({
@@ -443,6 +442,9 @@ async function main(req: Request, origin: string | null) {
     total_rows: candidates.length,
   }).select("id").single();
   if (importBatchError || !importBatch) throw new Error("Could not create the FTO discovery batch: " + (importBatchError?.message || "Unknown database error."));
+  const manifestToken = await makeManifestToken(secretKey, candidates, {
+    tenantId: council.id, districtId: district.id, blockId: block.id, batchId: importBatch.id,
+  });
   return reply({
     success: true,
     source: "official_vbgramg_first_signatory",

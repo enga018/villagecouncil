@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import PublicShell from "@/components/app/PublicShell";
 
 type LocationEntry = { id: string; name: string; url: string; available?: boolean };
 type SourceResult = { success: boolean; entries: LocationEntry[]; error?: string; cached?: boolean };
@@ -143,7 +144,7 @@ export default function RequestToOnboardPage() {
   const fieldLabel = "block text-xs font-semibold text-slate-700";
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] px-4 py-8 text-slate-900 sm:px-6">
+    <PublicShell><main className="px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto max-w-2xl">
         <Link href="/" className="text-sm font-semibold text-slate-500 hover:text-slate-900">← Village Council</Link>
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
@@ -198,6 +199,6 @@ export default function RequestToOnboardPage() {
           )}
         </div>
       </div>
-    </main>
+    </main></PublicShell>
   );
 }

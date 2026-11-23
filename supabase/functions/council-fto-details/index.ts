@@ -100,14 +100,20 @@ function normalizeVillage(value: string) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function extractVillage(value: string, jobCardNumber: string) {
+  const escapedJobCard = jobCardNumber.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\function extractVillage(value: string, jobCardNumber: string) {
   return String(value || "").replace(jobCardNumber, " ").replace(/[()\[\]{}]/g, " ")
     .replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim();
+}");
+  return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
+    .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
+    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
 }
 function validateGovernmentTransactions(transactions: Transaction[], listingRow: string[]) {
   const errors: string[] = [], refs = new Set<string>();
   for (let index = 0; index < transactions.length; index++) {
     const tx = transactions[index], label = "Government row " + (index + 1);
     if (!tx.jobCardNumber) errors.push(label + ": missing or invalid Job Card Number.");
+    if (!tx.village) errors.push(label + ": missing Panchayat name in the Job Card/Panchayat cell.");
     if (!tx.referenceNumber) errors.push(label + ": missing Reference Number.");
     const ref = String(tx.referenceNumber || "").trim().toUpperCase();
     if (ref && refs.has(ref)) errors.push(label + ": duplicate Reference Number " + ref + ".");

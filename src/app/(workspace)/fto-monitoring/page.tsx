@@ -159,7 +159,7 @@ export default function FtoMonitoringPage() {
     }
   }
 
-  async function startFetch() {
+  async function startFetch(forceRefresh = false) {
     if (busy || activating) return;
     setBusy(true);
     setError("");
@@ -173,7 +173,7 @@ export default function FtoMonitoringPage() {
     setManifestToken("");
     try {
       const supabase = createClient();
-      const { data, error: invokeError } = await supabase.functions.invoke<FtoSourceResponse>("council-fto-source", { body: {} });
+      const { data, error: invokeError } = await supabase.functions.invoke<FtoSourceResponse>("council-fto-source", { body: { forceRefresh } });
       if (invokeError) throw new Error(await invokeErrorMessage(invokeError, "Could not discover the Government FTO listing."));
       if (!data?.success) throw new Error(data?.error || "The Government FTO listing could not be prepared.");
       if (data.noNewFtos) {
@@ -189,7 +189,7 @@ export default function FtoMonitoringPage() {
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       const skipped = Number(data.listing.alreadyImportedCount || 0);
-      const initialNotice = "Processing " + formatNumber(numbers.length) + " new First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
+      const initialNotice = "Processing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
         (skipped ? "; skipped " + formatNumber(skipped) + " already imported FTOs." : ".") +
         " Matching the Panchayat recorded in each FTO to this Village Council.";
       await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);
@@ -250,14 +250,14 @@ export default function FtoMonitoringPage() {
             <h2 className="font-semibold text-slate-900">Fetch Government FTOs</h2>
             <p className="mt-1 text-sm text-slate-500">Uses the saved District URL and shared FTO Status and Block links. No CAPTCHA or manual upload.</p>
           </div>
-          <button
-            type="button"
-            onClick={startFetch}
-            disabled={busy || activating || Boolean(preview && !importResult)}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy ? "Fetching…" : "Fetch FTOs"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => startFetch(false)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+              {busy ? "Fetching…" : "Fetch FTOs"}
+            </button>
+            <button type="button" onClick={() => startFetch(true)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-60">
+              Force refresh all
+            </button>
+          </div>
         </div>
 
         {progress && (

@@ -38,7 +38,14 @@ begin
   where r.import_batch_id = p_batch_id
     and r.village_council_id = v_tenant_id
     and r.row_data->>'scope' = 'IN_SCOPE'
-    and f.village_council_id = v_tenant_id;
+    and f.village_council_id = v_tenant_id
+    and exists (
+      select 1
+      from jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx(value)
+      join public.council_job_cards jc
+        on jc.village_council_id = v_tenant_id
+       and upper(btrim(jc.job_card_number)) = upper(btrim(tx.value->>'jobCardNumber'))
+    );
 
   insert into public.council_ftos (
     village_council_id, fto_number, fto_date, fto_status, block, first_signatory,
@@ -58,6 +65,13 @@ begin
   where r.import_batch_id = p_batch_id
     and r.village_council_id = v_tenant_id
     and r.row_data->>'scope' = 'IN_SCOPE'
+    and exists (
+      select 1
+      from jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx(value)
+      join public.council_job_cards jc
+        on jc.village_council_id = v_tenant_id
+       and upper(btrim(jc.job_card_number)) = upper(btrim(tx.value->>'jobCardNumber'))
+    )
   on conflict (village_council_id, fto_number) do update set
     fto_date = excluded.fto_date,
     fto_status = excluded.fto_status,
@@ -102,6 +116,11 @@ begin
   where r.import_batch_id = p_batch_id
     and r.village_council_id = v_tenant_id
     and r.row_data->>'scope' = 'IN_SCOPE'
+    and exists (
+      select 1 from public.council_job_cards jc
+      where jc.village_council_id = v_tenant_id
+        and upper(btrim(jc.job_card_number)) = upper(btrim(tx.value->>'jobCardNumber'))
+    )
   on conflict (village_council_id, fto_number, reference_number) do update set
     fto_id = excluded.fto_id,
     job_card_number = excluded.job_card_number,

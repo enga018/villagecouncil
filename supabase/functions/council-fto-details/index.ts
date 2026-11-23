@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { extractJobCard, extractVillage, normalizeGovernmentStatus, normalizeVillage, parseGovernmentAmount, parseGovernmentDate } from "../_shared/fto-domain.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
 const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
@@ -71,31 +72,10 @@ function rowsOf(html: string) {
     .map(m => [...m[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => textOf(c[1])))
     .filter(row => row.some(Boolean));
 }
-function parseGovernmentAmount(value: string) {
-  const raw = String(value || "").trim().replace(/[₹,\s]/g, "");
-  if (!raw || !/^\d+(?:\.\d+)?$/.test(raw)) return "";
-  const amount = Number(raw);
-  return Number.isFinite(amount) && amount >= 0 ? String(amount) : "";
-}
-function parseGovernmentDate(value: string) {
-  const text = String(value || "").trim();
-  if (!text) return "";
-  const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (match) return match[3] + "-" + match[2].padStart(2, "0") + "-" + match[1].padStart(2, "0");
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  return "";
-}
-function normalizeGovernmentStatus(value: string): Transaction["normalizedStatus"] {
-  const raw = String(value || "").trim();
-  if (!raw) return "blank";
-  if (/^processed$/i.test(raw)) return "processed";
-  if (/^rejected$/i.test(raw)) return "rejected";
-  return "other";
-}
-function extractJobCard(value: string) {
-  const match = String(value || "").match(/\bMZ-\d{2}-(?:\d{3}-){2,3}\d{3}\/\d+(?:-[A-Z]+)?\b/i);
-  return match ? match[0].toUpperCase() : "";
-}
+
+
+
+
 async function fingerprintCandidate(candidate: Candidate) {
   const source = JSON.stringify({
     detailUrl: candidate.detailUrl,
@@ -105,18 +85,8 @@ async function fingerprintCandidate(candidate: Candidate) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
   return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
-function normalizeVillage(value: string) {
-  return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-}
-function extractVillage(value: string, jobCardNumber: string) {
-  const source = String(value || "");
-  const card = String(jobCardNumber || "");
-  const cardIndex = source.toLowerCase().indexOf(card.toLowerCase());
-  const withoutCard = cardIndex >= 0
-    ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + card.length)
-    : source;
-  return withoutCard.trim().split(" ").filter(Boolean).join(" ");
-}
+
+
 function validateGovernmentTransactions(transactions: Transaction[], listingRow: string[]) {
   const errors: string[] = [], refs = new Set<string>();
   for (let index = 0; index < transactions.length; index++) {

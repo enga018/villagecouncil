@@ -60,60 +60,80 @@ Deno.serve(async (req: Request) => {
   const secretKey = secretKeys ? JSON.parse(secretKeys).default : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !publishableKey || !secretKey) return reply({ error: "Server configuration is incomplete." }, 500, origin);
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
-  const userClient = createClient(url, publishableKey, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } });
   const adminClient = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // Best-effort sync-on-demand: persist the full list scraped at each level so
-  // later councils can read it from the DB instead of re-scraping the portal.
-  async function cacheLocationList(
-    table: "location_states" | "location_districts" | "location_blocks" | "location_panchayats",
-    parentColumn: "state_id" | "district_id" | "block_id" | null,
-    parentId: string | null,
-    entries: { name: string; url: string }[],
-  ) {
-    if (!entries.length) return;
-    try {
-      const rows = entries.map((entry) => {
-        const row: Record<string, unknown> = { official_name: entry.name, navigation_url: entry.url };
-        if (parentColumn && parentId) row[parentColumn] = parentId;
-        return row;
-      });
-      const onConflict = parentColumn ? `${parentColumn},official_name` : "official_name";
-      await adminClient.from(table).upsert(rows, { onConflict });
-    } catch {
-      // Cache write is best-effort; the live scrape result is still returned.
-    }
-  }
-
-  async function resolveLocationId(
-    table: "location_states" | "location_districts" | "location_blocks",
-    name: string,
-    parentColumn?: "state_id" | "district_id",
-    parentId?: string | null,
-  ): Promise<string | null> {
-    try {
-      let query = adminClient.from(table).select("id").eq("official_name", name);
-      if (parentColumn && parentId) query = query.eq(parentColumn, parentId);
-      const { data } = await query.maybeSingle();
-      return data?.id ?? null;
-    } catch {
-      return null;
-    }
-  }
-
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
-  const { data: membership, error: membershipError } = await adminClient
-    .from("council_memberships").select("id")
-    .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
-  if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
-  if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
-
-  let body: { action?: string; selectedNames?: string[] };
+  let body: { action?: string; selectedNames?: string[]; publicRequest?: boolean };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
   if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
+  const isPublicRequest = body.publicRequest === true;
+
+  if (!isPublicRequest) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
+    const userClient = createClient(url, publishableKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
+    const { data: membership, error: membershipError } = await adminClient
+      .from("council_memberships").select("id")
+      .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
+    if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
+    if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
+  }
+
+  const requiredNames = { states: 0, districts: 1, blocks: 2, panchayats: 3 }[body.action || ""]!;
+  const selectedNames = body.selectedNames || [];
+  if (!Array.isArray(selectedNames) || selectedNames.length !== requiredNames || selectedNames.some(name => typeof name !== "string" || !name.trim())) {
+    return reply({ error: "Select each preceding location level before continuing." }, 400, origin);
+  }
+
+  async function readCachedLocationList(action: string, names: string[]): Promise<{ name: string; url: string }[]> {
+    const mapRows = (rows: { official_name: string; navigation_url: string | null }[] | null) =>
+      (rows || []).filter(row => row.navigation_url).map(row => ({ name: row.official_name, url: row.navigation_url as string }));
+
+    if (action === "states") {
+      const { data, error } = await adminClient.from("location_states")
+        .select("official_name,navigation_url").eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: state, error: stateError } = await adminClient.from("location_states")
+      .select("id").eq("official_name", names[0]).eq("is_active", true).maybeSingle();
+    if (stateError) throw stateError;
+    if (!state) return [];
+
+    if (action === "districts") {
+      const { data, error } = await adminClient.from("location_districts")
+        .select("official_name,navigation_url").eq("state_id", state.id).eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: district, error: districtError } = await adminClient.from("location_districts")
+      .select("id").eq("state_id", state.id).eq("official_name", names[1]).eq("is_active", true).maybeSingle();
+    if (districtError) throw districtError;
+    if (!district) return [];
+
+    if (action === "blocks") {
+      const { data, error } = await adminClient.from("location_blocks")
+        .select("official_name,navigation_url").eq("district_id", district.id).eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: block, error: blockError } = await adminClient.from("location_blocks")
+      .select("id").eq("district_id", district.id).eq("official_name", names[2]).eq("is_active", true).maybeSingle();
+    if (blockError) throw blockError;
+    if (!block) return [];
+
+    const { data, error } = await adminClient.from("location_panchayats")
+      .select("official_name,navigation_url").eq("block_id", block.id).eq("is_active", true).order("official_name");
+    if (error) throw error;
+    return mapRows(data);
+  }
 
   const expectedPaths = [
     /\/VBGRAMG\/homestciti\.aspx$/i,
@@ -128,6 +148,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Prefer the shared official location master. Only scrape VBGRAMG when this
+    // particular level has not yet been cached.
+    const cachedEntries = await readCachedLocationList(body.action || "", selectedNames);
+    if (cachedEntries.length) {
+      return reply({ success: true, level: body.action, count: cachedEntries.length, entries: cachedEntries, cached: true }, 200, origin);
+    }
+
     const baseHeaders = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",

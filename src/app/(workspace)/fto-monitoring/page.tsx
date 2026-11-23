@@ -72,7 +72,7 @@ export default function FtoMonitoringPage() {
     if (!numbers.length) return;
     setBusy(true);
     setError("");
-    setNotice("");
+    setNotice("Processing " + formatNumber(numbers.length) + " FTO detail page(s) in batches of five.");
     setPreview(null);
     const failed = new Map<string, string>();
     let staged = progress?.staged || 0;

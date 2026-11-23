@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { shouldRefetchFto } from "../_shared/fto-refetch.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
 const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
@@ -582,20 +583,24 @@ async function main(req: Request, origin: string | null) {
     const key = candidate.ftoNumber.toUpperCase();
     const fingerprint = fingerprints[index];
     const inspection = inspectionByNumber.get(key);
-    if (forceRefresh || !inspection || inspection.listing_fingerprint !== fingerprint) {
+    const decision = shouldRefetchFto({
+      forceRefresh,
+      fingerprint,
+      inspection: inspection ? {
+        listingFingerprint: inspection.listing_fingerprint,
+        inspectionResult: inspection.inspection_result,
+        matchingTransactionCount: Number(inspection.matching_transaction_count),
+        unresolvedTransactionCount: Number(inspection.unresolved_transaction_count),
+        importActivatedAt: inspection.import_activated_at,
+      } : null,
+    });
+    if (decision === "fetch") {
       eligible.push(candidate);
-      continue;
-    }
-    if (inspection.inspection_result === "no_match") {
+    } else if (decision === "skip_no_match") {
       skippedNoMatch.push(candidate.ftoNumber);
-      continue;
+    } else {
+      skippedCompleted.push(candidate.ftoNumber);
     }
-    if (!inspection.import_activated_at || Number(inspection.unresolved_transaction_count) > 0 ||
-        Number(inspection.matching_transaction_count) === 0) {
-      eligible.push(candidate);
-      continue;
-    }
-    skippedCompleted.push(candidate.ftoNumber);
   }
 
   if (!eligible.length) {

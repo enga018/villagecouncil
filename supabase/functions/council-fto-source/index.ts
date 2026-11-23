@@ -269,15 +269,15 @@ function findBlockSignedCountControl(html: string, pageUrl: string, blockName: s
     const headerPath = (col: number) => headerRows.map(row => row[col]?.text || "").filter(Boolean).join(" ").toLowerCase();
     const blockCol = Array.from({ length: width }, (_, i) => i).find(i => /\bblock\b/.test(headerPath(i)));
     const signatoryCols = Array.from({ length: width }, (_, i) => i)
-      .filter(i => /(?:first|1st)\\s+signatory/.test(headerPath(i)));
+      .filter(i => /(?:first|1st)\s+signatory/.test(headerPath(i)));
     const signedCol = signatoryCols.find(i => {
       const path = headerPath(i);
-      return /signed\\s+fto|fto\\s+signe?d|no\\.?\\s*of\\s*signed\\s*fto|number\\s+of\\s+signed\\s*fto/.test(path);
+      return /signed\s+fto|fto\s+signe?d|no\.?\s*of\s*signed\s*fto|number\s+of\s+signed\s*fto/.test(path);
     });
     const fallbackCols = signatoryCols.length ? signatoryCols : Array.from({ length: width }, (_, i) => i)
       .filter(i => i > (blockCol ?? -1));
     const candidateCols = signedCol !== undefined ? [signedCol] : fallbackCols
-      .filter(i => /<a\\b/i.test(blockRow[i]?.inner || "") && /^\\d[\\d,]*$/.test(blockRow[i]?.text || ""));
+      .filter(i => /<a\b/i.test(blockRow[i]?.inner || "") && /^\d[\d,]*$/.test(blockRow[i]?.text || ""));
     for (const col of candidateCols) {
       const cell = blockRow[col];
       if (!cell) continue;

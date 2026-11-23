@@ -27,6 +27,8 @@ create table public.council_fto_transactions (
   updated_at timestamptz not null default now(),
   foreign key (fto_id, village_council_id)
     references public.council_ftos(id, village_council_id) on delete cascade,
+  foreign key (village_council_id, job_card_number)
+    references public.council_job_cards(village_council_id, job_card_number) on delete cascade,
   unique (village_council_id, fto_number, reference_number)
 );
 

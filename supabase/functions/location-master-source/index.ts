@@ -141,12 +141,6 @@ Deno.serve(async (req: Request) => {
     /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
     /\/VBGRAMG\/IndexFrame\.aspx$/i,
   ];
-  const requiredNames = { states: 0, districts: 1, blocks: 2, panchayats: 3 }[body.action || ""]!;
-  const selectedNames = body.selectedNames || [];
-  if (!Array.isArray(selectedNames) || selectedNames.length !== requiredNames || selectedNames.some(name => typeof name !== "string" || !name.trim())) {
-    return reply({ error: "Select each preceding location level before continuing." }, 400, origin);
-  }
-
   try {
     // Prefer the shared official location master. Only scrape VBGRAMG when this
     // particular level has not yet been cached.

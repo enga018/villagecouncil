@@ -407,6 +407,7 @@ async function main(req: Request, origin: string | null) {
   const navigation: Record<string, unknown>[] = [];
   let ftoStatusPage: PortalPage | null = null;
   let ftoStatusControl: Control | null = null;
+  let ftoStatusNavigationUrl = "";
   let ftoStatusParentNavigation: Record<string, unknown> | null = null;
   const { data: cachedStatus, error: cachedStatusError } = await admin.from("shared_fto_navigation")
     .select("navigation_url,control_target,control_argument,navigation_data")
@@ -415,6 +416,7 @@ async function main(req: Request, origin: string | null) {
   if (cachedStatus) {
     try {
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
+      ftoStatusNavigationUrl = cachedStatus.navigation_url;
       if (cachedStatus.navigation_data?.mode === "postback") {
         ftoStatusParentNavigation = {
           mode: "postback",
@@ -442,7 +444,7 @@ async function main(req: Request, origin: string | null) {
     if (ftoStatusControl.kind === "postback") {
       ftoStatusParentNavigation = {
         mode: "postback",
-        url: districtPage.url,
+        url: district.navigation_url,
         control_target: ftoStatusControl.target || "",
         control_argument: ftoStatusControl.argument || "",
         label: ftoStatusControl.label,
@@ -453,7 +455,8 @@ async function main(req: Request, origin: string | null) {
     if (!/fto\s+status/i.test(cleanText(ftoStatusPage.html))) {
       throw new Error("The selected District link did not open a page validated as FTO Status.");
     }
-    const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : districtPage.url;
+    const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : district.navigation_url;
+    ftoStatusNavigationUrl = savedUrl;
     await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl });
     navigation.push({ step: "fto_status", source: "discovered_and_saved", label: ftoStatusControl.label, path: new URL(ftoStatusPage.url).pathname });
   }
@@ -480,7 +483,7 @@ async function main(req: Request, origin: string | null) {
         const currentControl = selectedBlockLink.control;
         const expectedUrl = currentControl.kind === "link"
           ? currentControl.href
-          : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusPage.url;
+          : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusNavigationUrl || ftoStatusPage.url;
         const expectedMode = currentControl.kind;
         const cachedParent = cachedList.navigation_data?.parentNavigation;
         const parentMatches = currentControl.kind !== "postback"
@@ -515,7 +518,7 @@ async function main(req: Request, origin: string | null) {
     }
     const savedUrl = listControl.kind === "link"
       ? listControl.href!
-      : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusPage.url;
+      : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusNavigationUrl || ftoStatusPage.url;
     await saveSharedNavigation(admin, {
       districtId: district.id, blockId: block.id, type: "first_signatory_list",
       url: savedUrl, control: listControl,

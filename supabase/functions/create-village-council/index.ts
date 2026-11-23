@@ -80,6 +80,7 @@ Deno.serve(async (req: Request) => {
     administrator_email: string;
     status: string;
     created_council_id: string | null;
+    panchayat_url?: string | null;
   } | null = null;
   let requestLocked = false;
   let administratorEmail = typeof payload.adminEmail === "string" ? payload.adminEmail.trim().toLowerCase() : "";
@@ -138,8 +139,7 @@ Deno.serve(async (req: Request) => {
     requestLocked = true;
 
     // Retain the official panchayat URL for later Register navigation.
-    requestRecord = { ...data, status: "under_review" };
-    (requestRecord as typeof requestRecord & { panchayat_url?: string }).panchayat_url = panchayat.navigation_url ?? undefined;
+    requestRecord = { ...data, status: "under_review", panchayat_url: panchayat.navigation_url };
   }
 
   const { data: existingCouncil, error: slugLookupError } = await adminClient
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
     councilPayload.block = requestRecord.block;
     councilPayload.village = requestRecord.village;
     councilPayload.location_panchayat_id = requestRecord.location_panchayat_id;
-    councilPayload.panchayat_url = (requestRecord as typeof requestRecord & { panchayat_url?: string }).panchayat_url ?? null;
+    councilPayload.panchayat_url = requestRecord.panchayat_url ?? null;
     councilPayload.onboarding_completed_at = new Date().toISOString();
   }
 

@@ -540,6 +540,6 @@ Deno.serve(async (req: Request) => {
   try {
     return await main(req, origin);
   } catch (error) {
-    return reply({ success: false, error: error instanceof Error ? error.message : "FTO source discovery failed.", databaseChanged: false }, 502, origin);
+    return reply({ success: false, error: error instanceof Error ? error.message : "FTO source discovery failed." }, 502, origin);
   }
 });

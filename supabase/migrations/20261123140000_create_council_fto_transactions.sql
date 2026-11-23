@@ -19,7 +19,7 @@ create table public.council_fto_transactions (
     check (normalized_status in ('processed','rejected','deferred')),
   rejection_reason text,
   village text,
-  source_row jsonb not null default '{}'::jsonb
+  source_row jsonb not null default '[]'::jsonb
     check (jsonb_typeof(source_row) = 'array'),
   first_imported_at timestamptz not null default now(),
   last_seen_in_import_at timestamptz,

@@ -56,6 +56,9 @@ export default function FtoMonitoringPage() {
   const [notice, setNotice] = useState("");
   const [batchId, setBatchId] = useState("");
   const [manifestToken, setManifestToken] = useState("");
+  const [ftoNumbers, setFtoNumbers] = useState<string[]>([]);
+  const [testingParser, setTestingParser] = useState(false);
+  const [liveTest, setLiveTest] = useState<{ checked: number; passed: number; failed: number; results: Array<{ ftoNumber?: string; kind: string; error?: string; validationErrors?: string[] }> } | null>(null);
   const [failedFtos, setFailedFtos] = useState<string[]>([]);
   const [failureDetails, setFailureDetails] = useState<Array<{ ftoNumber: string; reason: string }>>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -187,6 +190,8 @@ export default function FtoMonitoringPage() {
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
+      setFtoNumbers(numbers);
+      setLiveTest(null);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       const skipped = Number(data.listing.alreadyImportedCount || 0);
       const initialNotice = "Processing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
@@ -207,6 +212,44 @@ export default function FtoMonitoringPage() {
     setFailureDetails([]);
     setProgress({ attempted: 0, total: retryList.length, staged: progress?.staged || 0 });
     await processNumbers(retryList, batchId, manifestToken, supabase);
+  }
+
+  async function testLiveParser() {
+    if (!batchId || !manifestToken || !ftoNumbers.length || busy || activating || testingParser) return;
+    setTestingParser(true);
+    setError("");
+    setNotice("Testing live Government FTO detail pages without staging or importing records.");
+    setLiveTest(null);
+    try {
+      const supabase = createClient();
+      const results: NonNullable<typeof liveTest>["results"] = [];
+      for (let offset = 0; offset < ftoNumbers.length; offset += 5) {
+        const chunk = ftoNumbers.slice(offset, offset + 5);
+        const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
+          body: { manifestToken, batchId, ftoNumbers: chunk, dryRun: true },
+        });
+        if (invokeError) {
+          const message = await invokeErrorMessage(invokeError, "Live parser test request failed.");
+          chunk.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: message }));
+          continue;
+        }
+        if (!data) {
+          chunk.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: "No response from the Edge Function." }));
+          continue;
+        }
+        results.push(...(data.results || []));
+      }
+      const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+      const failed = results.length - passed;
+      setLiveTest({ checked: ftoNumbers.length, passed, failed, results });
+      setNotice(failed
+        ? "Live parser test completed with failures. No FTO records or inspection history were changed."
+        : "Live parser test passed for all selected FTOs. No FTO records or inspection history were changed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Live parser test failed.");
+    } finally {
+      setTestingParser(false);
+    }
   }
 
   async function activateImport() {
@@ -257,6 +300,9 @@ export default function FtoMonitoringPage() {
             <button type="button" onClick={() => startFetch(true)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-60">
               Force refresh all
             </button>
+            <button type="button" onClick={testLiveParser} disabled={!ftoNumbers.length || busy || activating || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 disabled:opacity-50">
+              {testingParser ? "Testing live parser…" : "Test Live Parser"}
+            </button>
           </div>
         </div>
 
@@ -270,6 +316,25 @@ export default function FtoMonitoringPage() {
               <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }} />
             </div>
             <p className="text-xs text-slate-500">Staged FTO results: {formatNumber(progress.staged)}</p>
+          </div>
+        )}
+
+        {liveTest && (
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h3 className="text-sm font-semibold text-slate-900">Live parser test results</h3>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+              <div><p className="text-xl font-bold tabular-nums text-slate-900">{formatNumber(liveTest.checked)}</p><p className="text-xs text-slate-500">Checked</p></div>
+              <div><p className="text-xl font-bold tabular-nums text-emerald-700">{formatNumber(liveTest.passed)}</p><p className="text-xs text-slate-500">Parsed</p></div>
+              <div><p className="text-xl font-bold tabular-nums text-red-700">{formatNumber(liveTest.failed)}</p><p className="text-xs text-slate-500">Failed</p></div>
+            </div>
+            {liveTest.failed > 0 && (
+              <ul className="mt-3 space-y-1 text-xs text-red-700">
+                {liveTest.results.filter(item => item.kind !== "village_match" && item.kind !== "out_of_village").slice(0, 12).map((item, index) => (
+                  <li key={String(item.ftoNumber || index)}><span className="font-semibold">{item.ftoNumber || "Request"}:</span> {item.error || (item.validationErrors || []).join(" ") || item.kind}</li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-xs text-slate-500">Read-only test. No FTO rows, transaction records, or inspection history were changed.</p>
           </div>
         )}
 

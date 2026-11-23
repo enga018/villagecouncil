@@ -43,8 +43,10 @@ revoke all on public.shared_fto_navigation from anon, authenticated;
 
 comment on table public.shared_fto_navigation is
   'Shared official VBGRAMG FTO navigation cache keyed by District and, where applicable, Block. Stores reusable URLs and rediscovery metadata, never cookies or session state.';
+comment on column public.shared_fto_navigation.navigation_url is
+  'Direct destination URL, or the parent page URL when the destination requires an ASP.NET postback replay.';
 comment on column public.shared_fto_navigation.navigation_data is
-  'Non-session discovery metadata such as visible link label, source page path, or stable control description.';
+  'Non-session discovery metadata such as visible link label, source page path, stable control description, and any required parent-navigation step.';
 comment on column public.shared_fto_navigation.control_target is
   'Optional ASP.NET postback target used to rediscover a navigation URL when the cached URL expires.';
 comment on column public.shared_fto_navigation.control_argument is

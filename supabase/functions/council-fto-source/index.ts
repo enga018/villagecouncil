@@ -677,14 +677,16 @@ async function main(req: Request, origin: string | null) {
   }, 200, origin);
 }
 
-Deno.serve(async (req: Request) => {
-  const origin = req.headers.get("origin");
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
-  if (req.method !== "POST") return reply({ error: "Method not allowed." }, 405, origin);
-  if (origin && !ALLOWED_ORIGINS.has(origin)) return reply({ error: "Origin not allowed." }, 403, origin);
-  try {
-    return await main(req, origin);
-  } catch (error) {
-    return reply({ success: false, error: error instanceof Error ? error.message : "FTO source discovery failed." }, 502, origin);
-  }
-});
+if (import.meta.main) {
+  Deno.serve(async (req: Request) => {
+    const origin = req.headers.get("origin");
+    if (req.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
+    if (req.method !== "POST") return reply({ error: "Method not allowed." }, 405, origin);
+    if (origin && !ALLOWED_ORIGINS.has(origin)) return reply({ error: "Origin not allowed." }, 403, origin);
+    try {
+      return await main(req, origin);
+    } catch (error) {
+      return reply({ success: false, error: error instanceof Error ? error.message : "FTO source discovery failed." }, 502, origin);
+    }
+  });
+}

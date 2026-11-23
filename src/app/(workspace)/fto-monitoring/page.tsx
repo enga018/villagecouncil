@@ -35,6 +35,7 @@ export default function FtoMonitoringPage() {
   const [batchId, setBatchId] = useState("");
   const [manifestToken, setManifestToken] = useState("");
   const [failedFtos, setFailedFtos] = useState<string[]>([]);
+  const [failureDetails, setFailureDetails] = useState<Array<{ ftoNumber: string; reason: string }>>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [importResult, setImportResult] = useState<{ ftos: number; transactions: number; excluded: number } | null>(null);
@@ -73,7 +74,7 @@ export default function FtoMonitoringPage() {
     setError("");
     setNotice("");
     setPreview(null);
-    const failed = new Set<string>();
+    const failed = new Map<string, string>();
     let staged = progress?.staged || 0;
     let attempted = 0;
     let lastBatchComplete = false;
@@ -86,15 +87,19 @@ export default function FtoMonitoringPage() {
         attempted += chunk.length;
         if (invokeError) {
           const message = await invokeErrorMessage(invokeError, "FTO detail request failed.");
-          chunk.forEach(number => failed.add(number));
+          chunk.forEach(number => failed.set(number, message));
           setError(message);
         } else if (!data?.success) {
-          chunk.forEach(number => failed.add(number));
-          setError(data?.error || "FTO details could not be processed.");
+          const message = data?.error || "FTO details could not be processed.";
+          chunk.forEach(number => failed.set(number, message));
+          setError(message);
         } else {
           for (const result of data.results || []) {
             if (result.kind === "fetch_failure" || result.kind === "validation_failure") {
-              failed.add(String(result.ftoNumber));
+              const reason = result.kind === "validation_failure"
+                ? (Array.isArray(result.validationErrors) ? result.validationErrors.join(" ") : "FTO detail validation failed.")
+                : String(result.error || "Government detail fetch failed.");
+              failed.set(String(result.ftoNumber), reason);
             }
           }
           staged = Number(data.stagedTotal || staged);
@@ -103,8 +108,9 @@ export default function FtoMonitoringPage() {
         }
         setProgress({ attempted, total: numbers.length, staged });
       }
-      const failedList = [...failed];
+      const failedList = [...failed.keys()];
       setFailedFtos(failedList);
+      setFailureDetails([...failed.entries()].map(([ftoNumber, reason]) => ({ ftoNumber, reason })));
       if (failedList.length) {
         setNotice(formatNumber(failedList.length) + " FTO(s) need retry. No manual import option is available.");
       } else if (!lastBatchComplete) {
@@ -139,6 +145,7 @@ export default function FtoMonitoringPage() {
     setPreview(null);
     setImportResult(null);
     setFailedFtos([]);
+    setFailureDetails([]);
     setProgress(null);
     setBatchId("");
     setManifestToken("");
@@ -166,6 +173,7 @@ export default function FtoMonitoringPage() {
     const supabase = createClient();
     const retryList = failedFtos;
     setFailedFtos([]);
+    setFailureDetails([]);
     setProgress({ attempted: 0, total: retryList.length, staged: progress?.staged || 0 });
     await processNumbers(retryList, batchId, manifestToken, supabase);
   }
@@ -247,6 +255,14 @@ export default function FtoMonitoringPage() {
               Retry failed FTOs
             </button>
           </div>
+          {failureDetails.length > 0 && (
+            <ul className="mt-3 space-y-1 rounded-lg border border-amber-100 bg-white p-3 text-xs text-amber-900">
+              {failureDetails.slice(0, 10).map(item => (
+                <li key={item.ftoNumber}><span className="font-semibold">{item.ftoNumber}:</span> {item.reason}</li>
+              ))}
+              {failureDetails.length > 10 && <li className="text-amber-700">And {formatNumber(failureDetails.length - 10)} more failed FTOs.</li>}
+            </ul>
+          )}
         )}
       </section>
 

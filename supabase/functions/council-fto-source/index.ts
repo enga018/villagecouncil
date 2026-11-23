@@ -511,14 +511,15 @@ async function main(req: Request, origin: string | null) {
           : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusNavigationUrl || ftoStatusPage.url;
         const expectedMode = currentControl.kind;
         const cachedParent = cachedList.navigation_data?.parentNavigation;
-        const parentMatches = currentControl.kind !== "postback"
+        const parentMatches = !ftoStatusParentNavigation
           ? !cachedParent
-          : !ftoStatusParentNavigation
-            ? !cachedParent
-            : cachedParent?.mode === "postback" &&
-              cachedParent?.url === ftoStatusParentNavigation.url &&
-              cachedParent?.control_target === ftoStatusParentNavigation.control_target &&
-              cachedParent?.control_argument === ftoStatusParentNavigation.control_argument;
+          : cachedParent?.mode === ftoStatusParentNavigation.mode &&
+            cachedParent?.url === ftoStatusParentNavigation.url &&
+            cachedParent?.linkUrl === ftoStatusParentNavigation.linkUrl &&
+            cachedParent?.control_target === ftoStatusParentNavigation.control_target &&
+            cachedParent?.control_argument === ftoStatusParentNavigation.control_argument &&
+            cachedParent?.inputName === ftoStatusParentNavigation.inputName &&
+            cachedParent?.inputValue === ftoStatusParentNavigation.inputValue;
         const controlMatches = cachedList.navigation_data?.mode === expectedMode &&
           cachedList.navigation_url === expectedUrl &&
           (currentControl.kind !== "postback" ||
@@ -547,7 +548,7 @@ async function main(req: Request, origin: string | null) {
     await saveSharedNavigation(admin, {
       districtId: district.id, blockId: block.id, type: "first_signatory_list",
       url: savedUrl, control: listControl,
-      parentNavigation: listControl.kind === "postback" ? ftoStatusParentNavigation : null,
+      parentNavigation: ftoStatusParentNavigation,
       contextData: { blockName: block.official_name, signedFtoCount: selected.count },
     });
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });

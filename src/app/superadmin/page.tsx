@@ -101,11 +101,16 @@ function SuperadminDashboard() {
         ]);
         if (councilResult.error) throw councilResult.error;
         if (membershipResult.error) throw membershipResult.error;
-        if (requestResult.error) throw requestResult.error;
         if (active) {
           setCouncils(councilResult.data ?? []);
           setMemberships(membershipResult.data ?? []);
-          setRequests((requestResult.data ?? []) as OnboardingRequest[]);
+          if (requestResult.error) {
+            setRequests([]);
+            setRequestActionError("Registration requests are not available yet. Apply the onboarding database migration before enabling this section.");
+          } else {
+            setRequests((requestResult.data ?? []) as OnboardingRequest[]);
+            setRequestActionError("");
+          }
           setError("");
         }
       } catch (err) {

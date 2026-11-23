@@ -100,9 +100,14 @@ function normalizeVillage(value: string) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
 function extractVillage(value: string, jobCardNumber: string) {
+  const escapedJobCard = jobCardNumber.replace(/[.*+?^${}()|[\\]\\]/g, "\\function extractVillage(value: string, jobCardNumber: string) {
   const escapedJobCard = jobCardNumber.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\function extractVillage(value: string, jobCardNumber: string) {
   return String(value || "").replace(jobCardNumber, " ").replace(/[()\[\]{}]/g, " ")
     .replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim();
+}");
+  return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
+    .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
+    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
 }");
   return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
     .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")

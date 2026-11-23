@@ -11,20 +11,42 @@ type FtoPreview = {
 };
 
 type Progress = { attempted: number; total: number; staged: number };
+type FtoTransactionPreview = { jobCardNumber?: string };
+type FtoImportRow = {
+  row_number: number;
+  row_data: { scope?: string; fto_number?: string; transactions?: FtoTransactionPreview[] };
+};
+type FtoDetailsResponse = {
+  success?: boolean;
+  error?: string;
+  results?: Array<{ kind: string; validationErrors?: string[]; error?: string; ftoNumber?: string }>;
+  stagedTotal?: number;
+  batchComplete?: boolean;
+};
+type FtoSourceResponse = {
+  success?: boolean;
+  error?: string;
+  noNewFtos?: boolean;
+  message?: string;
+  batchId?: string;
+  councilLocation?: { block?: string };
+  listing?: { manifestToken?: string; ftoNumbers?: string[]; alreadyImportedCount?: number };
+};
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
 
-async function invokeErrorMessage(error: any, fallback: string) {
-  const context = error?.context as Response | undefined;
+async function invokeErrorMessage(error: unknown, fallback: string) {
+  const value = error as { message?: string; context?: Response } | null;
+  const context = value?.context;
   if (context && typeof context.json === "function") {
     try {
-      const body = await context.json();
+      const body = await context.json() as { error?: string };
       if (body?.error) return String(body.error);
     } catch {}
   }
-  return error?.message || fallback;
+  return value?.message || fallback;
 }
 
 export default function FtoMonitoringPage() {

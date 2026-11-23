@@ -58,6 +58,23 @@ create index council_onboarding_requests_email_idx
 
 alter table public.council_onboarding_requests enable row level security;
 
+create or replace function public.is_platform_superadmin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1
+    from public.platform_superadmins ps
+    where ps.user_id = (select auth.uid())
+  );
+$;
+
+revoke execute on function public.is_platform_superadmin() from public, anon;
+grant execute on function public.is_platform_superadmin() to authenticated;
+
 grant select, update on public.council_onboarding_requests to authenticated;
 
 create policy "Platform superadmins can view onboarding requests"

@@ -222,7 +222,7 @@ export default function FtoMonitoringPage() {
           <button
             type="button"
             onClick={startFetch}
-            disabled={busy || activating || failedFtos.length > 0 || Boolean(preview && !importResult)}
+            disabled={busy || activating || Boolean(preview && !importResult)}
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "Fetching…" : "Fetch FTOs"}

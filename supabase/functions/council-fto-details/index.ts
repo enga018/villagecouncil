@@ -192,30 +192,16 @@ async function openManifest(token: string, serviceKey: string) {
   const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["decrypt"]);
   const clear = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, key, bytes.slice(12));
   const manifest = JSON.parse(new TextDecoder().decode(clear));
-  if (manifest?.v !== 1 || !Number.isFinite(manifest.exp) || manifest.exp < Date.now() || !Array.isArray(manifest.candidates) || !manifest.context)
+  if (manifest?.v !== 1 || !Number.isFinite(manifest.exp) || manifest.exp < Date.now() ||
+      !Array.isArray(manifest.candidates) || !manifest.context ||
+      !Array.isArray(manifest.jobCardNumbers) || manifest.jobCardNumbers.length === 0)
     throw new Error("FTO manifest has expired or is invalid. Run FTO discovery again.");
-  return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string }; candidates: Candidate[] };
+  return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string }; candidates: Candidate[]; jobCardNumbers: string[] };
 }
 function numberValue(value: string) {
   const cleaned = String(value || "").replace(/[₹,\s]/g, "");
   const parsed = Number(cleaned);
   return cleaned && Number.isFinite(parsed) ? parsed : null;
-}
-async function loadCouncilCards(admin: any, tenantId: string) {
-  const cards = new Set<string>();
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await admin.from("council_job_cards")
-      .select("job_card_number").eq("village_council_id", tenantId)
-      .order("job_card_number", { ascending: true }).range(offset, offset + 999);
-    if (error) throw new Error("Could not load the Village Council Job Card register: " + error.message);
-    for (const row of data || []) {
-      const value = String(row.job_card_number || "").trim().toUpperCase();
-      if (value) cards.add(value);
-    }
-    if (!data || data.length < 1000) break;
-  }
-  if (!cards.size) throw new Error("The Village Council has no registered Job Cards. Import the Job Card register before fetching FTO details.");
-  return cards;
 }
 async function main(req: Request, origin: string | null) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -279,7 +265,8 @@ async function main(req: Request, origin: string | null) {
     if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
     return { ...item, requestedNumber: number };
   });
-  const cardSet = await loadCouncilCards(admin, tenantId);
+  const cardSet = new Set(manifest.jobCardNumbers.map(number => String(number || "").trim().toUpperCase()).filter(Boolean));
+  if (!cardSet.size) return reply({ error: "The FTO manifest contains no Job Card snapshot for this Village Council." }, 409, origin);
   const selectedRowNumbers = selected.map(item => item.rowNumber);
   const { data: existingRows, error: existingRowsError } = await admin.from("council_fto_import_rows")
     .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);

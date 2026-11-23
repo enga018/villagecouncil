@@ -11,6 +11,7 @@ as $$
 declare
   v_tenant_id uuid;
   v_fto_count integer := 0;
+  v_existing_fto_count integer := 0;
   v_transaction_count integer := 0;
   v_excluded_count integer := 0;
 begin
@@ -31,6 +32,15 @@ begin
   where r.import_batch_id = p_batch_id
     and r.village_council_id = v_tenant_id
     and r.row_data->>'scope' = 'OUT_OF_SCOPE';
+
+  select count(*) into v_existing_fto_count
+  from public.council_ftos f
+  join public.council_fto_import_rows r
+    on r.row_data->>'fto_number' = f.fto_number
+  where r.import_batch_id = p_batch_id
+    and r.village_council_id = v_tenant_id
+    and r.row_data->>'scope' = 'IN_SCOPE'
+    and f.village_council_id = v_tenant_id;
 
   insert into public.council_ftos (
     village_council_id, fto_number, fto_date, fto_status, block, first_signatory,
@@ -71,23 +81,23 @@ begin
     v_tenant_id,
     f.id,
     r.row_data->>'fto_number',
-    tx->>'jobCardNumber',
-    tx->>'referenceNumber',
-    nullif(tx->>'transactionDate', '')::date,
-    nullif(tx->>'processedDate', '')::date,
-    nullif(tx->>'personName', ''),
-    nullif(tx->>'primaryAccountHolder', ''),
-    nullif(tx->>'amountToBeCredited', '')::numeric,
-    nullif(tx->>'creditAmount', '')::numeric,
-    coalesce(nullif(tx->>'governmentStatus', ''), 'blank'),
-    tx->>'normalizedStatus',
-    nullif(tx->>'rejectionReason', ''),
-    nullif(tx->>'village', ''),
-    coalesce(tx->'sourceRow', '[]'::jsonb),
+    tx.value->>'jobCardNumber',
+    tx.value->>'referenceNumber',
+    nullif(tx.value->>'transactionDate', '')::date,
+    nullif(tx.value->>'processedDate', '')::date,
+    nullif(tx.value->>'personName', ''),
+    nullif(tx.value->>'primaryAccountHolder', ''),
+    nullif(tx.value->>'amountToBeCredited', '')::numeric,
+    nullif(tx.value->>'creditAmount', '')::numeric,
+    coalesce(nullif(tx.value->>'governmentStatus', ''), 'blank'),
+    tx.value->>'normalizedStatus',
+    nullif(tx.value->>'rejectionReason', ''),
+    nullif(tx.value->>'village', ''),
+    coalesce(tx.value->'sourceRow', '[]'::jsonb),
     now(),
     now()
   from public.council_fto_import_rows r
-  cross join lateral jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx
+  cross join lateral jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx(value)
   join public.council_ftos f
     on f.village_council_id = v_tenant_id
    and f.fto_number = r.row_data->>'fto_number'
@@ -115,10 +125,8 @@ begin
   update public.council_fto_import_batches
   set status = 'completed',
       completed_at = now(),
-      inserted_ftos = v_fto_count,
-      updated_ftos = greatest(v_fto_count - (select count(*) from public.council_ftos f
-        where f.village_council_id = v_tenant_id
-          and f.first_imported_at >= (select b.started_at from public.council_fto_import_batches b where b.id = p_batch_id)), 0),
+      inserted_ftos = greatest(v_fto_count - v_existing_fto_count, 0),
+      updated_ftos = v_existing_fto_count,
       missing_records = v_excluded_count
   where id = p_batch_id and village_council_id = v_tenant_id;
 

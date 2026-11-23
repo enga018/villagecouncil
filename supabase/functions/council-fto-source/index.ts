@@ -462,6 +462,12 @@ async function main(req: Request, origin: string | null) {
 
   let listingPage: PortalPage | null = null;
   let listControl: Control | null = null;
+  let selectedBlockLink: ReturnType<typeof findBlockSignedCountControl> | null = null;
+  try {
+    selectedBlockLink = findBlockSignedCountControl(ftoStatusPage.html, ftoStatusPage.url, block.official_name);
+  } catch {
+    selectedBlockLink = null;
+  }
   const { data: cachedList, error: cachedListError } = await admin.from("shared_fto_navigation")
     .select("navigation_url,control_target,control_argument,navigation_data")
     .eq("district_id", district.id).eq("block_id", block.id)
@@ -472,6 +478,27 @@ async function main(req: Request, origin: string | null) {
       if (cachedList.navigation_data?.blockName && normalizeName(String(cachedList.navigation_data.blockName)) !== normalizeName(block.official_name)) {
         throw new Error("Cached First Signatory link belongs to a different Block.");
       }
+      if (selectedBlockLink) {
+        const currentControl = selectedBlockLink.control;
+        const expectedUrl = currentControl.kind === "link"
+          ? currentControl.href
+          : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusPage.url;
+        const expectedMode = currentControl.kind;
+        const cachedParent = cachedList.navigation_data?.parentNavigation;
+        const parentMatches = !ftoStatusParentNavigation
+          ? !cachedParent
+          : cachedParent?.mode === "postback" &&
+            cachedParent?.url === ftoStatusParentNavigation.url &&
+            cachedParent?.control_target === ftoStatusParentNavigation.control_target &&
+            cachedParent?.control_argument === ftoStatusParentNavigation.control_argument;
+        const controlMatches = cachedList.navigation_data?.mode === expectedMode &&
+          cachedList.navigation_url === expectedUrl &&
+          (currentControl.kind !== "postback" ||
+            (String(cachedList.control_target || "") === String(currentControl.target || "") &&
+             String(cachedList.control_argument || "") === String(currentControl.argument || ""))) &&
+          parentMatches;
+        if (!controlMatches) throw new Error("The saved First Signatory link no longer matches the selected Block's signed-FTO count.");
+      }
       listingPage = await openCachedNavigation(jars, cachedList, ftoStatusPage.url);
       if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) throw new Error("Cached link did not open the First Signatory listing for this Block.");
       navigation.push({ step: "first_signatory_list", source: "shared_cache", path: new URL(listingPage.url).pathname });
@@ -480,13 +507,15 @@ async function main(req: Request, origin: string | null) {
     }
   }
   if (!listingPage) {
-    const selected = findBlockSignedCountControl(ftoStatusPage.html, ftoStatusPage.url, block.official_name);
+    const selected = selectedBlockLink || findBlockSignedCountControl(ftoStatusPage.html, ftoStatusPage.url, block.official_name);
     listControl = selected.control;
     listingPage = await activateControl(jars, ftoStatusPage, listControl);
     if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) {
       throw new Error("The signed-FTO count for Block '" + block.official_name + "' did not open a validated First Signatory listing for that Block.");
     }
-    const savedUrl = listControl.kind === "link" ? listControl.href! : ftoStatusPage.url;
+    const savedUrl = listControl.kind === "link"
+      ? listControl.href!
+      : (ftoStatusParentNavigation?.url as string | undefined) || ftoStatusPage.url;
     await saveSharedNavigation(admin, {
       districtId: district.id, blockId: block.id, type: "first_signatory_list",
       url: savedUrl, control: listControl,

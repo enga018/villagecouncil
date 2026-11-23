@@ -39,6 +39,7 @@ jobs:
           deno test supabase/functions/_shared/fto-domain.test.ts
           deno test supabase/functions/_shared/fto-refetch.test.ts
           deno test supabase/functions/_shared/fto-html-parser.test.ts
+          deno test --node-modules-dir=auto supabase/functions/council-fto-source/index.test.ts
 
       - name: Check Edge Functions
         run: |

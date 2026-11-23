@@ -424,7 +424,14 @@ async function main(req: Request, origin: string | null) {
     try {
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
       ftoStatusNavigationUrl = cachedStatus.navigation_url;
-      if (cachedStatus.navigation_data?.mode === "postback") {
+      if (cachedStatus.navigation_data?.mode === "link") {
+        ftoStatusParentNavigation = {
+          mode: "link",
+          url: district.navigation_url,
+          linkUrl: cachedStatus.navigation_url,
+          label: cachedStatus.navigation_data?.label || "Saved FTO Status",
+        };
+      } else if (cachedStatus.navigation_data?.mode === "postback") {
         ftoStatusParentNavigation = {
           mode: "postback",
           url: district.navigation_url,
@@ -448,7 +455,14 @@ async function main(req: Request, origin: string | null) {
     ftoStatusControl = findFtoStatusControl(districtPage.html, districtPage.url);
     if (!ftoStatusControl) return reply({ success: false, error: "The FTO Status link was not found on the saved District page.", navigation }, 502, origin);
     ftoStatusPage = await activateControl(jars, districtPage, ftoStatusControl);
-    if (ftoStatusControl.kind === "postback") {
+    if (ftoStatusControl.kind === "link") {
+      ftoStatusParentNavigation = {
+        mode: "link",
+        url: district.navigation_url,
+        linkUrl: ftoStatusControl.href!,
+        label: ftoStatusControl.label,
+      };
+    } else if (ftoStatusControl.kind === "postback") {
       ftoStatusParentNavigation = {
         mode: "postback",
         url: district.navigation_url,
@@ -464,7 +478,11 @@ async function main(req: Request, origin: string | null) {
     }
     const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : district.navigation_url;
     ftoStatusNavigationUrl = savedUrl;
-    await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl });
+    await saveSharedNavigation(admin, {
+      districtId: district.id, blockId: null, type: "fto_status", url: savedUrl,
+      control: ftoStatusControl,
+      parentNavigation: ftoStatusControl.kind === "link" ? { mode: "direct", url: district.navigation_url } : null,
+    });
     navigation.push({ step: "fto_status", source: "discovered_and_saved", label: ftoStatusControl.label, path: new URL(ftoStatusPage.url).pathname });
   }
 

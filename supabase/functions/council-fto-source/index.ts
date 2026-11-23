@@ -554,7 +554,6 @@ async function main(req: Request, origin: string | null) {
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });
   }
 
-  const pageText = cleanText(listingPage.html);
   if (!isFirstSignatoryListing(listingPage.html)) {
     throw new Error("The Government response is not the First Signatory FTO listing for the selected Block.");
   }

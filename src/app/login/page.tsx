@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import PublicShell from "@/components/app/PublicShell";
 
 function getRequestedPath() {
   const requested = new URLSearchParams(window.location.search).get("next");
@@ -74,9 +75,9 @@ export default function LoginPage() {
     }
   }
 
-  if (checking) return <main className="flex min-h-screen items-center justify-center bg-slate-50"><p className="text-sm text-slate-500">Checking sign-in…</p></main>;
+  if (checking) return <PublicShell><main className="flex min-h-[calc(100vh-4.25rem)] items-center justify-center"><p className="text-sm text-slate-500">Checking sign-in…</p></main></PublicShell>;
 
-  return <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
+  return <PublicShell><main className="flex min-h-[calc(100vh-4.25rem)] items-center justify-center px-4 py-10">
     <div className="w-full max-w-md">
       <div className="mb-8 text-center"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-700 text-lg font-bold text-white">VC</div>
         <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-950">Village Council</h1><p className="mt-2 text-sm text-slate-500">Sign in to your Village Council workspace</p></div>
@@ -90,5 +91,5 @@ export default function LoginPage() {
       </form>
       <p className="mt-6 text-center text-xs text-slate-400">Accounts are provisioned by the platform administrator. Public registration is disabled.</p>
     </div>
-  </main>;
+  </main></PublicShell>;
 }

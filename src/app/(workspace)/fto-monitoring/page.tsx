@@ -278,153 +278,117 @@ export default function FtoMonitoringPage() {
   const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <p className="text-sm font-medium text-blue-700">Government data</p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">FTO Monitoring</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-          Fetch the First Signatory FTO list for this Block and import only transactions whose Panchayat name in the FTO matches this Village Council.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-7">
+      <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">FTO Monitoring</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Discover First Signatory FTOs, validate their details and review transactions belonging to this Village Council before importing.</p>
+        </div>
+        <span className="inline-flex items-center gap-2 self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-2 text-[10px] font-semibold text-blue-800 sm:self-auto"><span className="h-1.5 w-1.5 rounded-full bg-blue-600"/> Government portal connection</span>
+      </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-slate-900">Fetch Government FTOs</h2>
-            <p className="mt-1 text-sm text-slate-500">Uses the saved District URL and shared FTO Status and Block links. No CAPTCHA or manual upload.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => startFetch(false)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-              {busy ? "Fetching…" : "Fetch FTOs"}
-            </button>
-            <button type="button" onClick={() => startFetch(true)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-60">
-              Force refresh all
-            </button>
-            <button type="button" onClick={testLiveParser} disabled={!ftoNumbers.length || busy || activating || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 disabled:opacity-50">
-              {testingParser ? "Testing live parser…" : "Test Live Parser"}
-            </button>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
+        <div className="border-b border-slate-100 p-4 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
+            <div className="max-w-xl">
+              <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-blue-800">FTO</span><div><h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2><p className="mt-0.5 text-xs text-slate-500">First Signatory listing for this Council&apos;s Block</p></div></div>
+              <p className="mt-3 text-xs leading-5 text-slate-500">Uses saved District/Block navigation and official Government links. No CAPTCHA or manual file upload is required.</p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button type="button" onClick={() => startFetch(false)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
+                {busy ? "Fetching…" : "Fetch FTOs"}
+              </button>
+              <button type="button" onClick={() => startFetch(true)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                Force refresh all
+              </button>
+              <button type="button" onClick={testLiveParser} disabled={!ftoNumbers.length || busy || activating || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50">
+                {testingParser ? "Testing parser…" : "Test live parser"}
+              </button>
+            </div>
           </div>
         </div>
 
         {progress && (
-          <div className="mt-5 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>Detail processing</span>
-              <span className="tabular-nums">{formatNumber(progress.attempted)} / {formatNumber(progress.total)}</span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }} />
-            </div>
-            <p className="text-xs text-slate-500">Staged FTO results: {formatNumber(progress.staged)}</p>
+          <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
+            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-700">FTO detail processing</p><p className="text-xs tabular-nums text-slate-500">{formatNumber(progress.attempted)} / {formatNumber(progress.total)} attempted</p></div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }}/></div>
+            <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.staged)} staged FTO results</span></div>
           </div>
         )}
 
         {liveTest && (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <h3 className="text-sm font-semibold text-slate-900">Live parser test results</h3>
-            <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-              <div><p className="text-xl font-bold tabular-nums text-slate-900">{formatNumber(liveTest.checked)}</p><p className="text-xs text-slate-500">Checked</p></div>
-              <div><p className="text-xl font-bold tabular-nums text-emerald-700">{formatNumber(liveTest.passed)}</p><p className="text-xs text-slate-500">Parsed</p></div>
-              <div><p className="text-xl font-bold tabular-nums text-red-700">{formatNumber(liveTest.failed)}</p><p className="text-xs text-slate-500">Failed</p></div>
+          <div className="border-b border-slate-100 p-4 sm:p-6">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">Live parser test</h3><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500">Read-only test</span></div>
+              <div className="mt-4 grid grid-cols-3 gap-3">
+                <div><p className="text-2xl font-bold tabular-nums text-slate-950">{formatNumber(liveTest.checked)}</p><p className="text-[10px] text-slate-500">Checked</p></div>
+                <div><p className="text-2xl font-bold tabular-nums text-emerald-700">{formatNumber(liveTest.passed)}</p><p className="text-[10px] text-slate-500">Passed</p></div>
+                <div><p className="text-2xl font-bold tabular-nums text-red-700">{formatNumber(liveTest.failed)}</p><p className="text-[10px] text-slate-500">Failed</p></div>
+              </div>
+              {liveTest.failed > 0 && <ul className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-xs text-red-700">{liveTest.results.filter(item => item.kind !== "village_match" && item.kind !== "out_of_village").slice(0, 12).map((item, index) => <li key={String(item.ftoNumber || index)}><span className="font-semibold">{item.ftoNumber || "Request"}:</span> {item.error || (item.validationErrors || []).join(" ") || item.kind}</li>)}</ul>}
+              <p className="mt-3 text-[10px] text-slate-500">No FTO records or inspection history are changed by this test.</p>
             </div>
-            {liveTest.failed > 0 && (
-              <ul className="mt-3 space-y-1 text-xs text-red-700">
-                {liveTest.results.filter(item => item.kind !== "village_match" && item.kind !== "out_of_village").slice(0, 12).map((item, index) => (
-                  <li key={String(item.ftoNumber || index)}><span className="font-semibold">{item.ftoNumber || "Request"}:</span> {item.error || (item.validationErrors || []).join(" ") || item.kind}</li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-3 text-xs text-slate-500">Read-only test. No FTO rows, transaction records, or inspection history were changed.</p>
           </div>
         )}
 
-        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        {notice && <p role="status" className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">{notice}</p>}
+        {(error || notice) && <div className="space-y-2 border-b border-slate-100 p-4 sm:px-6">{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"><span className="font-bold">Action required: </span>{error}</p>}{notice && <p role="status" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">{notice}</p>}</div>}
 
         {failedFtos.length > 0 && (
-          <>
-          <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-amber-900">{formatNumber(failedFtos.length)} FTO detail page(s) need retry</p>
-              <p className="mt-1 text-xs text-amber-800">Only failed records will be retried. Successful results remain staged.</p>
+          <div className="border-b border-slate-100 p-4 sm:p-6">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div><p className="text-sm font-bold text-amber-950">{formatNumber(failedFtos.length)} FTO detail page(s) need retry</p><p className="mt-1 text-xs text-amber-800">Only failed records will be retried. Successful results remain staged.</p></div>
+                <button type="button" onClick={retryFailed} disabled={busy} className="min-h-10 rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-bold text-amber-900 disabled:opacity-50">Retry failed FTOs</button>
+              </div>
+              {failureDetails.length > 0 && <ul className="mt-3 space-y-1 border-t border-amber-200 pt-3 text-[11px] leading-5 text-amber-900">{failureDetails.slice(0, 10).map(item => <li key={item.ftoNumber}><span className="font-bold">{item.ftoNumber}:</span> {item.reason}</li>)}{failureDetails.length > 10 && <li className="text-amber-700">And {formatNumber(failureDetails.length - 10)} more failed FTOs.</li>}</ul>}
             </div>
-            <button type="button" onClick={retryFailed} disabled={busy} className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 disabled:opacity-50">
-              Retry failed FTOs
-            </button>
           </div>
-          {failureDetails.length > 0 && (
-            <ul className="mt-3 space-y-1 rounded-lg border border-amber-100 bg-white p-3 text-xs text-amber-900">
-              {failureDetails.slice(0, 10).map(item => (
-                <li key={item.ftoNumber}><span className="font-semibold">{item.ftoNumber}:</span> {item.reason}</li>
-              ))}
-              {failureDetails.length > 10 && <li className="text-amber-700">And {formatNumber(failureDetails.length - 10)} more failed FTOs.</li>}
-            </ul>
-          )}
-          </>
         )}
       </section>
 
       {preview && (
-        <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div>
-            <h2 className="font-semibold text-slate-900">Import preview</h2>
-            <p className="mt-1 text-sm text-slate-500">Village matching uses the Panchayat name recorded in each FTO transaction. Transactions for other Panchayats are excluded.</p>
+        <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <div><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-emerald-700">Review before activation</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Import preview</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Ownership is determined by the Panchayat recorded in each FTO transaction, not by matching Job Card numbers alone.</p></div>
+            <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold text-amber-800">Not imported yet</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold tabular-nums text-slate-950">{formatNumber(preview.inScopeFtos)}</p>
-              <p className="mt-1 text-xs text-slate-500">FTOs belonging to this Village Council</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold tabular-nums text-slate-950">{formatNumber(preview.transactions)}</p>
-              <p className="mt-1 text-xs text-slate-500">Matching transaction rows</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-4">
-              <p className="text-2xl font-bold tabular-nums text-slate-950">{formatNumber(preview.outOfVillageFtos)}</p>
-              <p className="mt-1 text-xs text-slate-500">Out-of-village FTOs excluded</p>
-            </div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4"><p className="text-2xl font-bold tabular-nums text-emerald-900">{formatNumber(preview.inScopeFtos)}</p><p className="mt-1 text-[11px] font-medium text-emerald-800">FTOs matching this Council</p></div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4"><p className="text-2xl font-bold tabular-nums text-blue-900">{formatNumber(preview.transactions)}</p><p className="mt-1 text-[11px] font-medium text-blue-800">Matching transaction rows</p></div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><p className="text-2xl font-bold tabular-nums text-slate-800">{formatNumber(preview.outOfVillageFtos)}</p><p className="mt-1 text-[11px] font-medium text-slate-500">Out-of-village FTOs excluded</p></div>
           </div>
 
           {preview.sample.length > 0 && (
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-4 py-3">FTO Number</th><th className="px-4 py-3">Local transactions</th><th className="px-4 py-3">Job Card numbers</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {preview.sample.map(item => (
-                    <tr key={item.ftoNumber}>
-                      <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">{item.ftoNumber}</td>
-                      <td className="px-4 py-3 tabular-nums text-slate-700">{formatNumber(item.transactionCount)}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.jobCards.join(", ") || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              <div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-bold text-slate-800">Matching FTO sample</h3><span className="text-[10px] text-slate-400">First {preview.sample.length} FTOs</span></div>
+              <div className="overflow-hidden rounded-xl border border-slate-200">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-slate-200 text-xs">
+                    <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">FTO number</th><th className="px-4 py-3">Local transactions</th><th className="px-4 py-3">Job Card numbers</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">{preview.sample.map(item => <tr key={item.ftoNumber}><td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{item.ftoNumber}</td><td className="px-4 py-3 tabular-nums text-slate-600">{formatNumber(item.transactionCount)}</td><td className="px-4 py-3 text-slate-600">{item.jobCards.join(", ") || "—"}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
           <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">No FTO records are activated until you confirm this import.</p>
-            <button
-              type="button"
-              onClick={activateImport}
-              disabled={activating || busy || preview.inScopeFtos === 0 || Boolean(importResult)}
-              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {activating ? "Importing…" : importResult ? "Imported" : "Confirm and import village FTOs"}
+            <p className="max-w-xl text-[11px] leading-5 text-slate-500">Review the counts and sample before confirming. No FTO records are activated until you confirm.</p>
+            <button type="button" onClick={activateImport} disabled={activating || busy || preview.inScopeFtos === 0 || Boolean(importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+              {activating ? "Activating import…" : importResult ? "Import completed" : "Confirm and import village FTOs"}
             </button>
           </div>
         </section>
       )}
 
       {importResult && (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-          <h2 className="font-semibold text-emerald-900">FTO import completed</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-xs text-emerald-800">FTOs imported</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-xs text-emerald-800">Transactions imported</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-xs text-emerald-800">Out-of-village FTOs excluded</p></div>
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import activation returned successfully.</p></div></div>
+          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-3">
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">FTOs imported</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Transactions imported</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-[11px] text-emerald-800">Out-of-village FTOs excluded</p></div>
           </div>
         </section>
       )}

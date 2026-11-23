@@ -147,7 +147,7 @@ export default function FtoMonitoringPage() {
       }
       if (!failedList.length && lastBatchComplete) {
         await loadPreview(supabase, currentBatchId);
-        setNotice("FTO details parsed. Only records matching this Village Council's Job Cards are included in the import preview.");
+        setNotice("FTO details parsed. Only transactions whose FTO Panchayat matches this Village Council are included in the import preview.");
       } else if (!failedList.length) {
         setFailedFtos(numbers);
         setNotice("The batch is not complete yet. Retry this set; FTOs already staged will be skipped automatically.");
@@ -191,7 +191,7 @@ export default function FtoMonitoringPage() {
       const skipped = Number(data.listing.alreadyImportedCount || 0);
       const initialNotice = "Processing " + formatNumber(numbers.length) + " new First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
         (skipped ? "; skipped " + formatNumber(skipped) + " already imported FTOs." : ".") +
-        " Matching transaction Job Card Numbers to this Village Council.";
+        " Matching the Panchayat recorded in each FTO to this Village Council.";
       await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);
     } catch (err) {
       setError(err instanceof Error ? err.message : "FTO discovery failed.");
@@ -240,7 +240,7 @@ export default function FtoMonitoringPage() {
         <p className="text-sm font-medium text-blue-700">Government data</p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">FTO Monitoring</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-          Fetch the First Signatory FTO list for this Block, inspect each transaction, and import only FTOs containing Job Cards registered to this Village Council.
+          Fetch the First Signatory FTO list for this Block and import only transactions whose Panchayat name in the FTO matches this Village Council.
         </p>
       </div>
 
@@ -303,7 +303,7 @@ export default function FtoMonitoringPage() {
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div>
             <h2 className="font-semibold text-slate-900">Import preview</h2>
-            <p className="mt-1 text-sm text-slate-500">Village matching uses the complete Job Card Number. FTOs from other villages are excluded from activation.</p>
+            <p className="mt-1 text-sm text-slate-500">Village matching uses the Panchayat name recorded in each FTO transaction. Transactions for other Panchayats are excluded.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl bg-slate-50 p-4">
@@ -324,7 +324,7 @@ export default function FtoMonitoringPage() {
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <tr><th className="px-4 py-3">FTO Number</th><th className="px-4 py-3">Local transactions</th><th className="px-4 py-3">Matched Job Cards</th></tr>
+                  <tr><th className="px-4 py-3">FTO Number</th><th className="px-4 py-3">Local transactions</th><th className="px-4 py-3">Job Card numbers</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {preview.sample.map(item => (

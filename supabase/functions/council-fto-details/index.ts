@@ -85,7 +85,7 @@ function parseGovernmentDate(value: string) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
   return "";
 }
-function normalizeGovernmentStatus(value: string) {
+function normalizeGovernmentStatus(value: string): Transaction["normalizedStatus"] {
   const raw = String(value || "").trim();
   if (!raw) return "blank";
   if (/^processed$/i.test(raw)) return "processed";

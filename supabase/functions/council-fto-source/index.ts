@@ -295,31 +295,43 @@ function expandedTable(table: string): GridCell[][] {
   }
   return grid;
 }
-function findBlockSignedCountControl(html: string, pageUrl: string, blockName: string) {
-  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m => m[1]);
+export function findBlockSignedCountControl(html: string, pageUrl: string, blockName: string) {
+  const tables = [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)].map(m => m[1]);
   const target = normalizeName(blockName);
   for (const table of tables) {
     const grid = expandedTable(table);
-    const blockRowIndex = grid.findIndex(row => row.some(cell => cell && normalizeName(cell.text) === target));
+    const blockRowIndex = grid.findIndex(row => row.some(cell => {
+      if (!cell) return false;
+      const value = normalizeName(cell.text);
+      return value === target || value.startsWith(target + " ");
+    }));
     if (blockRowIndex < 0) continue;
     const blockRow = grid[blockRowIndex];
     const width = Math.max(...grid.map(row => row.length));
     const headerRows = grid.slice(0, blockRowIndex);
-    const headerPath = (col: number) => headerRows.map(row => row[col]?.text || "").filter(Boolean).join(" ").toLowerCase();
+    const headerPath = (col: number) => headerRows
+      .map(row => row[col]?.text || "")
+      .filter(Boolean)
+      .join(" ")
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\\s+/g, " ")
+      .trim();
     const signatoryCols = Array.from({ length: width }, (_, i) => i)
-      .filter(i => /(?:first|1st)\s+signatory/.test(headerPath(i)));
+      .filter(i => /(?:first|1st) signatory/.test(headerPath(i)));
     const signedCol = signatoryCols.find(i => {
       const path = headerPath(i);
-      return /signed\s+ftos?|ftos?\s+signe?d|no\.?\s*of\s*signed\s*ftos?|number\s+of\s+signed\s*ftos?/.test(path);
+      return /(?:no of )?signed ftos?/.test(path) ||
+        /ftos? signed/.test(path) ||
+        /number of signed ftos?/.test(path);
     });
-    const candidateCols = signedCol !== undefined ? [signedCol] : [];
-    for (const col of candidateCols) {
-      const cell = blockRow[col];
-      if (!cell) continue;
-      const anchor = cell.inner.match(/<a\b([^>]*)>([\s\S]*?)<\/a>/i);
-      if (!anchor) continue;
+    if (signedCol === undefined) continue;
+    const cell = blockRow[signedCol];
+    if (!cell) continue;
+    for (const anchor of cell.inner.matchAll(/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi)) {
       const attr = attributes(anchor[1]), label = cleanText(anchor[2]);
-      if (!/^\d[\d,]*$/.test(label)) continue;
+      if (!/^\\d[\\d,]*$/.test(label)) continue;
       const control = controlFromMarkup(attr.href || "", attr.onclick || "", label, pageUrl);
       if (control) return { control, count: Number(label.replace(/,/g, "")) };
     }

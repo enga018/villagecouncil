@@ -222,7 +222,9 @@ async function main(req: Request, origin: string | null) {
   const body = await readJsonBody(req, 2_200_000);
   const manifestToken = String(body.manifestToken || "");
   const batchId = String(body.batchId || "");
-  const requested = Array.isArray(body.ftoNumbers) ? body.ftoNumbers.map((v: unknown) => String(v || "").trim()).filter(Boolean) : [];
+  const requested: string[] = Array.isArray(body.ftoNumbers)
+    ? (body.ftoNumbers as unknown[]).map((value: unknown) => String(value || "").trim()).filter((value: string) => Boolean(value))
+    : [];
   if (!manifestToken || !batchId || requested.length < 1 || requested.length > 5 ||
       new Set(requested.map(value => value.toUpperCase())).size !== requested.length) {
     return reply({ error: "Provide a valid manifest, batch ID, and between one and five distinct FTO numbers." }, 400, origin);
@@ -255,7 +257,7 @@ async function main(req: Request, origin: string | null) {
   manifest.candidates.forEach((candidate, index) => {
     candidateByNumber.set(String(candidate.ftoNumber || "").trim().toUpperCase(), { candidate, rowNumber: index + 1 });
   });
-  const selected = requested.map(number => {
+  const selected: Array<{ candidate: Candidate; rowNumber: number; requestedNumber: string }> = requested.map((number: string) => {
     const item = candidateByNumber.get(number.toUpperCase());
     if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
     return { ...item, requestedNumber: number };
@@ -286,9 +288,9 @@ async function main(req: Request, origin: string | null) {
           results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
           continue;
         }
-        const matching = transactions
-          .filter(tx => cardSet.has(String(tx.jobCardNumber || "").trim().toUpperCase()))
-          .map(tx => ({
+        const matching: Transaction[] = transactions
+          .filter((tx: Transaction) => cardSet.has(String(tx.jobCardNumber || "").trim().toUpperCase()))
+          .map((tx: Transaction): Transaction => ({
             ...tx,
             jobCardNumber: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNumber,
             jobCardNo: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNo,
@@ -304,7 +306,7 @@ async function main(req: Request, origin: string | null) {
           block: block.official_name,
           first_signatory: "",
           beneficiary_count: String(matching.length),
-          wage_amount: matching.reduce((sum, tx) => sum + Number(tx.creditAmount || 0), 0).toFixed(2),
+          wage_amount: matching.reduce((sum: number, tx: Transaction) => sum + Number(tx.creditAmount || 0), 0).toFixed(2),
           source_record_key: item.candidate.ftoNumber,
           government_transaction_count: transactions.length,
           matching_transaction_count: matching.length,
@@ -323,7 +325,7 @@ async function main(req: Request, origin: string | null) {
           governmentTransactionCount: transactions.length,
           matchingTransactionCount: matching.length,
           excludedTransactionCount: unmatchedCount,
-          matchedJobCards: [...new Set(matching.map(tx => String(tx.jobCardNumber).trim().toUpperCase()))],
+          matchedJobCards: [...new Set(matching.map((tx: Transaction) => String(tx.jobCardNumber).trim().toUpperCase()))],
         });
       } catch (error) {
         results.push({

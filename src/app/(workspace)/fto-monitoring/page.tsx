@@ -292,7 +292,7 @@ export default function FtoMonitoringPage() {
         <div className="border-b border-slate-100 p-4 sm:p-6">
           <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
             <div className="max-w-xl">
-              <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-blue-800">FTO</span><div><h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2><p className="mt-0.5 text-xs text-slate-500">First Signatory listing for this Council's Block</p></div></div>
+              <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-blue-800">FTO</span><div><h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2><p className="mt-0.5 text-xs text-slate-500">First Signatory listing for this Council&apos;s Block</p></div></div>
               <p className="mt-3 text-xs leading-5 text-slate-500">Uses saved District/Block navigation and official Government links. No CAPTCHA or manual file upload is required.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">

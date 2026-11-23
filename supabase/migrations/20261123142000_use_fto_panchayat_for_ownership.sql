@@ -18,8 +18,6 @@ begin
 end;
 $$;
 
-begin;
-
 create or replace function public.activate_council_fto_import(p_batch_id uuid)
 returns jsonb
 language plpgsql
@@ -86,9 +84,8 @@ begin
     and exists (
       select 1
       from jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx(value)
-      join public.council_job_cards jc
-        on jc.village_council_id = v_tenant_id
-       and upper(btrim(jc.job_card_number)) = upper(btrim(tx.value->>'jobCardNumber'))
+      where lower(regexp_replace(btrim(coalesce(tx.value->>'village', '')), '[^a-z0-9]+', ' ', 'g'))
+        = lower(regexp_replace(btrim(coalesce(r.row_data->>'panchayat_name', '')), '[^a-z0-9]+', ' ', 'g'))
     )
   on conflict (village_council_id, fto_number) do update set
     fto_date = excluded.fto_date,

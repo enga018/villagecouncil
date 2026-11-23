@@ -34,7 +34,6 @@ export default function FtoMonitoringPage() {
   const [notice, setNotice] = useState("");
   const [batchId, setBatchId] = useState("");
   const [manifestToken, setManifestToken] = useState("");
-  const [ftoNumbers, setFtoNumbers] = useState<string[]>([]);
   const [failedFtos, setFailedFtos] = useState<string[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [preview, setPreview] = useState<FtoPreview | null>(null);
@@ -108,7 +107,7 @@ export default function FtoMonitoringPage() {
       setFailedFtos(failedList);
       if (failedList.length) {
         setNotice(formatNumber(failedList.length) + " FTO(s) need retry. No manual import option is available.");
-      } else if (!lastBatchComplete && progress?.attempted !== numbers.length) {
+      } else if (!lastBatchComplete) {
         // A partial retry can finish a previously staged batch; verify its status below.
         const { data: batch, error: batchError } = await supabase
           .from("council_fto_import_batches")
@@ -142,7 +141,6 @@ export default function FtoMonitoringPage() {
     setProgress(null);
     setBatchId("");
     setManifestToken("");
-    setFtoNumbers([]);
     try {
       const supabase = createClient();
       const { data, error: invokeError } = await supabase.functions.invoke<any>("council-fto-source", { body: {} });
@@ -153,7 +151,6 @@ export default function FtoMonitoringPage() {
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
-      setFtoNumbers(numbers);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       setNotice("Found " + formatNumber(numbers.length) + " First Signatory FTOs for " + data.councilLocation.block + ". Checking transaction details and matching Job Card Numbers.");
       setBusy(false);

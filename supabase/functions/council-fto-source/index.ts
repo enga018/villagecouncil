@@ -375,7 +375,6 @@ async function main(req: Request, origin: string | null) {
 
   const jars: Jar = new Map();
   const navigation: Record<string, unknown>[] = [];
-  let navigationCacheUpdated = false;
   let ftoStatusPage: PortalPage | null = null;
   let ftoStatusControl: Control | null = null;
   let ftoStatusParentNavigation: Record<string, unknown> | null = null;
@@ -424,7 +423,6 @@ async function main(req: Request, origin: string | null) {
     }
     const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : districtPage.url;
     await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl.kind === "postback" ? ftoStatusControl : null });
-    navigationCacheUpdated = true;
     navigation.push({ step: "fto_status", source: "discovered_and_saved", label: ftoStatusControl.label, path: new URL(ftoStatusPage.url).pathname });
   }
 

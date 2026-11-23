@@ -310,7 +310,7 @@ function findFtoStatusControl(html: string, pageUrl: string) {
   return findTextControl(html, pageUrl, /\bfto\s+status\b/i);
 }
 function isFirstSignatoryListing(html: string) {
-  return /fto\s+first\s+signatory/i.test(cleanText(html));
+  return /fto\s+(?:first|1st)\s+signatory/i.test(cleanText(html));
 }
 function discoverCandidates(html: string, baseUrl: string): Candidate[] {
   const candidates: Candidate[] = [], seen = new Set<string>();

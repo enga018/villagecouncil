@@ -10,9 +10,9 @@
   color-scheme: light;
 
   /* Surfaces */
-  --vc-background: #f8fafc;
+  --vc-background: #f6f8fb;
   --vc-surface: #ffffff;
-  --vc-surface-muted: #f1f5f9;
+  --vc-surface-muted: #f3f6fa;
   --vc-surface-subtle: #f8fafc;
 
   /* Text */
@@ -22,9 +22,9 @@
   --vc-text-subtle: #94a3b8;
 
   /* Brand */
-  --vc-brand: #1d4ed8;
-  --vc-brand-hover: #1e40af;
-  --vc-brand-soft: #eff6ff;
+  --vc-brand: #2457c5;
+  --vc-brand-hover: #1d469f;
+  --vc-brand-soft: #edf3ff;
   --vc-brand-border: #bfdbfe;
 
   /* Borders and interaction */
@@ -45,6 +45,9 @@
   --vc-radius-md: 0.75rem;
   --vc-radius-lg: 1rem;
   --vc-radius-xl: 1.25rem;
+  --vc-shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.035);
+  --vc-sidebar-width: 17rem;
+  --vc-topbar-height: 4.25rem;
   --vc-content-width: 90rem;
 
   /* Typography */

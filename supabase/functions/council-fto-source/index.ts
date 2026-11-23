@@ -205,7 +205,7 @@ async function saveSharedNavigation(admin: any, values: {
 async function openCachedNavigation(jars: Jar, record: any, referer: string): Promise<PortalPage> {
   const parentNavigation = record.navigation_data?.parentNavigation;
   let parent = await requestPage(jars, parentNavigation?.url || record.navigation_url, referer);
-  if (parentNavigation?.control_target) {
+  if (parentNavigation?.mode === "postback") {
     const parentControl: Control = {
       kind: "postback",
       label: String(parentNavigation.label || "Saved parent navigation"),
@@ -216,7 +216,7 @@ async function openCachedNavigation(jars: Jar, record: any, referer: string): Pr
     };
     parent = await activateControl(jars, parent, parentControl);
   }
-  if (!record.control_target) return parent;
+  if (record.navigation_data?.mode !== "postback") return parent;
   const control: Control = {
     kind: "postback",
     label: String(record.navigation_data?.label || "Saved Government navigation"),
@@ -385,8 +385,9 @@ async function main(req: Request, origin: string | null) {
   if (cachedStatus) {
     try {
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
-      if (cachedStatus.control_target) {
+      if (cachedStatus.navigation_data?.mode === "postback") {
         ftoStatusParentNavigation = {
+          mode: "postback",
           url: district.navigation_url,
           control_target: cachedStatus.control_target,
           control_argument: cachedStatus.control_argument,
@@ -410,6 +411,7 @@ async function main(req: Request, origin: string | null) {
     ftoStatusPage = await activateControl(jars, districtPage, ftoStatusControl);
     if (ftoStatusControl.kind === "postback") {
       ftoStatusParentNavigation = {
+        mode: "postback",
         url: districtPage.url,
         control_target: ftoStatusControl.target || "",
         control_argument: ftoStatusControl.argument || "",

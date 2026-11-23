@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
 const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
@@ -179,7 +179,7 @@ function cacheNavigationData(control: Control | null, parentNavigation?: Record<
     ...(contextData || {}),
   };
 }
-async function saveSharedNavigation(admin: any, values: {
+async function saveSharedNavigation(admin: SupabaseClient, values: {
   districtId: string; blockId: string | null; type: "fto_status" | "first_signatory_list";
   url: string; control: Control | null; parentNavigation?: Record<string, unknown> | null; contextData?: Record<string, unknown> | null;
 }) {
@@ -206,7 +206,7 @@ async function saveSharedNavigation(admin: any, values: {
     : await admin.from("shared_fto_navigation").insert(record);
   if (write.error) throw new Error("Could not save the shared FTO navigation link: " + write.error.message);
 }
-async function openCachedNavigation(jars: Jar, record: any, referer: string): Promise<PortalPage> {
+async function openCachedNavigation(jars: Jar, record: CachedNavigation, referer: string): Promise<PortalPage> {
   const parentNavigation = record.navigation_data?.parentNavigation;
   let parent = await requestPage(jars, parentNavigation?.url || record.navigation_url, referer);
   if (parentNavigation?.mode === "postback") {
@@ -346,7 +346,7 @@ async function makeManifestToken(serviceKey: string, candidates: Candidate[], jo
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
-async function loadCouncilJobCards(admin: any, tenantId: string) {
+async function loadCouncilJobCards(admin: SupabaseClient, tenantId: string) {
   const numbers = new Map<string, string>();
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await admin.from("council_job_cards")

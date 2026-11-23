@@ -563,6 +563,36 @@ async function main(req: Request, origin: string | null) {
   if (numbers.length !== candidates.length) throw new Error("One or more FTO numbers could not be parsed from the First Signatory listing. No import batch was created.");
   const uniqueNumbers = new Set(numbers.map(value => value.toUpperCase()));
   if (uniqueNumbers.size !== numbers.length) throw new Error("The First Signatory listing contains duplicate or ambiguous FTO numbers.");
+  const existingFtoNumbers = new Set<string>();
+  for (let offset = 0; ; offset += 1000) {
+    const { data: existingRows, error: existingError } = await admin.from("council_ftos")
+      .select("fto_number")
+      .eq("village_council_id", council.id)
+      .order("fto_number", { ascending: true })
+      .range(offset, offset + 999);
+    if (existingError) throw new Error("Could not compare FTOs with this Village Council's import history: " + existingError.message);
+    for (const row of existingRows || []) {
+      const value = String(row.fto_number || "").trim().toUpperCase();
+      if (value) existingFtoNumbers.add(value);
+    }
+    if (!existingRows || existingRows.length < 1000) break;
+  }
+  const alreadyImportedCount = candidates.filter(item => existingFtoNumbers.has(item.ftoNumber.toUpperCase())).length;
+  const newCandidates = candidates.filter(item => !existingFtoNumbers.has(item.ftoNumber.toUpperCase()));
+  if (!newCandidates.length) {
+    return reply({
+      success: true,
+      noNewFtos: true,
+      source: "official_vbgramg_first_signatory",
+      councilLocation: { district: district.official_name, block: block.official_name, panchayat: panchayat.official_name },
+      navigation,
+      sharedLinks: { districtFtoStatusSaved: true, blockFirstSignatorySaved: true },
+      listingCandidateCount: candidates.length,
+      alreadyImportedCount,
+      newFtoCount: 0,
+      message: "The First Signatory listing was checked. All FTOs in the selected Block are already imported for this Village Council; no new import batch was created.",
+    }, 200, origin);
+  }
   const jobCardNumbers = await loadCouncilJobCards(admin, council.id);
   const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(candidates.map(item => item.detailUrl).join("\n")));
   const fingerprint = [...new Uint8Array(fingerprintBytes)].map(value => value.toString(16).padStart(2, "0")).join("");
@@ -572,10 +602,10 @@ async function main(req: Request, origin: string | null) {
     source_location_key: [district.official_name, block.official_name, panchayat.official_name].join(" | "),
     status: "processing",
     imported_by: userData.user.id,
-    total_rows: candidates.length,
+    total_rows: newCandidates.length,
   }).select("id").single();
   if (importBatchError || !importBatch) throw new Error("Could not create the FTO discovery batch: " + (importBatchError?.message || "Unknown database error."));
-  const manifestToken = await makeManifestToken(secretKey, candidates, jobCardNumbers, {
+  const manifestToken = await makeManifestToken(secretKey, newCandidates, jobCardNumbers, {
     tenantId: council.id, districtId: district.id, blockId: block.id, batchId: importBatch.id,
   });
   return reply({
@@ -587,10 +617,12 @@ async function main(req: Request, origin: string | null) {
     batchId: importBatch.id,
     listing: {
       title: cleanText(listingPage.html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ""),
-      ftoCount: candidates.length,
-      uniqueFtoCount: uniqueNumbers.size,
+      listingCandidateCount: candidates.length,
+      ftoCount: newCandidates.length,
+      alreadyImportedCount,
+      uniqueFtoCount: newCandidates.length,
       jobCardSnapshotCount: jobCardNumbers.length,
-      ftoNumbers: numbers,
+      ftoNumbers: newCandidates.map(item => item.ftoNumber),
       listingFingerprint: fingerprint,
       manifestToken,
       manifestExpiresInSeconds: 2700,

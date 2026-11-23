@@ -617,7 +617,7 @@ async function main(req: Request, origin: string | null) {
       manifestExpiresInSeconds: 2700,
     },
     databaseChanged: true,
-    note: "Navigation links were verified and saved as shared District/Block data. A processing batch was opened; no FTO records have been imported. The detail parser and exact Job Card Number village filter run in the next processing step.",
+    note: "Navigation links were verified and saved as shared District/Block data. A processing batch was opened; no FTO records have been imported. The detail parser and FTO Panchayat ownership filter run in the next processing step.",
   }, 200, origin);
 }
 

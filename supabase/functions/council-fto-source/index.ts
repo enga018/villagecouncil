@@ -124,6 +124,8 @@ function controlFromMarkup(href: string, onclick: string, label: string, pageUrl
   const raw = href + " " + onclick;
   const postback = raw.match(/__doPostBack\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]*)['"]\s*\)/i);
   if (postback) return { kind: "postback", label, target: postback[1], argument: postback[2] };
+  const scriptedUrl = raw.match(/(?:window\.open|window\.location(?:\.href)?|location(?:\.href)?)\s*(?:\(\s*|=\s*)['"]([^'"]+)['"]/i);
+  if (scriptedUrl) return { kind: "link", label, href: safeGovernmentUrl(scriptedUrl[1], pageUrl) };
   if (href && !/^javascript:/i.test(href) && href !== "#") {
     return { kind: "link", label, href: safeGovernmentUrl(href, pageUrl) };
   }

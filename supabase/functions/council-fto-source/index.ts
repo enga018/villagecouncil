@@ -296,7 +296,7 @@ function expandedTable(table: string): GridCell[][] {
   return grid;
 }
 export function findBlockSignedCountControl(html: string, pageUrl: string, blockName: string) {
-  const tables = [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)].map(m => m[1]);
+  const tables = [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)].map(m => m[1]);
   const target = normalizeName(blockName);
   for (const table of tables) {
     const grid = expandedTable(table);
@@ -316,7 +316,7 @@ export function findBlockSignedCountControl(html: string, pageUrl: string, block
       .normalize("NFKC")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\\s+/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
     const signatoryCols = Array.from({ length: width }, (_, i) => i)
       .filter(i => /(?:first|1st) signatory/.test(headerPath(i)));
@@ -329,9 +329,9 @@ export function findBlockSignedCountControl(html: string, pageUrl: string, block
     if (signedCol === undefined) continue;
     const cell = blockRow[signedCol];
     if (!cell) continue;
-    for (const anchor of cell.inner.matchAll(/<a\\b([^>]*)>([\\s\\S]*?)<\\/a>/gi)) {
+    for (const anchor of cell.inner.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
       const attr = attributes(anchor[1]), label = cleanText(anchor[2]);
-      if (!/^\\d[\\d,]*$/.test(label)) continue;
+      if (!/^\d[\d,]*$/.test(label)) continue;
       const control = controlFromMarkup(attr.href || "", attr.onclick || "", label, pageUrl);
       if (control) return { control, count: Number(label.replace(/,/g, "")) };
     }

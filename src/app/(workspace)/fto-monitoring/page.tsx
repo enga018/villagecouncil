@@ -63,7 +63,7 @@ export default function FtoMonitoringPage() {
       sample: inScope.slice(0, 12).map(row => ({
         ftoNumber: String(row.row_data?.fto_number || ""),
         transactionCount: Array.isArray(row.row_data?.transactions) ? row.row_data.transactions.length : 0,
-        jobCards: [...new Set((row.row_data?.transactions || []).map((tx: any) => String(tx.jobCardNumber || "")))].slice(0, 4),
+        jobCards: Array.from(new Set<string>((row.row_data?.transactions || []).map((tx: any) => String(tx.jobCardNumber || "")))).slice(0, 4),
       })),
     });
   }

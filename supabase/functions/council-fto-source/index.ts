@@ -275,7 +275,6 @@ function findBlockSignedCountControl(html: string, pageUrl: string, blockName: s
     const width = Math.max(...grid.map(row => row.length));
     const headerRows = grid.slice(0, blockRowIndex);
     const headerPath = (col: number) => headerRows.map(row => row[col]?.text || "").filter(Boolean).join(" ").toLowerCase();
-    const blockCol = Array.from({ length: width }, (_, i) => i).find(i => /\bblock\b/.test(headerPath(i)));
     const signatoryCols = Array.from({ length: width }, (_, i) => i)
       .filter(i => /(?:first|1st)\s+signatory/.test(headerPath(i)));
     const signedCol = signatoryCols.find(i => {

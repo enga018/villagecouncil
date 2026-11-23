@@ -1,5 +1,5 @@
--- Explicit activation for a staged FTO register. Upserts the staged rows into
--- council_ftos and closes the batch. Idempotent (upsert by (village_council_id, fto_number)).
+-- Explicit activation for a staged, village-filtered FTO import.
+-- Only FTOs classified IN_SCOPE and their matched local Job Card transactions are activated.
 begin;
 
 create or replace function public.activate_council_fto_import(p_batch_id uuid)
@@ -10,24 +10,27 @@ set search_path = ''
 as $$
 declare
   v_tenant_id uuid;
-  v_total integer := 0;
+  v_fto_count integer := 0;
+  v_transaction_count integer := 0;
+  v_excluded_count integer := 0;
 begin
-  -- Batch must exist and belong to a council the caller is a member of.
   select b.village_council_id into v_tenant_id
   from public.council_fto_import_batches b
   where b.id = p_batch_id
-    and b.status in ('processing', 'completed', 'pending')
+    and b.status in ('pending', 'completed')
     and b.village_council_id in (
       select m.village_council_id from public.council_memberships m
       where m.user_id = (select auth.uid()) and m.is_active = true
     );
   if v_tenant_id is null then
-    raise exception 'Import batch not found or not accessible.';
+    raise exception 'Import batch is not complete, not found, or not accessible.';
   end if;
 
-  select count(*) into v_total
+  select count(*) into v_excluded_count
   from public.council_fto_import_rows r
-  where r.import_batch_id = p_batch_id and r.village_council_id = v_tenant_id;
+  where r.import_batch_id = p_batch_id
+    and r.village_council_id = v_tenant_id
+    and r.row_data->>'scope' = 'OUT_OF_SCOPE';
 
   insert into public.council_ftos (
     village_council_id, fto_number, fto_date, fto_status, block, first_signatory,
@@ -44,21 +47,88 @@ begin
     r.row_data->>'source_record_key',
     'active'
   from public.council_fto_import_rows r
-  where r.import_batch_id = p_batch_id and r.village_council_id = v_tenant_id
+  where r.import_batch_id = p_batch_id
+    and r.village_council_id = v_tenant_id
+    and r.row_data->>'scope' = 'IN_SCOPE'
   on conflict (village_council_id, fto_number) do update set
-    fto_number = excluded.fto_number,
     fto_date = excluded.fto_date,
     fto_status = excluded.fto_status,
     block = coalesce(public.council_ftos.block, excluded.block),
     first_signatory = excluded.first_signatory,
-    wage_amount = coalesce(public.council_ftos.wage_amount, excluded.wage_amount),
-    last_seen_in_import_at = now();
+    beneficiary_count = excluded.beneficiary_count,
+    wage_amount = excluded.wage_amount,
+    last_seen_in_import_at = now(),
+    updated_at = now();
+  get diagnostics v_fto_count = row_count;
+
+  insert into public.council_fto_transactions (
+    village_council_id, fto_id, fto_number, job_card_number, reference_number,
+    transaction_date, processed_date, applicant_name, primary_account_holder,
+    amount_to_be_credited, credit_amount, government_status, normalized_status,
+    rejection_reason, village, source_row, last_seen_in_import_at, updated_at
+  )
+  select
+    v_tenant_id,
+    f.id,
+    r.row_data->>'fto_number',
+    tx->>'jobCardNumber',
+    tx->>'referenceNumber',
+    nullif(tx->>'transactionDate', '')::date,
+    nullif(tx->>'processedDate', '')::date,
+    nullif(tx->>'personName', ''),
+    nullif(tx->>'primaryAccountHolder', ''),
+    nullif(tx->>'amountToBeCredited', '')::numeric,
+    nullif(tx->>'creditAmount', '')::numeric,
+    coalesce(nullif(tx->>'governmentStatus', ''), 'blank'),
+    tx->>'normalizedStatus',
+    nullif(tx->>'rejectionReason', ''),
+    nullif(tx->>'village', ''),
+    coalesce(tx->'sourceRow', '[]'::jsonb),
+    now(),
+    now()
+  from public.council_fto_import_rows r
+  cross join lateral jsonb_array_elements(coalesce(r.row_data->'transactions', '[]'::jsonb)) as tx
+  join public.council_ftos f
+    on f.village_council_id = v_tenant_id
+   and f.fto_number = r.row_data->>'fto_number'
+  where r.import_batch_id = p_batch_id
+    and r.village_council_id = v_tenant_id
+    and r.row_data->>'scope' = 'IN_SCOPE'
+  on conflict (village_council_id, fto_number, reference_number) do update set
+    fto_id = excluded.fto_id,
+    job_card_number = excluded.job_card_number,
+    transaction_date = excluded.transaction_date,
+    processed_date = excluded.processed_date,
+    applicant_name = excluded.applicant_name,
+    primary_account_holder = excluded.primary_account_holder,
+    amount_to_be_credited = excluded.amount_to_be_credited,
+    credit_amount = excluded.credit_amount,
+    government_status = excluded.government_status,
+    normalized_status = excluded.normalized_status,
+    rejection_reason = excluded.rejection_reason,
+    village = excluded.village,
+    source_row = excluded.source_row,
+    last_seen_in_import_at = now(),
+    updated_at = now();
+  get diagnostics v_transaction_count = row_count;
 
   update public.council_fto_import_batches
-  set status = 'completed', completed_at = now()
+  set status = 'completed',
+      completed_at = now(),
+      inserted_ftos = v_fto_count,
+      updated_ftos = greatest(v_fto_count - (select count(*) from public.council_ftos f
+        where f.village_council_id = v_tenant_id
+          and f.first_imported_at >= (select b.started_at from public.council_fto_import_batches b where b.id = p_batch_id)), 0),
+      missing_records = v_excluded_count
   where id = p_batch_id and village_council_id = v_tenant_id;
 
-  return jsonb_build_object('totalRows', v_total, 'batchId', p_batch_id, 'villageCouncilId', v_tenant_id);
+  return jsonb_build_object(
+    'batchId', p_batch_id,
+    'villageCouncilId', v_tenant_id,
+    'importedFtos', v_fto_count,
+    'importedTransactions', v_transaction_count,
+    'excludedOutOfVillageFtos', v_excluded_count
+  );
 end;
 $$;
 

@@ -1,0 +1,50 @@
+name: Validate pull request
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/public-council-onboarding-requests]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Check Edge Functions
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/location-master-source/index.ts
+          deno check supabase/functions/submit-council-onboarding-request/index.ts
+          deno check supabase/functions/create-village-council/index.ts
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Build static site
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

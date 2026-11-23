@@ -60,13 +60,8 @@ Deno.serve(async (req: Request) => {
   const secretKey = secretKeys ? JSON.parse(secretKeys).default : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !publishableKey || !secretKey) return reply({ error: "Server configuration is incomplete." }, 500, origin);
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
-  const userClient = createClient(url, publishableKey, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } });
   const adminClient = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
-  // Best-effort sync-on-demand: persist the full list scraped at each level so
-  // later councils can read it from the DB instead of re-scraping the portal.
   async function cacheLocationList(
     table: "location_states" | "location_districts" | "location_blocks" | "location_panchayats",
     parentColumn: "state_id" | "district_id" | "block_id" | null,
@@ -83,7 +78,7 @@ Deno.serve(async (req: Request) => {
       const onConflict = parentColumn ? `${parentColumn},official_name` : "official_name";
       await adminClient.from(table).upsert(rows, { onConflict });
     } catch {
-      // Cache write is best-effort; the live scrape result is still returned.
+      // Existing behavior: live scrape results remain usable if cache write fails.
     }
   }
 
@@ -103,17 +98,96 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
-  const { data: membership, error: membershipError } = await adminClient
-    .from("council_memberships").select("id")
-    .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
-  if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
-  if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
-
-  let body: { action?: string; selectedNames?: string[] };
+  let body: { action?: string; selectedNames?: string[]; publicRequest?: boolean };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
   if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);
+  const isPublicRequest = body.publicRequest === true;
+
+  if (!isPublicRequest) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return reply({ error: "Authentication required." }, 401, origin);
+    const userClient = createClient(url, publishableKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData.user) return reply({ error: "Invalid or expired session." }, 401, origin);
+    const { data: membership, error: membershipError } = await adminClient
+      .from("council_memberships").select("id")
+      .eq("user_id", userData.user.id).eq("is_active", true).maybeSingle();
+    if (membershipError) return reply({ error: "Unable to verify Village Council access." }, 500, origin);
+    if (!membership) return reply({ error: "An active Village Council assignment is required." }, 403, origin);
+  }
+
+  const requiredNames = { states: 0, districts: 1, blocks: 2, panchayats: 3 }[body.action || ""]!;
+  const selectedNames = body.selectedNames || [];
+  if (!Array.isArray(selectedNames) || selectedNames.length !== requiredNames || selectedNames.some(name => typeof name !== "string" || !name.trim())) {
+    return reply({ error: "Select each preceding location level before continuing." }, 400, origin);
+  }
+
+  async function readCachedLocationList(action: string, names: string[]): Promise<{ id: string; name: string; url: string; available?: boolean }[]> {
+    const mapRows = (rows: { id: string; official_name: string; navigation_url: string | null }[] | null) =>
+      (rows || []).filter(row => row.navigation_url).map(row => ({ id: row.id, name: row.official_name, url: row.navigation_url as string }));
+
+    if (action === "states") {
+      const { data, error } = await adminClient.from("location_states")
+        .select("id,official_name,navigation_url").eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: state, error: stateError } = await adminClient.from("location_states")
+      .select("id").eq("official_name", names[0]).eq("is_active", true).maybeSingle();
+    if (stateError) throw stateError;
+    if (!state) return [];
+
+    if (action === "districts") {
+      const { data, error } = await adminClient.from("location_districts")
+        .select("id,official_name,navigation_url").eq("state_id", state.id).eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: district, error: districtError } = await adminClient.from("location_districts")
+      .select("id").eq("state_id", state.id).eq("official_name", names[1]).eq("is_active", true).maybeSingle();
+    if (districtError) throw districtError;
+    if (!district) return [];
+
+    if (action === "blocks") {
+      const { data, error } = await adminClient.from("location_blocks")
+        .select("id,official_name,navigation_url").eq("district_id", district.id).eq("is_active", true).order("official_name");
+      if (error) throw error;
+      return mapRows(data);
+    }
+
+    const { data: block, error: blockError } = await adminClient.from("location_blocks")
+      .select("id").eq("district_id", district.id).eq("official_name", names[2]).eq("is_active", true).maybeSingle();
+    if (blockError) throw blockError;
+    if (!block) return [];
+
+    const { data, error } = await adminClient.from("location_panchayats")
+      .select("id,official_name,navigation_url").eq("block_id", block.id).eq("is_active", true).order("official_name");
+    if (error) throw error;
+    const entries = mapRows(data);
+    if (!entries.length) return entries;
+    const ids = entries.map(entry => entry.id);
+    const { data: assignedRows, error: assignedError } = await adminClient.from("council_tenants")
+      .select("location_panchayat_id").in("location_panchayat_id", ids).eq("is_active", true);
+    if (assignedError) throw assignedError;
+    let pendingRows: { location_panchayat_id: string }[] = [];
+    if (isPublicRequest) {
+      const { data, error: pendingError } = await adminClient.from("council_onboarding_requests")
+        .select("location_panchayat_id").in("location_panchayat_id", ids)
+        .in("status", ["pending", "under_review", "more_information_required"]);
+      if (pendingError) throw pendingError;
+      pendingRows = data || [];
+    }
+    const unavailable = new Set([
+      ...(assignedRows || []).map(row => row.location_panchayat_id),
+      ...pendingRows.map(row => row.location_panchayat_id),
+    ]);
+    return entries.map(entry => ({ ...entry, available: !unavailable.has(entry.id) }));
+  }
 
   const expectedPaths = [
     /\/VBGRAMG\/homestciti\.aspx$/i,
@@ -121,13 +195,14 @@ Deno.serve(async (req: Request) => {
     /\/VBGRAMG\/Progofficer\/PoIndexFrame\.aspx$/i,
     /\/VBGRAMG\/IndexFrame\.aspx$/i,
   ];
-  const requiredNames = { states: 0, districts: 1, blocks: 2, panchayats: 3 }[body.action || ""]!;
-  const selectedNames = body.selectedNames || [];
-  if (!Array.isArray(selectedNames) || selectedNames.length !== requiredNames || selectedNames.some(name => typeof name !== "string" || !name.trim())) {
-    return reply({ error: "Select each preceding location level before continuing." }, 400, origin);
-  }
-
   try {
+    // Prefer the shared official location master. Only scrape VBGRAMG when this
+    // particular level has not yet been cached.
+    const cachedEntries = await readCachedLocationList(body.action || "", selectedNames);
+    if (cachedEntries.length) {
+      return reply({ success: true, level: body.action, count: cachedEntries.length, entries: cachedEntries, cached: true }, 200, origin);
+    }
+
     const baseHeaders = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -168,7 +243,9 @@ Deno.serve(async (req: Request) => {
     await cacheLocationList("location_states", null, null, entries);
     if (body.action === "states") {
       if (!entries.length) return reply({ success: false, error: "No State / UT links were found.", diagnostic: statePage.diagnostic }, 502, origin);
-      return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: statePage.diagnostic }, 200, origin);
+      const cachedStates = await readCachedLocationList("states", []);
+      if (isPublicRequest && !cachedStates.length) return reply({ success: false, error: "The official State list could not be saved. Please try again." }, 502, origin);
+      return reply({ success: true, level: body.action, count: cachedStates.length || entries.length, entries: cachedStates.length ? cachedStates : entries, cached: false, diagnostic: statePage.diagnostic }, 200, origin);
     }
 
     let selectedUrl = "";
@@ -196,7 +273,9 @@ Deno.serve(async (req: Request) => {
       }
     }
     if (!entries.length) return reply({ success: false, error: "No official location links were found for this level.", diagnostic: lastDiagnostic }, 502, origin);
-    return reply({ success: true, level: body.action, count: entries.length, entries, diagnostic: lastDiagnostic }, 200, origin);
+    const cachedResult = await readCachedLocationList(body.action || "", selectedNames);
+    if (isPublicRequest && !cachedResult.length) return reply({ success: false, error: "The official location list could not be saved. Please try again." }, 502, origin);
+    return reply({ success: true, level: body.action, count: cachedResult.length || entries.length, entries: cachedResult.length ? cachedResult : entries, cached: false, diagnostic: lastDiagnostic }, 200, origin);
   } catch (error) {
     return reply({ success: false, error: "Could not retrieve the VBGRAMG location list: " + (error instanceof Error ? error.message : String(error)), noDataChanged: true }, 502, origin);
   }

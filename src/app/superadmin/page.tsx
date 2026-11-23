@@ -248,6 +248,14 @@ function SuperadminDashboard() {
         <nav className="space-y-1 p-4" aria-label="Mobile Superadmin navigation">
           {navigation.map(item => <div key={item.id}>{item.id === "overview" || item.id === "councils" || item.id === "requests" ? <a onClick={() => setMobileOpen(false)} href={item.id === "overview" ? "#overview" : item.id === "councils" ? "#councils" : "#requests"} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${item.id === "overview" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-50"}`}><Icon name={item.icon}/>{item.label}{item.id === "requests" && pendingRequests.length > 0 ? <span className="ml-auto rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">{pendingRequests.length}</span> : null}</a> : <div className="flex items-center gap-3 px-3 py-3 text-sm text-slate-300"><Icon name={item.icon}/>{item.label}<span className="ml-auto text-[9px] uppercase">Soon</span></div>}</div>)}
         </nav>
+        <div className="mt-auto border-t border-slate-100 p-4">
+          <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800">SA</div>
+            <div className="min-w-0"><p className="text-xs font-semibold text-slate-800">Platform Superadmin</p><p className="mt-0.5 text-[10px] text-slate-400">Full platform access</p></div>
+            <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/>
+          </div>
+          <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"><span>Open my council workspace</span><Icon name="arrow" className="h-4 w-4"/></Link>
+        </div>
       </aside>
     </div>}
 

@@ -307,7 +307,7 @@ function findFtoStatusControl(html: string, pageUrl: string) {
 }
 function isFirstSignatoryListingForBlock(html: string, blockName: string) {
   const text = cleanText(html);
-  return /fto\\s+first\\s+signatory/i.test(text) &&
+  return /fto\s+first\s+signatory/i.test(text) &&
     normalizeName(text).includes(normalizeName(blockName));
 }
 function discoverCandidates(html: string, baseUrl: string): Candidate[] {

@@ -10,7 +10,7 @@ create table public.shared_fto_navigation (
   navigation_type text not null
     check (navigation_type in ('fto_status', 'first_signatory_list')),
   navigation_url text not null
-    check (navigation_url ~ '^https://vbgramg[.]dord[.]gov[.]in/'),
+    check (navigation_url ~ '^https://vbgramg(re)?p?[.]dord[.]gov[.]in/'),
   control_target text,
   control_argument text,
   navigation_data jsonb not null default '{}'::jsonb

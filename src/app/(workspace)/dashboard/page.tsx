@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase";
 const modules = [
   { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC", available: true },
   { title: "Register", description: "Official registration register tools are not available yet.", mark: "RG", available: false },
-  { title: "FTO Monitoring", description: "FTO discovery and monitoring are being prepared.", mark: "FTO", available: false },
+  { title: "FTO Monitoring", description: "Fetch First Signatory FTOs and import only this Village Council's matching Job Cards.", href: "/fto-monitoring", mark: "FTO", available: true },
   { title: "Contributions", description: "Contribution ledger is not available yet.", mark: "CN", available: false },
   { title: "CO Calculation", description: "CO calculation tools are not available yet.", mark: "CO", available: false },
   { title: "Payments", description: "Payment recording is not available yet.", mark: "PY", available: false },
@@ -91,7 +91,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-slate-900">Modules</h2>
             <p className="mt-1 text-sm text-slate-500">Core Village Council operations</p>
           </div>
-          <span className="text-xs text-slate-400">1 available · 7 coming soon</span>
+          <span className="text-xs text-slate-400">2 available · 6 coming soon</span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {modules.map(module => {

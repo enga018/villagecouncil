@@ -6,6 +6,27 @@ const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in
 const DETAIL_PATH = "/vbgramg/fto/fto_trasction_dtl.aspx";
 
 type PortalPage = { html: string; url: string; status: number; contentType: string };
+type CachedNavigation = {
+  navigation_url: string;
+  control_target: string | null;
+  control_argument: string | null;
+  navigation_data: {
+    mode?: string;
+    label?: string;
+    inputName?: string | null;
+    inputValue?: string | null;
+    parentNavigation?: {
+      mode?: string;
+      url?: string;
+      linkUrl?: string;
+      label?: string;
+      control_target?: string;
+      control_argument?: string;
+      inputName?: string | null;
+      inputValue?: string | null;
+    } | null;
+  };
+};
 type Control = { kind: "link" | "postback"; label: string; href?: string; target?: string; argument?: string; inputName?: string; inputValue?: string };
 type Candidate = { detailUrl: string; listingRow: string[]; listingHeaders: string[]; ftoNumber: string };
 

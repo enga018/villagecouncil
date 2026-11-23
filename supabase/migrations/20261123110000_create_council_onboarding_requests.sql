@@ -28,7 +28,7 @@ create table public.council_onboarding_requests (
   reviewed_by uuid references auth.users(id) on delete set null,
   reviewed_at timestamptz,
   review_notes text,
-  created_council_id uuid references public.council_tenants(id) on delete set null,
+  created_council_id uuid references public.council_tenants(id) on delete restrict,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint council_onboarding_requests_location_names_not_blank check (

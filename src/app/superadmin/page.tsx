@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import SuperadminGate from "@/components/app/SuperadminGate";
@@ -24,16 +23,6 @@ type OnboardingRequest = {
   created_at: string;
   created_council_id: string | null;
 };
-
-const navigation = [
-  { id: "overview", label: "Overview", icon: "grid" },
-  { id: "councils", label: "Village Councils", icon: "landmark" },
-  { id: "requests", label: "Registration Requests", icon: "inbox" },
-  { id: "users", label: "Users & Administrators", icon: "users", upcoming: true },
-  { id: "access", label: "Access Control", icon: "shield", upcoming: true },
-  { id: "audit", label: "Audit Logs", icon: "activity", upcoming: true },
-  { id: "settings", label: "Platform Settings", icon: "settings", upcoming: true },
-] as const;
 
 function Icon({ name, className = "h-5 w-5" }: { name: string; className?: string }) {
   const common = { className, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };

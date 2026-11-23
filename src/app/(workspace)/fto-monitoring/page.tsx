@@ -121,7 +121,8 @@ export default function FtoMonitoringPage() {
         await loadPreview(supabase, currentBatchId);
         setNotice("FTO details parsed. Only records matching this Village Council's Job Cards are included in the import preview.");
       } else if (!failedList.length) {
-        setNotice("Processing is not complete yet. Continue with the remaining FTOs or retry the outstanding batch.");
+        setFailedFtos(numbers);
+        setNotice("The batch is not complete yet. Retry this set; FTOs already staged will be skipped automatically.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to prepare the FTO import preview.");
@@ -153,7 +154,6 @@ export default function FtoMonitoringPage() {
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       setNotice("Found " + formatNumber(numbers.length) + " First Signatory FTOs for " + data.councilLocation.block + ". Checking transaction details and matching Job Card Numbers.");
-      setBusy(false);
       await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase);
     } catch (err) {
       setError(err instanceof Error ? err.message : "FTO discovery failed.");

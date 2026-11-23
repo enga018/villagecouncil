@@ -260,7 +260,12 @@ async function main(req: Request, origin: string | null) {
     if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
     return { ...item, requestedNumber: number };
   });
-  const cardSet = new Set(manifest.jobCardNumbers.map(number => String(number || "").trim().toUpperCase()).filter(Boolean));
+  const cardNumberMap = new Map<string, string>();
+  for (const value of manifest.jobCardNumbers) {
+    const original = String(value || "").trim();
+    if (original) cardNumberMap.set(original.toUpperCase(), original);
+  }
+  const cardSet = new Set(cardNumberMap.keys());
   if (!cardSet.size) return reply({ error: "The FTO manifest contains no Job Card snapshot for this Village Council." }, 409, origin);
   const selectedRowNumbers = selected.map(item => item.rowNumber);
   const { data: existingRows, error: existingRowsError } = await admin.from("council_fto_import_rows")
@@ -281,7 +286,13 @@ async function main(req: Request, origin: string | null) {
           results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
           continue;
         }
-        const matching = transactions.filter(tx => cardSet.has(String(tx.jobCardNumber || "").trim().toUpperCase()));
+        const matching = transactions
+          .filter(tx => cardSet.has(String(tx.jobCardNumber || "").trim().toUpperCase()))
+          .map(tx => ({
+            ...tx,
+            jobCardNumber: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNumber,
+            jobCardNo: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNo,
+          }));
         const unmatchedCount = transactions.length - matching.length;
         const scope = matching.length ? "IN_SCOPE" : "OUT_OF_SCOPE";
         const listingRow = item.candidate.listingRow || [];

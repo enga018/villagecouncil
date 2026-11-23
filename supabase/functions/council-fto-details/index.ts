@@ -5,7 +5,27 @@ const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga
 const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
 const DETAIL_PATH = "/vbgramg/fto/fto_trasction_dtl.aspx";
 type Candidate = { detailUrl: string; listingRow: string[]; listingHeaders?: string[]; ftoNumber: string };
-type Transaction = Record<string, any>;
+type Transaction = {
+  ftoNumber: string;
+  jobCardNumber: string;
+  referenceNumber: string;
+  status: "processed" | "rejected" | "deferred" | "other";
+  normalizedStatus: "processed" | "rejected" | "blank" | "other";
+  governmentStatus: string;
+  amount: string;
+  jobCardNo: string;
+  referenceNo: string;
+  amountToBeCredited: string;
+  creditAmount: string;
+  transactionDate: string;
+  processedDate: string;
+  rejectionReason: string;
+  village: string;
+  villageName: string;
+  personName: string;
+  primaryAccountHolder: string;
+  sourceRow: Array<{ name: string; value: string }>;
+};
 
 function cors(origin: string | null) {
   return {
@@ -273,7 +293,7 @@ async function main(req: Request, origin: string | null) {
   const { data: existingRows, error: existingRowsError } = await admin.from("council_fto_import_rows")
     .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);
   if (existingRowsError) throw new Error("Could not check previously processed FTOs: " + existingRowsError.message);
-  const alreadyStaged = new Set((existingRows || []).map((row: any) => Number(row.row_number)));
+  const alreadyStaged = new Set((existingRows || []).map((row: { row_number: number }) => Number(row.row_number)));
   const pending = selected.filter(item => !alreadyStaged.has(item.rowNumber));
   const results: Record<string, unknown>[] = [];
   const stagedRows: Record<string, unknown>[] = [];

@@ -135,17 +135,20 @@ Deno.serve(async (req: Request) => {
     const entries = mapRows(data);
     if (!entries.length) return entries;
     const ids = entries.map(entry => entry.id);
-    const [assignedResult, pendingResult] = await Promise.all([
-      adminClient.from("council_tenants").select("location_panchayat_id")
-        .in("location_panchayat_id", ids).eq("is_active", true),
-      adminClient.from("council_onboarding_requests").select("location_panchayat_id")
-        .in("location_panchayat_id", ids)
-        .in("status", ["pending", "under_review", "more_information_required"]),
-    ]);
-    if (assignedResult.error || pendingResult.error) throw assignedResult.error || pendingResult.error;
+    const { data: assignedRows, error: assignedError } = await adminClient.from("council_tenants")
+      .select("location_panchayat_id").in("location_panchayat_id", ids).eq("is_active", true);
+    if (assignedError) throw assignedError;
+    let pendingRows: { location_panchayat_id: string }[] = [];
+    if (isPublicRequest) {
+      const { data, error: pendingError } = await adminClient.from("council_onboarding_requests")
+        .select("location_panchayat_id").in("location_panchayat_id", ids)
+        .in("status", ["pending", "under_review", "more_information_required"]);
+      if (pendingError) throw pendingError;
+      pendingRows = data || [];
+    }
     const unavailable = new Set([
-      ...(assignedResult.data || []).map(row => row.location_panchayat_id),
-      ...(pendingResult.data || []).map(row => row.location_panchayat_id),
+      ...(assignedRows || []).map(row => row.location_panchayat_id),
+      ...pendingRows.map(row => row.location_panchayat_id),
     ]);
     return entries.map(entry => ({ ...entry, available: !unavailable.has(entry.id) }));
   }

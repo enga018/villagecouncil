@@ -168,7 +168,7 @@ async function activateControl(jars: Jar, page: PortalPage, control: Control): P
   if (!GOVERNMENT_HOSTS.has(new URL(finalUrl).hostname)) throw new Error("VBGRAMG postback redirected outside the official Government hosts.");
   return { html, url: finalUrl, status: response.status, contentType };
 }
-function cacheNavigationData(control: Control | null, parentNavigation?: Record<string, unknown> | null) {
+function cacheNavigationData(control: Control | null, parentNavigation?: Record<string, unknown> | null, contextData?: Record<string, unknown> | null) {
   return {
     label: control?.label || "Direct Government navigation",
     mode: control?.kind || "direct",
@@ -176,11 +176,12 @@ function cacheNavigationData(control: Control | null, parentNavigation?: Record<
     inputName: control?.inputName || null,
     inputValue: control?.inputValue || null,
     parentNavigation: parentNavigation || null,
+    ...(contextData || {}),
   };
 }
 async function saveSharedNavigation(admin: any, values: {
   districtId: string; blockId: string | null; type: "fto_status" | "first_signatory_list";
-  url: string; control: Control | null; parentNavigation?: Record<string, unknown> | null;
+  url: string; control: Control | null; parentNavigation?: Record<string, unknown> | null; contextData?: Record<string, unknown> | null;
 }) {
   const filters = admin.from("shared_fto_navigation").select("id")
     .eq("district_id", values.districtId).eq("navigation_type", values.type).eq("is_active", true);
@@ -195,7 +196,7 @@ async function saveSharedNavigation(admin: any, values: {
     navigation_url: values.url,
     control_target: values.control?.kind === "postback" ? values.control.target || "" : null,
     control_argument: values.control?.kind === "postback" ? values.control.argument || "" : null,
-    navigation_data: cacheNavigationData(values.control, values.parentNavigation),
+    navigation_data: cacheNavigationData(values.control, values.parentNavigation, values.contextData),
     verified_at: new Date().toISOString(),
     is_active: true,
     updated_at: new Date().toISOString(),
@@ -303,6 +304,11 @@ function findFtoStatusControl(html: string, pageUrl: string) {
   const control = findTextControl(html, pageUrl, /^\s*fto\s+status\s*$/i);
   if (control) return control;
   return findTextControl(html, pageUrl, /\bfto\s+status\b/i);
+}
+function isFirstSignatoryListingForBlock(html: string, blockName: string) {
+  const text = cleanText(html);
+  return /fto\\s+first\\s+signatory/i.test(text) &&
+    normalizeName(text).includes(normalizeName(blockName));
 }
 function discoverCandidates(html: string, baseUrl: string): Candidate[] {
   const candidates: Candidate[] = [], seen = new Set<string>();
@@ -463,8 +469,11 @@ async function main(req: Request, origin: string | null) {
   if (cachedListError) return reply({ error: "Could not read the shared Block First Signatory link." }, 500, origin);
   if (cachedList) {
     try {
+      if (cachedList.navigation_data?.blockName && normalizeName(String(cachedList.navigation_data.blockName)) !== normalizeName(block.official_name)) {
+        throw new Error("Cached First Signatory link belongs to a different Block.");
+      }
       listingPage = await openCachedNavigation(jars, cachedList, ftoStatusPage.url);
-      if (!/fto\s+first\s+signatory/i.test(cleanText(listingPage.html))) throw new Error("Cached link did not open the First Signatory listing.");
+      if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) throw new Error("Cached link did not open the First Signatory listing for this Block.");
       navigation.push({ step: "first_signatory_list", source: "shared_cache", path: new URL(listingPage.url).pathname });
     } catch {
       listingPage = null;
@@ -474,21 +483,22 @@ async function main(req: Request, origin: string | null) {
     const selected = findBlockSignedCountControl(ftoStatusPage.html, ftoStatusPage.url, block.official_name);
     listControl = selected.control;
     listingPage = await activateControl(jars, ftoStatusPage, listControl);
-    if (!/fto\s+first\s+signatory/i.test(cleanText(listingPage.html))) {
-      throw new Error("The signed-FTO count for Block '" + block.official_name + "' did not open a validated First Signatory listing.");
+    if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) {
+      throw new Error("The signed-FTO count for Block '" + block.official_name + "' did not open a validated First Signatory listing for that Block.");
     }
     const savedUrl = listControl.kind === "link" ? listControl.href! : ftoStatusPage.url;
     await saveSharedNavigation(admin, {
       districtId: district.id, blockId: block.id, type: "first_signatory_list",
       url: savedUrl, control: listControl,
       parentNavigation: listControl.kind === "postback" ? ftoStatusParentNavigation : null,
+      contextData: { blockName: block.official_name, signedFtoCount: selected.count },
     });
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });
   }
 
   const pageText = cleanText(listingPage.html);
-  if (!/fto\s+first\s+signatory/i.test(pageText)) {
-    throw new Error("The Government response is not the First Signatory FTO listing.");
+  if (!isFirstSignatoryListingForBlock(listingPage.html, block.official_name)) {
+    throw new Error("The Government response is not the First Signatory FTO listing for the selected Block.");
   }
   const candidates = discoverCandidates(listingPage.html, listingPage.url);
   if (!candidates.length) throw new Error("No valid FTO transaction-detail links were found in the First Signatory listing.");

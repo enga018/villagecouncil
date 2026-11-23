@@ -129,17 +129,8 @@ Deno.serve(async (req: Request) => {
     if (assignedError) return response({ error: "Unable to verify whether this location is already assigned." }, 500, origin);
     if (assignedCouncil) return response({ error: "This Panchayat / Village is already assigned to an active Village Council." }, 409, origin);
 
-    const { data: lockedRequest, error: lockError } = await adminClient
-      .from("council_onboarding_requests")
-      .update({ status: "under_review", reviewed_by: userData.user.id, reviewed_at: new Date().toISOString() })
-      .eq("id", requestId).eq("status", "pending").is("created_council_id", null)
-      .select("id").maybeSingle();
-    if (lockError) return response({ error: "Unable to reserve this request for approval." }, 500, origin);
-    if (!lockedRequest) return response({ error: "Another administrator is already processing this request." }, 409, origin);
-    requestLocked = true;
-
     // Retain the official panchayat URL for later Register navigation.
-    requestRecord = { ...data, status: "under_review", panchayat_url: panchayat.navigation_url };
+    requestRecord = { ...data, panchayat_url: panchayat.navigation_url };
   }
 
   const { data: existingCouncil, error: slugLookupError } = await adminClient
@@ -156,6 +147,18 @@ Deno.serve(async (req: Request) => {
   if (administratorEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(administratorEmail)) {
     if (requestLocked) await adminClient.from("council_onboarding_requests").update({ status: "pending", reviewed_by: null, reviewed_at: null }).eq("id", requestId);
     return response({ error: "Enter a valid administrator email address." }, 400, origin);
+  }
+
+  if (requestRecord) {
+    const { data: lockedRequest, error: lockError } = await adminClient
+      .from("council_onboarding_requests")
+      .update({ status: "under_review", reviewed_by: userData.user.id, reviewed_at: new Date().toISOString() })
+      .eq("id", requestId).eq("status", "pending").is("created_council_id", null)
+      .select("id").maybeSingle();
+    if (lockError) return response({ error: "Unable to reserve this request for approval." }, 500, origin);
+    if (!lockedRequest) return response({ error: "Another administrator is already processing this request." }, 409, origin);
+    requestLocked = true;
+    requestRecord.status = "under_review";
   }
 
   const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(administratorEmail);

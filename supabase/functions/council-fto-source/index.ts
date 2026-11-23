@@ -50,8 +50,8 @@ function jarFor(jars: Jar, hostname: string) {
   if (!jar) { jar = new Map<string, string>(); jars.set(hostname, jar); }
   return jar;
 }
-function absorbCookies(headers: Headers, hostname: string, jars: Jar) {
-  const host = (() => { try { return new URL(headers.get("location") || "https://" + hostname).hostname; } catch { return hostname; } })();
+function absorbCookies(headers: Headers, responseUrl: string, jars: Jar) {
+  const host = new URL(responseUrl).hostname;
   const jar = jarFor(jars, host);
   const values = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [headers.get("set-cookie") || ""];
   for (const value of values) {
@@ -80,7 +80,7 @@ async function requestPage(jars: Jar, pageUrl: string, referer: string): Promise
     headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: referer },
     signal: AbortSignal.timeout(25000),
   });
-  absorbCookies(response.headers, target.hostname, jars);
+  absorbCookies(response.headers, response.url || target.href, jars);
   if (!response.ok) throw new Error("VBGRAMG returned HTTP " + response.status + " at " + target.pathname + ".");
   const contentType = response.headers.get("content-type") || "";
   if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("VBGRAMG returned a non-HTML response at " + target.pathname + ".");
@@ -120,7 +120,7 @@ function buildPostbackBody(html: string, target: string, argument: string, input
   return params;
 }
 function controlFromMarkup(href: string, onclick: string, label: string, pageUrl: string): Control | null {
-  const raw = href || onclick;
+  const raw = href + " " + onclick;
   const postback = raw.match(/__doPostBack\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]*)['"]\s*\)/i);
   if (postback) return { kind: "postback", label, target: postback[1], argument: postback[2] };
   if (href && !/^javascript:/i.test(href) && href !== "#") {
@@ -156,7 +156,7 @@ async function activateControl(jars: Jar, page: PortalPage, control: Control): P
     headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: page.url, "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(), signal: AbortSignal.timeout(25000),
   });
-  absorbCookies(response.headers, host, jars);
+  absorbCookies(response.headers, response.url || action, jars);
   if (!response.ok) throw new Error("VBGRAMG postback returned HTTP " + response.status + ".");
   const contentType = response.headers.get("content-type") || "";
   if (!/(text\/html|application\/xhtml\+xml)/i.test(contentType)) throw new Error("VBGRAMG postback did not return HTML.");
@@ -254,7 +254,7 @@ function findBlockSignedCountControl(html: string, pageUrl: string, blockName: s
     const blockCol = Array.from({ length: width }, (_, i) => i).find(i => /\bblock\b/.test(headerPath(i)));
     const signedCol = Array.from({ length: width }, (_, i) => i).find(i => {
       const path = headerPath(i);
-      return /first\s+signatory/.test(path) && /signed\s+fto|no\.?\s*of\s*signed\s*fto|number\s+of\s+signed\s*fto/.test(path);
+      return /(?:first|1st)\s+signatory/.test(path) && /signed\s+fto|no\.?\s*of\s*signed\s*fto|number\s+of\s+signed\s*fto/.test(path);
     });
     const candidateCols = signedCol !== undefined ? [signedCol] : Array.from({ length: width }, (_, i) => i)
       .filter(i => i > (blockCol ?? -1) && /<a\b/i.test(blockRow[i]?.inner || "") && /^\d[\d,]*$/.test(blockRow[i]?.text || ""));
@@ -362,6 +362,7 @@ async function main(req: Request, origin: string | null) {
 
   const jars: Jar = new Map();
   const navigation: Record<string, unknown>[] = [];
+  let navigationCacheUpdated = false;
   let ftoStatusPage: PortalPage | null = null;
   let ftoStatusControl: Control | null = null;
   const { data: cachedStatus, error: cachedStatusError } = await admin.from("shared_fto_navigation")
@@ -388,6 +389,7 @@ async function main(req: Request, origin: string | null) {
     }
     const savedUrl = ftoStatusControl.kind === "link" ? ftoStatusControl.href! : districtPage.url;
     await saveSharedNavigation(admin, { districtId: district.id, blockId: null, type: "fto_status", url: savedUrl, control: ftoStatusControl.kind === "postback" ? ftoStatusControl : null });
+    navigationCacheUpdated = true;
     navigation.push({ step: "fto_status", source: "discovered_and_saved", label: ftoStatusControl.label, path: new URL(ftoStatusPage.url).pathname });
   }
 
@@ -416,6 +418,7 @@ async function main(req: Request, origin: string | null) {
     }
     const savedUrl = listControl.kind === "link" ? listControl.href! : ftoStatusPage.url;
     await saveSharedNavigation(admin, { districtId: district.id, blockId: block.id, type: "first_signatory_list", url: savedUrl, control: listControl.kind === "postback" ? listControl : null });
+    navigationCacheUpdated = true;
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });
   }
 
@@ -446,7 +449,7 @@ async function main(req: Request, origin: string | null) {
       manifestToken,
       manifestExpiresInSeconds: 2700,
     },
-    databaseChanged: true,
+    databaseChanged: navigationCacheUpdated,
     note: "Navigation links were verified and saved as shared District/Block data. FTO records have not yet been imported; the detail parser and exact Job Card Number village filter run in the next processing step.",
   }, 200, origin);
 }

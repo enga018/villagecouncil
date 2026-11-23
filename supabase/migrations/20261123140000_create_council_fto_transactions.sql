@@ -26,7 +26,7 @@ create table public.council_fto_transactions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   foreign key (fto_id, village_council_id)
-    references public.council_ftos(id, village_council_id) on delete restrict,
+    references public.council_ftos(id, village_council_id) on delete cascade,
   unique (village_council_id, fto_number, reference_number)
 );
 

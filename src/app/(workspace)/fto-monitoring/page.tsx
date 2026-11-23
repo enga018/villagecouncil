@@ -41,7 +41,7 @@ export default function FtoMonitoringPage() {
   const [importResult, setImportResult] = useState<{ ftos: number; transactions: number; excluded: number } | null>(null);
 
   async function loadPreview(supabase: ReturnType<typeof createClient>, currentBatchId: string) {
-    const rows: any[] = [];
+    const rows: FtoImportRow[] = [];
     for (let offset = 0; ; offset += 1000) {
       const { data, error: rowsError } = await supabase
         .from("council_fto_import_rows")
@@ -63,7 +63,7 @@ export default function FtoMonitoringPage() {
       sample: inScope.slice(0, 12).map(row => ({
         ftoNumber: String(row.row_data?.fto_number || ""),
         transactionCount: Array.isArray(row.row_data?.transactions) ? row.row_data.transactions.length : 0,
-        jobCards: Array.from(new Set<string>((row.row_data?.transactions || []).map((tx: any) => String(tx.jobCardNumber || "")))).slice(0, 4),
+        jobCards: Array.from(new Set<string>((row.row_data?.transactions || []).map(tx => String(tx.jobCardNumber || "")))).slice(0, 4),
       })),
     });
   }
@@ -81,7 +81,7 @@ export default function FtoMonitoringPage() {
     try {
       for (let offset = 0; offset < numbers.length; offset += 5) {
         const chunk = numbers.slice(offset, offset + 5);
-        const { data, error: invokeError } = await supabase.functions.invoke<any>("council-fto-details", {
+        const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
           body: { manifestToken: token, batchId: currentBatchId, ftoNumbers: chunk },
         });
         attempted += chunk.length;
@@ -151,7 +151,7 @@ export default function FtoMonitoringPage() {
     setManifestToken("");
     try {
       const supabase = createClient();
-      const { data, error: invokeError } = await supabase.functions.invoke<any>("council-fto-source", { body: {} });
+      const { data, error: invokeError } = await supabase.functions.invoke<FtoSourceResponse>("council-fto-source", { body: {} });
       if (invokeError) throw new Error(await invokeErrorMessage(invokeError, "Could not discover the Government FTO listing."));
       if (!data?.success) throw new Error(data?.error || "The Government FTO listing could not be prepared.");
       if (data.noNewFtos) {
@@ -167,7 +167,7 @@ export default function FtoMonitoringPage() {
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       const skipped = Number(data.listing.alreadyImportedCount || 0);
-      const initialNotice = "Processing " + formatNumber(numbers.length) + " new First Signatory FTOs for " + data.councilLocation.block +
+      const initialNotice = "Processing " + formatNumber(numbers.length) + " new First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
         (skipped ? "; skipped " + formatNumber(skipped) + " already imported FTOs." : ".") +
         " Matching transaction Job Card Numbers to this Village Council.";
       await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);

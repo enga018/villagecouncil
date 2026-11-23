@@ -40,5 +40,5 @@ export function extractVillage(value: string, jobCardNumber: string): string {
   const withoutCard = cardIndex >= 0
     ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + card.length)
     : source;
-  return withoutCard.replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ").trim();
+  return withoutCard.replace(/[(){}]/g, " ").replace(/\[/g, " ").replace(/\]/g, " ").replace(/\s+/g, " ").trim();
 }

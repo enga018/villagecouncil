@@ -106,7 +106,7 @@ function extractVillage(value: string, jobCardNumber: string) {
   const withoutCard = cardIndex >= 0
     ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + card.length)
     : source;
-  return withoutCard.trim().split(/\\s+/).filter(Boolean).join(" ");
+  return withoutCard.trim().split(" ").filter(Boolean).join(" ");
 }
 function validateGovernmentTransactions(transactions: Transaction[], listingRow: string[]) {
   const errors: string[] = [], refs = new Set<string>();

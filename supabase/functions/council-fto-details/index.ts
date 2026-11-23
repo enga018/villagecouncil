@@ -198,11 +198,6 @@ async function openManifest(token: string, serviceKey: string) {
     throw new Error("FTO manifest has expired or is invalid. Run FTO discovery again.");
   return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string }; candidates: Candidate[]; jobCardNumbers: string[] };
 }
-function numberValue(value: string) {
-  const cleaned = String(value || "").replace(/[₹,\s]/g, "");
-  const parsed = Number(cleaned);
-  return cleaned && Number.isFinite(parsed) ? parsed : null;
-}
 async function main(req: Request, origin: string | null) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");

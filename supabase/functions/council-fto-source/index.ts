@@ -259,6 +259,15 @@ async function openCachedNavigation(jars: Jar, record: CachedNavigation, referer
   }
   return parent;
 }
+async function fingerprintCandidate(candidate: Candidate) {
+  const source = JSON.stringify({
+    detailUrl: candidate.detailUrl,
+    listingRow: candidate.listingRow,
+    listingHeaders: candidate.listingHeaders,
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
 function normalizeName(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -368,6 +377,8 @@ async function makeManifestToken(serviceKey: string, candidates: Candidate[], co
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 async function main(req: Request, origin: string | null) {
+  const requestBody = await req.json().catch(() => ({})) as { forceRefresh?: boolean };
+  const forceRefresh = requestBody.forceRefresh === true;
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const publishableKeys = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
   const secretKeys = Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -553,37 +564,63 @@ async function main(req: Request, origin: string | null) {
   if (numbers.length !== candidates.length) throw new Error("One or more FTO numbers could not be parsed from the First Signatory listing. No import batch was created.");
   const uniqueNumbers = new Set(numbers.map(value => value.toUpperCase()));
   if (uniqueNumbers.size !== numbers.length) throw new Error("The First Signatory listing contains duplicate or ambiguous FTO numbers.");
-  const existingFtoNumbers = new Set<string>();
-  for (let offset = 0; ; offset += 1000) {
-    const { data: existingRows, error: existingError } = await admin.from("council_ftos")
-      .select("fto_number")
-      .eq("village_council_id", council.id)
-      .order("fto_number", { ascending: true })
-      .range(offset, offset + 999);
-    if (existingError) throw new Error("Could not compare FTOs with this Village Council's import history: " + existingError.message);
-    for (const row of existingRows || []) {
-      const value = String(row.fto_number || "").trim().toUpperCase();
-      if (value) existingFtoNumbers.add(value);
+  const { data: inspections, error: inspectionsError } = await admin.from("council_fto_inspections")
+    .select("fto_number,listing_fingerprint,inspection_result,matching_transaction_count,unresolved_transaction_count")
+    .eq("village_council_id", council.id);
+  if (inspectionsError) throw new Error("Could not read this Village Council's FTO inspection history: " + inspectionsError.message);
+  const inspectionByNumber = new Map((inspections || []).map((row: {
+    fto_number: string; listing_fingerprint: string; inspection_result: string;
+    matching_transaction_count: number; unresolved_transaction_count: number;
+  }) => [String(row.fto_number).trim().toUpperCase(), row]));
+
+  const fingerprints = await Promise.all(candidates.map(candidate => fingerprintCandidate(candidate)));
+  const eligible: Candidate[] = [];
+  const skippedCompleted: string[] = [];
+  const skippedNoMatch: string[] = [];
+  const fingerprintByNumber = new Map<string, string>();
+  for (let index = 0; index < candidates.length; index++) {
+    const candidate = candidates[index];
+    const key = candidate.ftoNumber.toUpperCase();
+    const fingerprint = fingerprints[index];
+    fingerprintByNumber.set(key, fingerprint);
+    const inspection = inspectionByNumber.get(key);
+    if (forceRefresh || !inspection || inspection.listing_fingerprint !== fingerprint) {
+      eligible.push(candidate);
+      continue;
     }
-    if (!existingRows || existingRows.length < 1000) break;
+    if (inspection.inspection_result === "no_match") {
+      skippedNoMatch.push(candidate.ftoNumber);
+      continue;
+    }
+    if (Number(inspection.unresolved_transaction_count) > 0 ||
+        Number(inspection.matching_transaction_count) === 0) {
+      eligible.push(candidate);
+      continue;
+    }
+    skippedCompleted.push(candidate.ftoNumber);
   }
-  const alreadyImportedCount = candidates.filter(item => existingFtoNumbers.has(item.ftoNumber.toUpperCase())).length;
-  const newCandidates = candidates.filter(item => !existingFtoNumbers.has(item.ftoNumber.toUpperCase()));
-  if (!newCandidates.length) {
+
+  if (!eligible.length) {
     return reply({
       success: true,
       noNewFtos: true,
       source: "official_vbgramg_first_signatory",
       councilLocation: { district: district.official_name, block: block.official_name, panchayat: panchayat.official_name },
       navigation,
-      sharedLinks: { districtFtoStatusSaved: true, blockFirstSignatorySaved: true },
       listingCandidateCount: candidates.length,
-      alreadyImportedCount,
-      newFtoCount: 0,
-      message: "The First Signatory listing was checked. All FTOs in the selected Block are already imported for this Village Council; no new import batch was created.",
+      eligibleFtoCount: 0,
+      alreadyInspectedCompletedCount: skippedCompleted.length,
+      alreadyInspectedNoMatchCount: skippedNoMatch.length,
+      forceRefresh,
+      message: forceRefresh
+        ? "No FTO detail pages were eligible for forced refresh."
+        : "All FTOs are up to date: completed and out-of-village FTOs were skipped.",
     }, 200, origin);
   }
-  const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(candidates.map(item => item.detailUrl).join("\n")));
+  const eligibleCandidates = eligible;
+  const fingerprintBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+    candidates.map((item, index) => item.ftoNumber + ":" + fingerprints[index]).join("\n")
+  ));
   const fingerprint = [...new Uint8Array(fingerprintBytes)].map(value => value.toString(16).padStart(2, "0")).join("");
   const { data: importBatch, error: importBatchError } = await admin.from("council_fto_import_batches").insert({
     village_council_id: council.id,
@@ -591,10 +628,10 @@ async function main(req: Request, origin: string | null) {
     source_location_key: [district.official_name, block.official_name, panchayat.official_name].join(" | "),
     status: "processing",
     imported_by: userData.user.id,
-    total_rows: newCandidates.length,
+    total_rows: eligibleCandidates.length,
   }).select("id").single();
   if (importBatchError || !importBatch) throw new Error("Could not create the FTO discovery batch: " + (importBatchError?.message || "Unknown database error."));
-  const manifestToken = await makeManifestToken(secretKey, newCandidates, {
+  const manifestToken = await makeManifestToken(secretKey, eligibleCandidates, {
     tenantId: council.id, districtId: district.id, blockId: block.id, batchId: importBatch.id,
     panchayatName: panchayat.official_name,
   });
@@ -608,16 +645,19 @@ async function main(req: Request, origin: string | null) {
     listing: {
       title: cleanText(listingPage.html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ""),
       listingCandidateCount: candidates.length,
-      ftoCount: newCandidates.length,
+      alreadyInspectedCompletedCount: skippedCompleted.length,
+      alreadyInspectedNoMatchCount: skippedNoMatch.length,
+      forceRefresh,
+      ftoCount: eligibleCandidates.length,
       alreadyImportedCount,
-      uniqueFtoCount: newCandidates.length,
-      ftoNumbers: newCandidates.map(item => item.ftoNumber),
+      uniqueFtoCount: eligibleCandidates.length,
+      ftoNumbers: eligibleCandidates.map(item => item.ftoNumber),
       listingFingerprint: fingerprint,
       manifestToken,
       manifestExpiresInSeconds: 2700,
     },
     databaseChanged: true,
-    note: "Navigation links were verified and saved as shared District/Block data. A processing batch was opened; no FTO records have been imported. The detail parser and FTO Panchayat ownership filter run in the next processing step.",
+    note: "Navigation links were verified and saved as shared District/Block data. Only new, unresolved, changed, failed-before-inspection, or force-refreshed FTOs are included. Completed and successfully inspected out-of-village FTOs are skipped.",
   }, 200, origin);
 }
 

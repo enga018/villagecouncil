@@ -62,6 +62,42 @@ Deno.serve(async (req: Request) => {
 
   const adminClient = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
+  async function cacheLocationList(
+    table: "location_states" | "location_districts" | "location_blocks" | "location_panchayats",
+    parentColumn: "state_id" | "district_id" | "block_id" | null,
+    parentId: string | null,
+    entries: { name: string; url: string }[],
+  ) {
+    if (!entries.length) return;
+    try {
+      const rows = entries.map((entry) => {
+        const row: Record<string, unknown> = { official_name: entry.name, navigation_url: entry.url };
+        if (parentColumn && parentId) row[parentColumn] = parentId;
+        return row;
+      });
+      const onConflict = parentColumn ? `${parentColumn},official_name` : "official_name";
+      await adminClient.from(table).upsert(rows, { onConflict });
+    } catch {
+      // Existing behavior: live scrape results remain usable if cache write fails.
+    }
+  }
+
+  async function resolveLocationId(
+    table: "location_states" | "location_districts" | "location_blocks",
+    name: string,
+    parentColumn?: "state_id" | "district_id",
+    parentId?: string | null,
+  ): Promise<string | null> {
+    try {
+      let query = adminClient.from(table).select("id").eq("official_name", name);
+      if (parentColumn && parentId) query = query.eq(parentColumn, parentId);
+      const { data } = await query.maybeSingle();
+      return data?.id ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   let body: { action?: string; selectedNames?: string[]; publicRequest?: boolean };
   try { body = await req.json(); } catch { return reply({ error: "Invalid JSON request." }, 400, origin); }
   if (!["states", "districts", "blocks", "panchayats"].includes(body.action || "")) return reply({ error: "Unsupported action." }, 400, origin);

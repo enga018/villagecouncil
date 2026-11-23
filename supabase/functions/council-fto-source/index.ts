@@ -359,7 +359,7 @@ async function makeManifestToken(serviceKey: string, candidates: Candidate[], jo
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 async function loadCouncilJobCards(admin: any, tenantId: string) {
-  const numbers = new Set<string>();
+  const numbers = new Map<string, string>();
   for (let offset = 0; ; offset += 1000) {
     const { data, error } = await admin.from("council_job_cards")
       .select("job_card_number")
@@ -368,13 +368,13 @@ async function loadCouncilJobCards(admin: any, tenantId: string) {
       .range(offset, offset + 999);
     if (error) throw new Error("Could not load the Village Council Job Card register: " + error.message);
     for (const row of data || []) {
-      const number = String(row.job_card_number || "").trim().toUpperCase();
-      if (number) numbers.add(number);
+      const number = String(row.job_card_number || "").trim();
+      if (number && !numbers.has(number.toUpperCase())) numbers.set(number.toUpperCase(), number);
     }
     if (!data || data.length < 1000) break;
   }
   if (!numbers.size) throw new Error("The Village Council has no registered Job Cards. Import the Job Card register before fetching FTO details.");
-  return [...numbers];
+  return [...numbers.values()];
 }
 
 async function main(req: Request, origin: string | null) {

@@ -1,0 +1,5 @@
+[functions.location-master-source]
+verify_jwt = false
+
+[functions.submit-council-onboarding-request]
+verify_jwt = false

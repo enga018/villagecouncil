@@ -219,17 +219,24 @@ async function openCachedNavigation(jars: Jar, record: any, referer: string): Pr
       inputValue: parentNavigation.inputValue || undefined,
     };
     parent = await activateControl(jars, parent, parentControl);
+  } else if (parentNavigation?.mode === "link" && parentNavigation.linkUrl) {
+    parent = await requestPage(jars, String(parentNavigation.linkUrl), parent.url);
   }
-  if (record.navigation_data?.mode !== "postback") return parent;
-  const control: Control = {
-    kind: "postback",
-    label: String(record.navigation_data?.label || "Saved Government navigation"),
-    target: String(record.control_target || ""),
-    argument: String(record.control_argument || ""),
-    inputName: record.navigation_data?.inputName || undefined,
-    inputValue: record.navigation_data?.inputValue || undefined,
-  };
-  return await activateControl(jars, parent, control);
+  if (record.navigation_data?.mode === "postback") {
+    const control: Control = {
+      kind: "postback",
+      label: String(record.navigation_data?.label || "Saved Government navigation"),
+      target: String(record.control_target || ""),
+      argument: String(record.control_argument || ""),
+      inputName: record.navigation_data?.inputName || undefined,
+      inputValue: record.navigation_data?.inputValue || undefined,
+    };
+    return await activateControl(jars, parent, control);
+  }
+  if (record.navigation_data?.mode === "link") {
+    return await requestPage(jars, record.navigation_url, parent.url);
+  }
+  return parent;
 }
 function normalizeName(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();

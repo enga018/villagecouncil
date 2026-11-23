@@ -96,6 +96,9 @@ function extractJobCard(value: string) {
   const match = String(value || "").match(/\bMZ-\d{2}-(?:\d{3}-){2,3}\d{3}\/\d+(?:-[A-Z]+)?\b/i);
   return match ? match[0].toUpperCase() : "";
 }
+function normalizeVillage(value: string) {
+  return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
 function extractVillage(value: string, jobCardNumber: string) {
   return String(value || "").replace(jobCardNumber, " ").replace(/[()\[\]{}]/g, " ")
     .replace(/\s+/g, " ").replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "").trim();
@@ -213,10 +216,9 @@ async function openManifest(token: string, serviceKey: string) {
   const clear = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, key, bytes.slice(12));
   const manifest = JSON.parse(new TextDecoder().decode(clear));
   if (manifest?.v !== 1 || !Number.isFinite(manifest.exp) || manifest.exp < Date.now() ||
-      !Array.isArray(manifest.candidates) || !manifest.context ||
-      !Array.isArray(manifest.jobCardNumbers) || manifest.jobCardNumbers.length === 0)
+      !Array.isArray(manifest.candidates) || !manifest.context || !manifest.context.panchayatName)
     throw new Error("FTO manifest has expired or is invalid. Run FTO discovery again.");
-  return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string }; candidates: Candidate[]; jobCardNumbers: string[] };
+  return manifest as { v: number; exp: number; context: { tenantId: string; districtId: string; blockId: string; batchId: string; panchayatName: string }; candidates: Candidate[] };
 }
 async function main(req: Request, origin: string | null) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -257,8 +259,10 @@ async function main(req: Request, origin: string | null) {
     .select("id,location_panchayat_id,is_active").eq("id", tenantId).eq("is_active", true).maybeSingle();
   if (councilError || !council?.location_panchayat_id) return reply({ error: "The assigned Village Council location is unavailable." }, 409, origin);
   const { data: panchayat, error: panchayatError } = await admin.from("location_panchayats")
-    .select("id,block_id").eq("id", council.location_panchayat_id).maybeSingle();
-  if (panchayatError || !panchayat?.block_id) return reply({ error: "The Panchayat Block mapping is unavailable." }, 409, origin);
+    .select("id,block_id,official_name").eq("id", council.location_panchayat_id).maybeSingle();
+  if (panchayatError || !panchayat?.block_id || !panchayat.official_name) return reply({ error: "The Panchayat mapping is unavailable." }, 409, origin);
+  if (normalizeVillage(manifest.context.panchayatName) !== normalizeVillage(panchayat.official_name))
+    return reply({ error: "The FTO manifest Panchayat does not match this Village Council." }, 403, origin);
   const { data: block, error: blockError } = await admin.from("location_blocks")
     .select("id,district_id,official_name").eq("id", panchayat.block_id).maybeSingle();
   if (blockError || !block?.district_id) return reply({ error: "The Block mapping is unavailable." }, 409, origin);
@@ -282,13 +286,7 @@ async function main(req: Request, origin: string | null) {
     if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
     return { ...item, requestedNumber: number };
   });
-  const cardNumberMap = new Map<string, string>();
-  for (const value of manifest.jobCardNumbers) {
-    const original = String(value || "").trim();
-    if (original) cardNumberMap.set(original.toUpperCase(), original);
-  }
-  const cardSet = new Set(cardNumberMap.keys());
-  if (!cardSet.size) return reply({ error: "The FTO manifest contains no Job Card snapshot for this Village Council." }, 409, origin);
+  const targetPanchayat = normalizeVillage(panchayat.official_name);
   const selectedRowNumbers = selected.map(item => item.rowNumber);
   const { data: existingRows, error: existingRowsError } = await admin.from("council_fto_import_rows")
     .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);
@@ -308,18 +306,15 @@ async function main(req: Request, origin: string | null) {
           results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
           continue;
         }
-        const matching: Transaction[] = transactions
-          .filter((tx: Transaction) => cardSet.has(String(tx.jobCardNumber || "").trim().toUpperCase()))
-          .map((tx: Transaction): Transaction => ({
-            ...tx,
-            jobCardNumber: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNumber,
-            jobCardNo: cardNumberMap.get(String(tx.jobCardNumber || "").trim().toUpperCase()) || tx.jobCardNo,
-          }));
+        const matching: Transaction[] = transactions.filter((tx: Transaction) =>
+          normalizeVillage(tx.village) === targetPanchayat
+        );
         const unmatchedCount = transactions.length - matching.length;
         const scope = matching.length ? "IN_SCOPE" : "OUT_OF_SCOPE";
         const listingRow = item.candidate.listingRow || [];
         const ftoRow = {
           scope,
+          panchayat_name: panchayat.official_name,
           fto_number: item.candidate.ftoNumber,
           fto_date: listingRow[5] || "",
           fto_status: "",
@@ -386,7 +381,7 @@ async function main(req: Request, origin: string | null) {
     batchComplete,
     results: [...results, ...selected.filter(item => alreadyStaged.has(item.rowNumber)).map(item => ({ ftoNumber: item.candidate.ftoNumber, kind: "already_staged" }))],
     message: batchComplete
-      ? "All FTO details have been parsed. Only FTOs with at least one exact Job Card Number match in this Village Council are marked IN_SCOPE and eligible for review."
+      ? "All FTO details have been parsed. Only transactions whose FTO Panchayat matches this Village Council are included."
       : "FTO details processed for this batch. Retry any failed FTO numbers; no manual import fallback is available.",
   }, 200, origin);
 }

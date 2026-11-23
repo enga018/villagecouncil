@@ -282,9 +282,7 @@ function findBlockSignedCountControl(html: string, pageUrl: string, blockName: s
       const path = headerPath(i);
       return /signed\s+fto|fto\s+signe?d|no\.?\s*of\s*signed\s*fto|number\s+of\s+signed\s*fto/.test(path);
     });
-    const fallbackCols = signatoryCols.length ? signatoryCols : Array.from({ length: width }, (_, i) => i)
-      .filter(i => i > (blockCol ?? -1));
-    const candidateCols = signedCol !== undefined ? [signedCol] : fallbackCols
+    const candidateCols = signedCol !== undefined ? [signedCol] : signatoryCols
       .filter(i => /<a\b/i.test(blockRow[i]?.inner || "") && /^\d[\d,]*$/.test(blockRow[i]?.text || ""));
     for (const col of candidateCols) {
       const cell = blockRow[col];

@@ -565,12 +565,12 @@ async function main(req: Request, origin: string | null) {
   const uniqueNumbers = new Set(numbers.map(value => value.toUpperCase()));
   if (uniqueNumbers.size !== numbers.length) throw new Error("The First Signatory listing contains duplicate or ambiguous FTO numbers.");
   const { data: inspections, error: inspectionsError } = await admin.from("council_fto_inspections")
-    .select("fto_number,listing_fingerprint,inspection_result,matching_transaction_count,unresolved_transaction_count")
+    .select("fto_number,listing_fingerprint,inspection_result,matching_transaction_count,unresolved_transaction_count,import_activated_at")
     .eq("village_council_id", council.id);
   if (inspectionsError) throw new Error("Could not read this Village Council's FTO inspection history: " + inspectionsError.message);
   const inspectionByNumber = new Map((inspections || []).map((row: {
     fto_number: string; listing_fingerprint: string; inspection_result: string;
-    matching_transaction_count: number; unresolved_transaction_count: number;
+    matching_transaction_count: number; unresolved_transaction_count: number; import_activated_at: string | null;
   }) => [String(row.fto_number).trim().toUpperCase(), row]));
 
   const fingerprints = await Promise.all(candidates.map(candidate => fingerprintCandidate(candidate)));
@@ -590,7 +590,7 @@ async function main(req: Request, origin: string | null) {
       skippedNoMatch.push(candidate.ftoNumber);
       continue;
     }
-    if (Number(inspection.unresolved_transaction_count) > 0 ||
+    if (!inspection.import_activated_at || Number(inspection.unresolved_transaction_count) > 0 ||
         Number(inspection.matching_transaction_count) === 0) {
       eligible.push(candidate);
       continue;

@@ -201,7 +201,7 @@ function SuperadminDashboard() {
     return matchesSearch && matchesStatus;
   }), [councils, search, statusFilter]);
 
-  return <SuperadminShell>
+  return <div><SuperadminShell>
       <main className="mx-auto max-w-[1440px] space-y-7 px-4 py-7 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
         <section id="overview" className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-xs font-semibold text-blue-700">PLATFORM CONTROL CENTER</p><h1 className="mt-2 text-[26px] font-bold tracking-tight text-slate-950 sm:text-[30px]">Good to see you</h1><p className="mt-1.5 max-w-xl text-sm leading-6 text-slate-500">Monitor your Village Council network and manage platform operations from one place.</p></div>

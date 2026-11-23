@@ -96,6 +96,15 @@ function extractJobCard(value: string) {
   const match = String(value || "").match(/\bMZ-\d{2}-(?:\d{3}-){2,3}\d{3}\/\d+(?:-[A-Z]+)?\b/i);
   return match ? match[0].toUpperCase() : "";
 }
+async function fingerprintCandidate(candidate: Candidate) {
+  const source = JSON.stringify({
+    detailUrl: candidate.detailUrl,
+    listingRow: candidate.listingRow,
+    listingHeaders: candidate.listingHeaders,
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
 function normalizeVillage(value: string) {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -301,6 +310,7 @@ async function main(req: Request, origin: string | null) {
   const pending = selected.filter(item => !alreadyStaged.has(item.rowNumber));
   const results: Record<string, unknown>[] = [];
   const stagedRows: Record<string, unknown>[] = [];
+  const inspectionRows: Record<string, unknown>[] = [];
   let cursor = 0;
   const workers = Array.from({ length: Math.min(2, pending.length) }, async () => {
     while (cursor < pending.length) {
@@ -340,6 +350,20 @@ async function main(req: Request, origin: string | null) {
           row_number: item.rowNumber,
           row_data: ftoRow,
         });
+        const unresolvedCount = matching.filter((tx: Transaction) =>
+          tx.normalizedStatus !== "processed" && tx.normalizedStatus !== "rejected"
+        ).length;
+        inspectionRows.push({
+          village_council_id: tenantId,
+          fto_number: item.candidate.ftoNumber,
+          listing_fingerprint: await fingerprintCandidate(item.candidate),
+          inspection_result: scope === "IN_SCOPE" ? "matched" : "no_match",
+          matching_transaction_count: matching.length,
+          unresolved_transaction_count: unresolvedCount,
+          last_inspected_at: new Date().toISOString(),
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        });
         results.push({
           ftoNumber: item.candidate.ftoNumber,
           kind: scope === "IN_SCOPE" ? "village_match" : "out_of_village",
@@ -363,6 +387,11 @@ async function main(req: Request, origin: string | null) {
     const { error: stageError } = await admin.from("council_fto_import_rows")
       .upsert(stagedRows, { onConflict: "import_batch_id,row_number" });
     if (stageError) throw new Error("Could not stage the village-filtered FTO results: " + stageError.message);
+  }
+  if (inspectionRows.length) {
+    const { error: inspectionError } = await admin.from("council_fto_inspections")
+      .upsert(inspectionRows, { onConflict: "village_council_id,fto_number" });
+    if (inspectionError) throw new Error("FTO details were staged, but inspection history could not be saved: " + inspectionError.message);
   }
   const { count: stagedCount, error: countError } = await admin.from("council_fto_import_rows")
     .select("row_number", { count: "exact", head: true })

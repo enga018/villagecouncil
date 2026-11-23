@@ -577,12 +577,10 @@ async function main(req: Request, origin: string | null) {
   const eligible: Candidate[] = [];
   const skippedCompleted: string[] = [];
   const skippedNoMatch: string[] = [];
-  const fingerprintByNumber = new Map<string, string>();
   for (let index = 0; index < candidates.length; index++) {
     const candidate = candidates[index];
     const key = candidate.ftoNumber.toUpperCase();
     const fingerprint = fingerprints[index];
-    fingerprintByNumber.set(key, fingerprint);
     const inspection = inspectionByNumber.get(key);
     if (forceRefresh || !inspection || inspection.listing_fingerprint !== fingerprint) {
       eligible.push(candidate);
@@ -611,6 +609,7 @@ async function main(req: Request, origin: string | null) {
       eligibleFtoCount: 0,
       alreadyInspectedCompletedCount: skippedCompleted.length,
       alreadyInspectedNoMatchCount: skippedNoMatch.length,
+      alreadyImportedCount: skippedCompleted.length + skippedNoMatch.length,
       forceRefresh,
       message: forceRefresh
         ? "No FTO detail pages were eligible for forced refresh."
@@ -647,6 +646,7 @@ async function main(req: Request, origin: string | null) {
       listingCandidateCount: candidates.length,
       alreadyInspectedCompletedCount: skippedCompleted.length,
       alreadyInspectedNoMatchCount: skippedNoMatch.length,
+      alreadyImportedCount: skippedCompleted.length + skippedNoMatch.length,
       forceRefresh,
       ftoCount: eligibleCandidates.length,
       alreadyImportedCount,

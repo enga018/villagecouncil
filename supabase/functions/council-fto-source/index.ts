@@ -461,7 +461,6 @@ async function main(req: Request, origin: string | null) {
       url: savedUrl, control: listControl.kind === "postback" ? listControl : null,
       parentNavigation: listControl.kind === "postback" ? ftoStatusParentNavigation : null,
     });
-    navigationCacheUpdated = true;
     navigation.push({ step: "first_signatory_list", source: "discovered_and_saved", block: block.official_name, signedFtoCount: selected.count, path: new URL(listingPage.url).pathname });
   }
 

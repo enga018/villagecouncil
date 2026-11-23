@@ -153,8 +153,14 @@ export default function FtoMonitoringPage() {
       const supabase = createClient();
       const { data, error: invokeError } = await supabase.functions.invoke<any>("council-fto-source", { body: {} });
       if (invokeError) throw new Error(await invokeErrorMessage(invokeError, "Could not discover the Government FTO listing."));
-      if (!data?.success || !data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
-        throw new Error(data?.error || "The Government FTO listing could not be prepared.");
+      if (!data?.success) throw new Error(data?.error || "The Government FTO listing could not be prepared.");
+      if (data.noNewFtos) {
+        setNotice(data.message || "No new FTOs were found for this Village Council.");
+        setBusy(false);
+        return;
+      }
+      if (!data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
+        throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
       setBatchId(data.batchId);

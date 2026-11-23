@@ -16,7 +16,7 @@ create table public.council_fto_transactions (
   credit_amount numeric(14,2) check (credit_amount is null or credit_amount >= 0),
   government_status text not null default 'blank',
   normalized_status text not null
-    check (normalized_status in ('processed','rejected','blank')),
+    check (normalized_status in ('processed','rejected','deferred')),
   rejection_reason text,
   village text,
   source_row jsonb not null default '{}'::jsonb

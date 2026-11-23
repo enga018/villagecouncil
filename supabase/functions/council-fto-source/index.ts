@@ -534,6 +534,7 @@ async function main(req: Request, origin: string | null) {
   const candidates = discoverCandidates(listingPage.html, listingPage.url);
   if (!candidates.length) throw new Error("No valid FTO transaction-detail links were found in the First Signatory listing.");
   const numbers = candidates.map(item => item.ftoNumber).filter(Boolean);
+  if (numbers.length !== candidates.length) throw new Error("One or more FTO numbers could not be parsed from the First Signatory listing. No import batch was created.");
   const uniqueNumbers = new Set(numbers.map(value => value.toUpperCase()));
   if (uniqueNumbers.size !== numbers.length) throw new Error("The First Signatory listing contains duplicate or ambiguous FTO numbers.");
   const jobCardNumbers = await loadCouncilJobCards(admin, council.id);

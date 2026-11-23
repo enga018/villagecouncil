@@ -2,7 +2,7 @@
 begin;
 
 -- A transaction must be importable even when the Job Card has not been imported locally.
-do $
+do $$
 declare
   v_constraint record;
 begin
@@ -16,7 +16,7 @@ begin
     execute format('alter table public.council_fto_transactions drop constraint %I', v_constraint.conname);
   end loop;
 end;
-$;
+$$;
 
 create or replace function public.activate_council_fto_import(p_batch_id uuid)
 returns jsonb

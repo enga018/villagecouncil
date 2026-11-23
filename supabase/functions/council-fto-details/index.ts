@@ -101,20 +101,12 @@ function normalizeVillage(value: string) {
 }
 function extractVillage(value: string, jobCardNumber: string) {
   const source = String(value || "");
-  const cardIndex = source.toLowerCase().indexOf(String(jobCardNumber || "").toLowerCase());
+  const card = String(jobCardNumber || "");
+  const cardIndex = source.toLowerCase().indexOf(card.toLowerCase());
   const withoutCard = cardIndex >= 0
-    ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + jobCardNumber.length)
+    ? source.slice(0, cardIndex) + " " + source.slice(cardIndex + card.length)
     : source;
-  return withoutCard.replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
-    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
-}");
-  return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
-    .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
-    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
-}");
-  return String(value || "").replace(new RegExp(escapedJobCard, "i"), " ")
-    .replace(/[()\\[\\]{}]/g, " ").replace(/\\s+/g, " ")
-    .replace(/^[\\s,;:.-]+|[\\s,;:.-]+$/g, "").trim();
+  return withoutCard.trim().split(/\\s+/).filter(Boolean).join(" ");
 }
 function validateGovernmentTransactions(transactions: Transaction[], listingRow: string[]) {
   const errors: string[] = [], refs = new Set<string>();

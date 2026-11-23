@@ -194,15 +194,16 @@ Deno.serve(async (req: Request) => {
   }
 
   if (requestRecord) {
-    const { error: approvalError } = await adminClient.from("council_onboarding_requests")
+    const { data: approvedRequest, error: approvalError } = await adminClient.from("council_onboarding_requests")
       .update({
         status: "approved",
         reviewed_by: userData.user.id,
         reviewed_at: new Date().toISOString(),
         created_council_id: council.id,
       })
-      .eq("id", requestId).eq("status", "under_review");
-    if (approvalError) {
+      .eq("id", requestId).eq("status", "under_review")
+      .select("id").maybeSingle();
+    if (approvalError || !approvedRequest) {
       await adminClient.from("council_memberships").delete().eq("village_council_id", council.id);
       await adminClient.from("council_tenants").delete().eq("id", council.id);
       await adminClient.auth.admin.deleteUser(inviteData.user.id);

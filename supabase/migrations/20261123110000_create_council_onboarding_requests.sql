@@ -4,7 +4,7 @@
 
 begin;
 
-create table public.council_onboarding_requests (
+create table if not exists public.council_onboarding_requests (
   id uuid primary key default gen_random_uuid(),
   council_name text not null check (length(btrim(council_name)) between 3 and 120),
   state_id uuid not null references public.location_states(id) on delete restrict,
@@ -46,14 +46,14 @@ create table public.council_onboarding_requests (
 comment on table public.council_onboarding_requests is
   'Public applications from Village Councils requesting platform onboarding.';
 
-create unique index council_onboarding_requests_one_open_per_panchayat
+create unique index if not exists council_onboarding_requests_one_open_per_panchayat
   on public.council_onboarding_requests(location_panchayat_id)
   where status in ('pending', 'under_review', 'more_information_required');
 
-create index council_onboarding_requests_status_created_at_idx
+create index if not exists council_onboarding_requests_status_created_at_idx
   on public.council_onboarding_requests(status, created_at desc);
 
-create index council_onboarding_requests_email_idx
+create index if not exists council_onboarding_requests_email_idx
   on public.council_onboarding_requests(administrator_email);
 
 alter table public.council_onboarding_requests enable row level security;
@@ -77,12 +77,14 @@ grant execute on function public.is_platform_superadmin() to authenticated;
 
 grant select, update on public.council_onboarding_requests to authenticated;
 
+drop policy if exists "Platform superadmins can view onboarding requests" on public.council_onboarding_requests;
 create policy "Platform superadmins can view onboarding requests"
   on public.council_onboarding_requests
   for select
   to authenticated
   using ((select public.is_platform_superadmin()));
 
+drop policy if exists "Platform superadmins can update onboarding requests" on public.council_onboarding_requests;
 create policy "Platform superadmins can update onboarding requests"
   on public.council_onboarding_requests
   for update

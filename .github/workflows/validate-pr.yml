@@ -29,6 +29,17 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Check Edge Functions
+        run: |
+          deno check supabase/functions/location-master-source/index.ts
+          deno check supabase/functions/submit-council-onboarding-request/index.ts
+          deno check supabase/functions/create-village-council/index.ts
+
       - name: ESLint
         run: npm run lint
 

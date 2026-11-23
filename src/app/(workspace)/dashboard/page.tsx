@@ -4,15 +4,32 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
-const modules = [
-  { title: "Job Cards", description: "Manage households, job cards and applicants.", href: "/job-cards", mark: "JC", available: true },
-  { title: "Register", description: "Official registration register tools are not available yet.", mark: "RG", available: false },
-  { title: "FTO Monitoring", description: "Fetch First Signatory FTOs and import only this Village Council's matching Job Cards.", href: "/fto-monitoring", mark: "FTO", available: true },
-  { title: "Contributions", description: "Contribution ledger is not available yet.", mark: "CN", available: false },
-  { title: "CO Calculation", description: "CO calculation tools are not available yet.", mark: "CO", available: false },
-  { title: "Payments", description: "Payment recording is not available yet.", mark: "PY", available: false },
-  { title: "Reports", description: "Council reports are not available yet.", mark: "RP", available: false },
-  { title: "Settings", description: "Workspace settings are not available yet.", mark: "ST", available: false },
+const availableModules = [
+  {
+    title: "Job Cards",
+    description: "Manage household job cards, applicant records and their current status.",
+    href: "/job-cards",
+    mark: "JC",
+    eyebrow: "Household records",
+    action: "Open Job Cards",
+  },
+  {
+    title: "FTO Monitoring",
+    description: "Review First Signatory FTOs and import transactions belonging to this Village Council.",
+    href: "/fto-monitoring",
+    mark: "FTO",
+    eyebrow: "Payment monitoring",
+    action: "Open FTO Monitoring",
+  },
+];
+
+const plannedModules = [
+  { title: "Register", description: "Official registration register tools", mark: "RG" },
+  { title: "Contributions", description: "Contribution ledger and outstanding balances", mark: "CN" },
+  { title: "CO Calculation", description: "Council calculation tools", mark: "CO" },
+  { title: "Payments", description: "Payment recording and tracking", mark: "PY" },
+  { title: "Reports", description: "Council operational reports", mark: "RP" },
+  { title: "Settings", description: "Workspace preferences and configuration", mark: "ST" },
 ];
 
 export default function DashboardPage() {
@@ -72,58 +89,68 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="space-y-8">
-      <section>
-        <p className="text-sm font-medium text-blue-700">Overview</p>
-        <div className="mt-2 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Dashboard</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Your Village Council workspace. Choose a module to get started.</p>
-          </div>
+    <div className="space-y-9">
+      <section className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Council workspace</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Your operational overview. Select a workspace module to continue.</p>
+        </div>
+        <div className="flex items-center gap-2 self-start rounded-full border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-800 sm:self-auto">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"/> Council workspace
         </div>
       </section>
 
-      {kpiError && <p role="status" className="text-xs text-slate-500">{kpiError}</p>}
+      <section aria-label="Job Card summary" className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Active Job Cards</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{activeJobCards === null ? "—" : activeJobCards.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[11px] font-bold text-blue-800">JC</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Current active household records</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Active Applicants</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{activeApplicants === null ? "—" : activeApplicants.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-[11px] font-bold text-violet-800">AP</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Applicants across active Job Cards</p>
+        </div>
+      </section>
+
+      {kpiError && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">{kpiError}</p>}
 
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Modules</h2>
-            <p className="mt-1 text-sm text-slate-500">Core Village Council operations</p>
-          </div>
-          <span className="text-xs text-slate-400">2 available · 6 coming soon</span>
+        <div className="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div><h2 className="text-lg font-bold tracking-tight text-slate-950">Available modules</h2><p className="mt-1 text-xs text-slate-500">Tools currently available in this workspace</p></div>
+          <span className="text-[11px] font-medium text-slate-400">2 of 8 modules available</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {modules.map(module => {
-            const content = (
-              <>
-                <div className="flex items-start justify-between">
-                  <div className={`flex h-11 min-w-11 items-center justify-center rounded-xl px-2 text-xs font-bold ${module.available ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-500"}`}>{module.mark}</div>
-                  {module.available
-                    ? <span className="text-slate-300 transition group-hover:translate-x-1 group-hover:text-blue-600">→</span>
-                    : <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">Coming soon</span>}
-                </div>
-                <h3 className="mt-4 font-semibold text-slate-900">{module.title}</h3>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{module.description}</p>
-                {module.title === "Job Cards" && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-                    <div>
-                      <p className="text-xl font-semibold tabular-nums text-slate-950">{activeJobCards === null ? "—" : activeJobCards.toLocaleString("en-IN")}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">Active Job Cards</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-semibold tabular-nums text-slate-950">{activeApplicants === null ? "—" : activeApplicants.toLocaleString("en-IN")}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">Active Applicants</p>
-                    </div>
-                  </div>
-                )}
-              </>
-            );
-            const className = `group rounded-2xl border bg-white p-5 shadow-sm ${module.available ? "border-slate-200 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md" : "border-slate-100 opacity-75"}`;
-            return module.available && module.href
-              ? <Link key={module.title} href={module.href} className={className}>{content}</Link>
-              : <div key={module.title} aria-disabled="true" className={className}>{content}</div>;
-          })}
+        <div className="grid gap-4 xl:grid-cols-2">
+          {availableModules.map(module => (
+            <Link key={module.title} href={module.href} className="group flex min-h-[220px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-xs font-bold tracking-wide text-blue-800">{module.mark}</div>
+                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">Available</span>
+              </div>
+              <p className="mt-5 text-[10px] font-semibold uppercase tracking-[.14em] text-slate-400">{module.eyebrow}</p>
+              <h3 className="mt-1 text-base font-bold tracking-tight text-slate-950">{module.title}</h3>
+              <p className="mt-2 max-w-lg text-sm leading-6 text-slate-500">{module.description}</p>
+              <span className="mt-auto inline-flex items-center gap-2 pt-5 text-xs font-bold text-blue-800">{module.action}<span className="transition-transform group-hover:translate-x-1">→</span></span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-4"><h2 className="text-base font-bold tracking-tight text-slate-950">Coming soon</h2><p className="mt-1 text-xs text-slate-500">Additional council modules planned for later releases</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {plannedModules.map(module => (
+            <div key={module.title} aria-disabled="true" className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white/70 px-4 py-3.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold text-slate-500">{module.mark}</span>
+              <span className="min-w-0 flex-1"><span className="block text-xs font-semibold text-slate-700">{module.title}</span><span className="mt-0.5 block truncate text-[10px] text-slate-400">{module.description}</span></span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Soon</span>
+            </div>
+          ))}
         </div>
       </section>
     </div>

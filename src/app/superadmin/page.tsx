@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import SuperadminGate from "@/components/app/SuperadminGate";
+import SuperadminShell from "@/components/app/SuperadminShell";
 
 type Council = { id: string; name: string; slug: string; is_active: boolean; created_at: string };
 type Membership = { village_council_id: string; is_active: boolean };
@@ -82,7 +83,6 @@ function SuperadminDashboard() {
   const [createError, setCreateError] = useState("");
   const [success, setSuccess] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
 
@@ -212,65 +212,7 @@ function SuperadminDashboard() {
     return matchesSearch && matchesStatus;
   }), [councils, search, statusFilter]);
 
-  return <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col border-r border-slate-200/80 bg-white lg:flex">
-      <div className="flex h-[76px] items-center gap-3 border-b border-slate-100 px-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white"><Icon name="building" className="h-5 w-5"/></div>
-        <div><p className="text-[15px] font-bold tracking-tight text-slate-950">Village Council</p><p className="mt-0.5 text-[11px] font-medium text-slate-400">Platform administration</p></div>
-      </div>
-      <div className="px-4 pt-7"><p className="px-3 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Workspace</p>
-        <nav aria-label="Superadmin navigation" className="mt-3 space-y-1">
-          {navigation.map(item => <div key={item.id} title={("upcoming" in item && item.upcoming) ? "This section will be implemented in a later stage." : undefined}>
-            {item.id === "overview" || item.id === "councils" || item.id === "requests" ?
-              <a href={item.id === "overview" ? "#overview" : item.id === "councils" ? "#councils" : "#requests"} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition ${item.id === "overview" ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}>
-                <Icon name={item.icon} className="h-[18px] w-[18px]"/><span>{item.label}</span>{item.id === "councils" ? <span className="ml-auto rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">{councils.length}</span> : item.id === "requests" && pendingRequests.length > 0 ? <span className="ml-auto rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">{pendingRequests.length}</span> : null}
-              </a> :
-              <div aria-disabled="true" className="flex cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-slate-300">
-                <Icon name={item.icon} className="h-[18px] w-[18px]"/><span>{item.label}</span><span className="ml-auto text-[9px] font-semibold uppercase tracking-wide text-slate-300">Soon</span>
-              </div>}
-          </div>)}
-        </nav>
-      </div>
-      <div className="mt-auto border-t border-slate-100 p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800">SA</div>
-          <div className="min-w-0"><p className="text-xs font-semibold text-slate-800">Platform Superadmin</p><p className="mt-0.5 text-[10px] text-slate-400">Full platform access</p></div>
-          <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/>
-        </div>
-        <Link href="/dashboard" className="mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"><span>Open my council workspace</span><Icon name="arrow" className="h-4 w-4"/></Link>
-      </div>
-    </aside>
-
-    {mobileOpen && <div className="fixed inset-0 z-50 lg:hidden">
-      <button aria-label="Close navigation" className="absolute inset-0 bg-slate-950/40" onClick={() => setMobileOpen(false)}/>
-      <aside className="relative flex h-full w-[min(19rem,86vw)] flex-col bg-white shadow-2xl">
-        <div className="flex h-[72px] items-center justify-between border-b border-slate-100 px-5"><div className="flex items-center gap-2 font-bold"><span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-950 text-white"><Icon name="building" className="h-4 w-4"/></span>Village Council</div><button aria-label="Close menu" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"><Icon name="close"/></button></div>
-        <nav className="space-y-1 p-4" aria-label="Mobile Superadmin navigation">
-          {navigation.map(item => <div key={item.id}>{item.id === "overview" || item.id === "councils" || item.id === "requests" ? <a onClick={() => setMobileOpen(false)} href={item.id === "overview" ? "#overview" : item.id === "councils" ? "#councils" : "#requests"} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ${item.id === "overview" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-50"}`}><Icon name={item.icon}/>{item.label}{item.id === "requests" && pendingRequests.length > 0 ? <span className="ml-auto rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">{pendingRequests.length}</span> : null}</a> : <div className="flex items-center gap-3 px-3 py-3 text-sm text-slate-300"><Icon name={item.icon}/>{item.label}<span className="ml-auto text-[9px] uppercase">Soon</span></div>}</div>)}
-        </nav>
-        <div className="mt-auto border-t border-slate-100 p-4">
-          <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-800">SA</div>
-            <div className="min-w-0"><p className="text-xs font-semibold text-slate-800">Platform Superadmin</p><p className="mt-0.5 text-[10px] text-slate-400">Full platform access</p></div>
-            <span className="ml-auto h-2 w-2 rounded-full bg-emerald-500"/>
-          </div>
-          <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"><span>Open my council workspace</span><Icon name="arrow" className="h-4 w-4"/></Link>
-        </div>
-      </aside>
-    </div>}
-
-    <div className="lg:pl-[264px]">
-      <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-xl sm:px-7 lg:px-9">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setMobileOpen(true)} aria-label="Open navigation" className="rounded-lg border border-slate-200 p-2 text-slate-600 lg:hidden"><Icon name="menu"/></button>
-          <div><p className="text-[10px] font-semibold uppercase tracking-[.15em] text-slate-400">Platform</p><p className="text-sm font-semibold text-slate-800">Overview</p></div>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 sm:inline-flex">Superadmin</span>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500"><Icon name="users" className="h-[17px] w-[17px]"/></div>
-        </div>
-      </header>
-
+  return <SuperadminShell>
       <main className="mx-auto max-w-[1440px] space-y-7 px-4 py-7 sm:px-7 sm:py-8 lg:px-9 lg:py-9">
         <section id="overview" className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div><p className="text-xs font-semibold text-blue-700">PLATFORM CONTROL CENTER</p><h1 className="mt-2 text-[26px] font-bold tracking-tight text-slate-950 sm:text-[30px]">Good to see you</h1><p className="mt-1.5 max-w-xl text-sm leading-6 text-slate-500">Monitor your Village Council network and manage platform operations from one place.</p></div>
@@ -326,7 +268,7 @@ function SuperadminDashboard() {
             </div>)}</div>}
         </section>
       </main>
-    </div>
+    </SuperadminShell>
 
     {approvalOpen && selectedRequest && <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/45 p-4 backdrop-blur-[2px]" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !approving) setApprovalOpen(false); }}>
       <section role="dialog" aria-modal="true" aria-labelledby="approve-request-title" className="my-auto w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl sm:p-7">

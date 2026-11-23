@@ -1,5 +1,5 @@
 -- Shared, jurisdiction-scoped navigation cache for the official VBGRAMG FTO workflow.
--- Only stable navigation URLs and rediscovery metadata are stored; cookies and ASP.NET
+-- Only reusable navigation URLs and rediscovery metadata are stored; cookies and ASP.NET
 -- session state (__VIEWSTATE, __EVENTVALIDATION, etc.) are never persisted.
 begin;
 
@@ -10,7 +10,7 @@ create table public.shared_fto_navigation (
   navigation_type text not null
     check (navigation_type in ('fto_status', 'first_signatory_list')),
   navigation_url text not null
-    check (navigation_url ~ '^https://vbgramgrep[.]dord[.]gov[.]in/'),
+    check (navigation_url ~ '^https://vbgramg[.]dord[.]gov[.]in/'),
   control_target text,
   control_argument text,
   navigation_data jsonb not null default '{}'::jsonb

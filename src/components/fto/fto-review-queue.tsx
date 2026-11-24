@@ -37,19 +37,26 @@ function itemKey(ftoNumber: string, referenceNumber: string) {
   return ftoNumber + "|" + referenceNumber;
 }
 
+function normalizeJobCard(value: string) {
+  return value.trim().toUpperCase();
+}
+
 export default function FtoReviewQueue({ batchId }: { batchId: string }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
-  const [registerJobCards, setRegisterJobCards] = useState<Set<string>>(new Set());
+  const [registerStatus, setRegisterStatus] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
+  const [registerError, setRegisterError] = useState("");
 
   useEffect(() => {
     let active = true;
     async function load() {
       setLoading(true);
       setError("");
+      setRegisterError("");
       const supabase = createClient();
       const rows: ReviewRow[] = [];
       for (let offset = 0; ; offset += 1000) {
@@ -99,21 +106,25 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
         decisionMap[itemKey(String(item.fto_number), String(item.reference_number))] = item.decision as Decision;
       }
 
-      const jobCards = Array.from(new Set(reviewItems.map(item => item.jobCardNumber.trim().toUpperCase()).filter(Boolean)));
-      const registered = new Set<string>();
+      const jobCards = Array.from(new Set(reviewItems.map(item => normalizeJobCard(item.jobCardNumber)).filter(Boolean)));
+      const registered = new Map<string, string>();
+      let lookupError = "";
       for (let offset = 0; offset < jobCards.length; offset += 200) {
         const { data: cards, error: cardError } = await supabase
           .from("council_job_cards")
-          .select("job_card_number")
+          .select("job_card_number,status")
           .in("job_card_number", jobCards.slice(offset, offset + 200));
-        if (cardError) break;
-        for (const card of cards || []) registered.add(String(card.job_card_number || "").trim().toUpperCase());
+        if (cardError) { lookupError = cardError.message; break; }
+        for (const card of cards || []) {
+          registered.set(normalizeJobCard(String(card.job_card_number || "")), String(card.status || ""));
+        }
       }
 
       if (!active) return;
       setItems(reviewItems);
       setDecisions(decisionMap);
-      setRegisterJobCards(registered);
+      setRegisterStatus(registered);
+      setRegisterError(lookupError ? "Could not check the job card register: " + lookupError : "");
       setLoading(false);
     }
     void load();
@@ -121,6 +132,11 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
   }, [batchId]);
 
   const pendingCount = useMemo(() => items.filter(item => !decisions[item.key]).length, [items, decisions]);
+
+  const suggestedItems = useMemo(
+    () => items.filter(item => !decisions[item.key] && registerStatus.get(normalizeJobCard(item.jobCardNumber)) === "active"),
+    [items, decisions, registerStatus],
+  );
 
   async function decide(item: ReviewItem, decision: Decision) {
     setSaving(item.key);
@@ -138,6 +154,29 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
     setSaving("");
   }
 
+  async function acceptSuggestions() {
+    if (!suggestedItems.length || bulkProgress || saving) return;
+    setError("");
+    const supabase = createClient();
+    const total = suggestedItems.length;
+    setBulkProgress({ done: 0, total });
+    for (let index = 0; index < suggestedItems.length; index++) {
+      const item = suggestedItems[index];
+      const { error: rpcError } = await supabase.rpc("set_council_fto_review_decision", {
+        p_fto_number: item.ftoNumber,
+        p_reference_number: item.referenceNumber,
+        p_decision: "in_village",
+      });
+      if (rpcError) {
+        setError(`Stopped after ${index} of ${total} suggestions: ${rpcError.message}`);
+        break;
+      }
+      setDecisions(current => ({ ...current, [item.key]: "in_village" }));
+      setBulkProgress({ done: index + 1, total });
+    }
+    setBulkProgress(null);
+  }
+
   if (!loading && items.length === 0 && !error) return null;
 
   return (
@@ -147,13 +186,23 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
           <div className="max-w-3xl">
             <h2 className="text-base font-bold tracking-tight text-slate-950">Manual review: Panchayat not shown</h2>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Government did not show the Panchayat name for these transactions. Mark each one In village or Not in village. Job Card numbers do not decide ownership; the register hint is a reminder only. Undecided rows are not imported.
+              Government did not show the Panchayat name for these transactions. Job Cards that are <span className="font-semibold text-slate-700">active</span> in your register are suggested as In village. Suggestions are not applied until you accept them, and any row can be changed. Undecided rows are not imported.
             </p>
           </div>
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">{loading ? "Loading…" : `${pendingCount.toLocaleString("en-IN")} of ${items.length.toLocaleString("en-IN")} awaiting decision`}</span>
         </div>
+        {!loading && suggestedItems.length > 0 && (
+          <div className="mt-4 flex flex-col gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-emerald-900">{suggestedItems.length.toLocaleString("en-IN")} awaiting rows have an active Job Card in your register.</p>
+            <button type="button" onClick={acceptSuggestions} disabled={Boolean(bulkProgress) || Boolean(saving)}
+              className="min-h-9 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50">
+              {bulkProgress ? `Accepting ${bulkProgress.done.toLocaleString("en-IN")} of ${bulkProgress.total.toLocaleString("en-IN")}…` : `Accept ${suggestedItems.length.toLocaleString("en-IN")} suggested as In village`}
+            </button>
+          </div>
+        )}
       </div>
 
+      {registerError && <p role="status" className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">{registerError}. Register suggestions are unavailable until this is fixed.</p>}
       {error && <p role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</p>}
 
       {loading ? (
@@ -177,7 +226,7 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
               {items.map(item => {
                 const decision = decisions[item.key];
                 const busy = saving === item.key;
-                const inRegister = registerJobCards.has(item.jobCardNumber.trim().toUpperCase());
+                const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
                 return (
                   <tr key={item.key}>
                     <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{item.ftoNumber}</td>
@@ -187,18 +236,21 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
                     <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{money(item.amount)}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.status}</td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      {inRegister ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">In your register</span> : <span className="text-[10px] text-slate-400">Not in register</span>}
+                      {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
+                        : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
+                        : <span className="text-[10px] text-slate-400">Not in register</span>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex gap-2">
-                        <button type="button" disabled={busy} onClick={() => decide(item, "in_village")}
+                      <div className="flex items-center gap-2">
+                        <button type="button" disabled={busy || Boolean(bulkProgress)} onClick={() => decide(item, "in_village")}
                           className={"min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 " + (decision === "in_village" ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")}>
                           In village
                         </button>
-                        <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")}
+                        <button type="button" disabled={busy || Boolean(bulkProgress)} onClick={() => decide(item, "not_in_village")}
                           className={"min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 " + (decision === "not_in_village" ? "border-slate-600 bg-slate-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")}>
                           Not in village
                         </button>
+                        {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
                       </div>
                     </td>
                   </tr>

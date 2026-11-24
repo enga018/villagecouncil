@@ -31,6 +31,16 @@ type CachedNavigation = {
 type Control = { kind: "link" | "postback"; label: string; href?: string; target?: string; argument?: string; inputName?: string; inputValue?: string };
 type Candidate = { detailUrl: string; listingRow: string[]; listingHeaders: string[]; ftoNumber: string };
 
+class PortalTransportError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortalTransportError";
+  }
+}
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://villagecouncil.enga.in",
@@ -98,11 +108,22 @@ async function requestPage(jars: Jar, pageUrl: string, referer: string): Promise
   if (!GOVERNMENT_HOSTS.has(target.hostname)) throw new Error("Refusing to fetch a non-Government URL.");
   target.protocol = "https:";
   const cookies = cookieHeader(jars, target.hostname);
-  const response = await fetch(target.href, {
-    method: "GET", redirect: "follow",
-    headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: referer },
-    signal: AbortSignal.timeout(25000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(target.href, {
+      method: "GET", redirect: "follow",
+      headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: referer },
+      signal: AbortSignal.timeout(25000),
+    });
+  } catch (error) {
+    const reason = errorMessage(error);
+    const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    throw new PortalTransportError(
+      timeout
+        ? "VBGRAMG request timed out after 25 seconds at " + target.pathname + "."
+        : "VBGRAMG network request failed at " + target.pathname + ": " + reason
+    );
+  }
   absorbCookies(response.headers, response.url || target.href, jars);
   if (!response.ok) throw new Error("VBGRAMG returned HTTP " + response.status + " at " + target.pathname + ".");
   const contentType = response.headers.get("content-type") || "";
@@ -436,6 +457,10 @@ async function main(req: Request, origin: string | null) {
   if (cachedStatusError) return reply({ error: "Could not read the shared District FTO link." }, 500, origin);
   if (cachedStatus) {
     try {
+      console.info("[council-fto-source] Opening cached District FTO Status navigation", {
+        district: district.official_name,
+        cachedPath: new URL(cachedStatus.navigation_url).pathname,
+      });
       ftoStatusPage = await openCachedNavigation(jars, cachedStatus, district.navigation_url);
       ftoStatusNavigationUrl = cachedStatus.navigation_url;
       if (cachedStatus.navigation_data?.mode === "link") {
@@ -458,12 +483,21 @@ async function main(req: Request, origin: string | null) {
       }
       if (!/fto\s+status/i.test(cleanText(ftoStatusPage.html))) throw new Error("Cached link did not open the FTO Status report.");
       navigation.push({ step: "fto_status", source: "shared_cache", path: new URL(ftoStatusPage.url).pathname });
-    } catch {
+    } catch (error) {
+      console.warn("[council-fto-source] Cached FTO Status navigation failed", {
+        district: district.official_name,
+        error: errorMessage(error),
+      });
+      if (error instanceof PortalTransportError) throw error;
       ftoStatusPage = null;
       ftoStatusParentNavigation = null;
     }
   }
   if (!ftoStatusPage) {
+    console.info("[council-fto-source] Discovering FTO Status from saved District page", {
+      district: district.official_name,
+      districtPath: new URL(district.navigation_url).pathname,
+    });
     const districtPage = await requestPage(jars, district.navigation_url, "https://vbgramg.dord.gov.in/");
     navigation.push({ step: "district", source: "location_districts.navigation_url", path: new URL(districtPage.url).pathname });
     ftoStatusControl = findFtoStatusControl(districtPage.html, districtPage.url);

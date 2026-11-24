@@ -74,7 +74,6 @@ export default function FtoMonitoringPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null; registerTotal: number | null }>({ ftos: null, transactions: null, registerTotal: null });
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
-  const statusLoaded = useRef(false);
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
   const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
 
@@ -82,27 +81,18 @@ export default function FtoMonitoringPage() {
     let active = true;
     async function loadSummary() {
       const supabase = createClient();
-      const [ftos, transactions, byStatus, registerTotals] = await Promise.all([
+      const [ftos, transactions, registerTotals, statusRows] = await Promise.all([
         supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }),
-        supabase
-          .from("council_fto_transactions")
-          .select("normalized_status", { count: "exact", groupBy: ["normalized_status"], head: true })
-          .in("normalized_status", ["processed", "deferred", "rejected"]),
-        supabase
-          .from("council_ftos")
-          .select("id", { count: "exact", head: true }),
+        supabase.from("council_fto_transactions").select("id"),
+        supabase.from("council_ftos").select("id", { count: "exact", head: true }),
+        supabase.from("council_fto_transactions").select("normalized_status"),
       ]);
       if (!active) return;
-      const totals = new Map<string, number>();
-      for (const row of ((byStatus?.data || []) as Array<{ normalized_status: string; count: number | string }>)) {
-        const count = Number(row.count);
-        if (count > 0) totals.set(row.normalized_status, count);
-      }
+      const rows = Array.isArray(statusRows?.data) ? statusRows.data as Array<{ normalized_status: string }> : [];
       setStatusTotals({
-        processed: totals.get("processed") ?? 0,
-        deferred: totals.get("deferred") ?? 0,
-        rejected: totals.get("rejected") ?? 0,
+        processed: rows.filter(row => row.normalized_status === "processed").length,
+        deferred: rows.filter(row => row.normalized_status === "deferred").length,
+        rejected: rows.filter(row => row.normalized_status === "rejected").length,
       });
       setSummary({ ftos: ftos.count ?? null, transactions: transactions.count ?? null, registerTotal: registerTotals.count ?? null });
     }
@@ -328,7 +318,7 @@ export default function FtoMonitoringPage() {
           ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", 0],
           ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", 0],
           ["FTO register", summary.registerTotal, "Total FTOs in the register", "TOT", 0],
-        ] as const).map(([label, value, description, mark, delta]) => (
+        ] as const).map(([label, value, description, mark]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-slate-500">{label}</p>

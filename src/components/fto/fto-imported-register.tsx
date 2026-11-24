@@ -67,6 +67,21 @@ function date(value: string | null | undefined) {
   }).format(parsed);
 }
 
+function statusSummary(transactions: Transaction[]) {
+  const counts = { processed: 0, rejected: 0, deferred: 0, other: 0 };
+  for (const tx of transactions) {
+    if (tx.normalized_status === "processed" || tx.normalized_status === "rejected" || tx.normalized_status === "deferred") counts[tx.normalized_status]++;
+    else counts.other++;
+  }
+  const parts = [
+    counts.processed ? `${counts.processed} processed` : "",
+    counts.rejected ? `${counts.rejected} rejected` : "",
+    counts.deferred ? `${counts.deferred} deferred` : "",
+    counts.other ? `${counts.other} other` : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "No transactions";
+}
+
 function dateTime(value: string | null | undefined) {
   if (!value) return "Not checked";
   const parsed = new Date(value);
@@ -182,6 +197,7 @@ export default function FtoImportedRegister() {
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-700">{statusSummary(item.council_fto_transactions)}</p>
                     <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <div><p className="text-xs font-semibold text-slate-800">{date(item.fto_date)}</p><p className="text-[10px] text-slate-400">FTO date</p></div>

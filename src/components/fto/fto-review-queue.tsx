@@ -50,6 +50,7 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [registerError, setRegisterError] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -202,12 +203,20 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
         )}
       </div>
 
+      {!loading && items.length > 0 && (
+        <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
+          className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:px-5">
+          <span>{expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}</span>
+          <span aria-hidden="true" className={`text-base text-slate-400 transition ${expanded ? "rotate-180" : ""}`}>⌄</span>
+        </button>
+      )}
+
       {registerError && <p role="status" className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">{registerError}. Register suggestions are unavailable until this is fixed.</p>}
       {error && <p role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</p>}
 
       {loading ? (
         <div className="p-8 text-center text-xs text-slate-500">Loading review rows…</div>
-      ) : (
+      ) : expanded ? (
         <div className="overflow-x-auto">
           <table className="min-w-[960px] divide-y divide-slate-200 text-xs">
             <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -259,7 +268,7 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

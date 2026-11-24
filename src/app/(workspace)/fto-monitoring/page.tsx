@@ -332,7 +332,7 @@ export default function FtoMonitoringPage() {
         <span className="inline-flex items-center gap-2 self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-2 text-[10px] font-semibold text-blue-800 sm:self-auto"><span className="h-1.5 w-1.5 rounded-full bg-blue-600"/> Government portal connection</span>
       </section>
 
-      <FtoImportedRegister />
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} />
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
         <div className="border-b border-slate-100 p-4 sm:p-6">

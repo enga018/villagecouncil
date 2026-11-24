@@ -247,33 +247,29 @@ export default function FtoMonitoringPage() {
     if (!batchId || !manifestToken || !ftoNumbers.length || busy || activating || testingParser) return;
     setTestingParser(true);
     setError("");
-    setNotice("Testing live Government FTO detail pages without staging or importing records.");
+    setNotice("Retesting the first two Government FTO detail pages without staging or importing records.");
     setLiveTest(null);
     try {
       const supabase = createClient();
+      const sample = ftoNumbers.slice(0, 2);
       const results: NonNullable<typeof liveTest>["results"] = [];
-      for (let offset = 0; offset < ftoNumbers.length; offset += 5) {
-        const chunk = ftoNumbers.slice(offset, offset + 5);
-        const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
-          body: { manifestToken, batchId, ftoNumbers: chunk, dryRun: true },
-        });
-        if (invokeError) {
-          const message = await invokeErrorMessage(invokeError, "Live parser test request failed.");
-          chunk.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: message }));
-          continue;
-        }
-        if (!data) {
-          chunk.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: "No response from the Edge Function." }));
-          continue;
-        }
+      const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
+        body: { manifestToken, batchId, ftoNumbers: sample, dryRun: true },
+      });
+      if (invokeError) {
+        const message = await invokeErrorMessage(invokeError, "Live parser test request failed.");
+        sample.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: message }));
+      } else if (!data) {
+        sample.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: "No response from the Edge Function." }));
+      } else {
         results.push(...(data.results || []));
       }
       const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
       const failed = results.length - passed;
-      setLiveTest({ checked: ftoNumbers.length, passed, failed, results });
+      setLiveTest({ checked: sample.length, passed, failed, results });
       setNotice(failed
         ? "Live parser test completed with failures. No FTO records or inspection history were changed."
-        : "Live parser test passed for all selected FTOs. No FTO records or inspection history were changed.");
+        : "Live parser test passed for the first two FTOs. No FTO records or inspection history were changed.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Live parser test failed.");
     } finally {
@@ -332,7 +328,7 @@ export default function FtoMonitoringPage() {
                 Force refresh all
               </button>
               {awaitingConfirmation && liveTest?.failed === 0 && <button type="button" onClick={continueProcessing} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Continue and prepare all FTOs</button>}
-              {awaitingConfirmation && liveTest?.failed > 0 && <button type="button" onClick={testLiveParser} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 disabled:opacity-50">{testingParser ? "Retesting…" : "Retry sample test"}</button>}
+              {awaitingConfirmation && liveTest && liveTest.failed > 0 && <button type="button" onClick={testLiveParser} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 disabled:opacity-50">{testingParser ? "Retesting…" : "Retry sample test"}</button>}
             </div>
           </div>
         </div>

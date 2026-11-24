@@ -49,6 +49,43 @@ async function invokeErrorMessage(error: unknown, fallback: string) {
   return value?.message || fallback;
 }
 
+function validateSampleResults(
+  sample: string[],
+  response: FtoDetailsResponse | null | undefined,
+  requestError?: string,
+): NonNullable<ReturnType<typeof getSampleResults>> {
+  return getSampleResults(sample, response, requestError);
+}
+
+function getSampleResults(
+  sample: string[],
+  response: FtoDetailsResponse | null | undefined,
+  requestError?: string,
+) {
+  type Result = NonNullable<FtoDetailsResponse["results"]>[number];
+  if (requestError) return sample.map(ftoNumber => ({ ftoNumber, kind: "request_failure", error: requestError }));
+  if (!response || response.success !== true || !Array.isArray(response.results)) {
+    const message = response?.error || "The parser test returned an incomplete or unsuccessful response.";
+    return sample.map(ftoNumber => ({ ftoNumber, kind: "request_failure", error: message }));
+  }
+  const grouped = new Map<string, Result[]>();
+  for (const result of response.results) {
+    const number = String(result.ftoNumber || "");
+    grouped.set(number, [...(grouped.get(number) || []), result]);
+  }
+  return sample.map(ftoNumber => {
+    const matches = grouped.get(ftoNumber) || [];
+    if (matches.length !== 1) {
+      return { ftoNumber, kind: "response_validation_failure", error: matches.length ? "The parser returned duplicate results for this FTO." : "The parser did not return a result for this FTO." };
+    }
+    const result = matches[0];
+    if (result.kind !== "village_match" && result.kind !== "out_of_village") {
+      return { ...result, ftoNumber };
+    }
+    return { ...result, ftoNumber };
+  });
+}
+
 export default function FtoMonitoringPage() {
   const [busy, setBusy] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -204,13 +241,8 @@ export default function FtoMonitoringPage() {
       const { data: testData, error: testError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
         body: { manifestToken: data.listing.manifestToken, batchId: data.batchId, ftoNumbers: sample, dryRun: true },
       });
-      let testResults: NonNullable<typeof liveTest>["results"];
-      if (testError) {
-        const message = await invokeErrorMessage(testError, "Live parser test request failed.");
-        testResults = sample.map(ftoNumber => ({ ftoNumber, kind: "request_failure", error: message }));
-      } else {
-        testResults = testData?.results || [];
-      }
+      const requestError = testError ? await invokeErrorMessage(testError, "Live parser test request failed.") : undefined;
+      const testResults = getSampleResults(sample, testData, requestError);
       const passed = testResults.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
       const failed = testResults.length - passed;
       setLiveTest({ checked: sample.length, passed, failed, results: testResults });
@@ -252,18 +284,11 @@ export default function FtoMonitoringPage() {
     try {
       const supabase = createClient();
       const sample = ftoNumbers.slice(0, 2);
-      const results: NonNullable<typeof liveTest>["results"] = [];
       const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
         body: { manifestToken, batchId, ftoNumbers: sample, dryRun: true },
       });
-      if (invokeError) {
-        const message = await invokeErrorMessage(invokeError, "Live parser test request failed.");
-        sample.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: message }));
-      } else if (!data) {
-        sample.forEach(ftoNumber => results.push({ ftoNumber, kind: "request_failure", error: "No response from the Edge Function." }));
-      } else {
-        results.push(...(data.results || []));
-      }
+      const requestError = invokeError ? await invokeErrorMessage(invokeError, "Live parser test request failed.") : undefined;
+      const results = getSampleResults(sample, data, requestError);
       const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
       const failed = results.length - passed;
       setLiveTest({ checked: sample.length, passed, failed, results });

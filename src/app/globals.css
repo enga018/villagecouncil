@@ -81,6 +81,8 @@
   --color-slate-600: var(--vc-text-secondary);
   --color-slate-900: var(--vc-foreground);
   --color-slate-950: var(--vc-foreground);
+  --color-blue-100: var(--vc-brand-soft);
+  --color-blue-200: var(--vc-brand-border);
   --color-blue-600: var(--vc-brand);
   --color-blue-700: var(--vc-brand);
   --color-blue-800: var(--vc-brand);

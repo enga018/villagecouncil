@@ -303,17 +303,24 @@ export default function FtoMonitoringPage() {
 
       <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {([
-          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT"],
-          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX"],
-          ["Needs review", preview ? preview.reviewFtos : null, "FTOs with blank Panchayat rows in the latest fetch", "RV"],
-          ["Out-of-village", preview ? preview.outOfVillageFtos : null, "FTOs excluded in the latest fetch", "OV"],
-        ] as const).map(([label, value, description, mark]) => (
+          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", importIncrement?.newFtos || 0],
+          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", importIncrement?.newTransactions || 0],
+          ["Needs review", preview ? preview.reviewFtos : null, "FTOs with blank Panchayat rows in the latest fetch", "RV", 0],
+          ["Out-of-village", preview ? preview.outOfVillageFtos : null, "FTOs excluded in the latest fetch", "OV", 0],
+        ] as const).map(([label, value, description, mark, delta]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium text-slate-500">{label}</p>
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-[9px] font-bold text-slate-500">{mark}</span>
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums text-slate-950 sm:text-[28px]">{value === null ? "—" : formatNumber(value)}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <p className="text-2xl font-bold tracking-tight tabular-nums text-slate-950 sm:text-[28px]">{value === null ? "—" : formatNumber(value)}</p>
+              {delta !== 0 && (
+                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${delta > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+                  {delta > 0 ? "+" : "−"}{formatNumber(delta)}
+                </span>
+              )}
+            </div>
             <p className="mt-1.5 text-[10px] text-slate-400">{description}</p>
           </div>
         ))}

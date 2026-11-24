@@ -164,10 +164,10 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             <p className="mt-1 text-xs text-slate-500">FTOs activated for this Village Council and their imported transaction details</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            <span className="font-medium text-slate-400">{number(records.length)} FTOs · {number(transactionCount)} transactions</span>
             {autoIncrement && (autoIncrement.newFtos > 0 || autoIncrement.newTransactions > 0) && (
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">+{number(autoIncrement.newFtos)} FTOs · +{number(autoIncrement.newTransactions)} transactions (this fetch)</span>
             )}
+            <span className="font-medium text-slate-400">{number(records.length)} FTOs · {number(transactionCount)} transactions</span>
           </div>
         </div>
         <div className="mt-4">

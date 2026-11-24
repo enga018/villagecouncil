@@ -46,13 +46,36 @@ function rowsOf(html: string) {
     .filter(row => row.some(Boolean));
 }
 
+
+function transactionTableOf(html: string) {
+  const tags = [...html.matchAll(/<\\/?table\\b[^>]*>/gi)];
+  const stack: number[] = [];
+  const tables: string[] = [];
+  for (const tag of tags) {
+    if (/^<\\s*\\//.test(tag[0])) {
+      const start = stack.pop();
+      if (start !== undefined && stack.length === 0) {
+        tables.push(html.slice(start, tag.index! + tag[0].length));
+      }
+    } else {
+      stack.push(tag.index!);
+    }
+  }
+  return tables.find(table => {
+    const rows = rowsOf(table);
+    return rows.some(row => row.some(cell => /job\\s*card\\s*no/i.test(cell)) &&
+      row.some(cell => /reference\\s*no/i.test(cell)));
+  }) || "";
+}
+
 /**
  * Parses the Government FTO transaction-detail table.
  * Synthetic fixtures may exercise this function, but only captured Government HTML
  * can establish compatibility with the live portal.
  */
 export function parseGovernmentFtoDetailHtml(html: string, ftoNumber: string): GovernmentFtoTransaction[] {
-  const tableRows = rowsOf(html), pageText = textOf(html);
+  const transactionTable = transactionTableOf(html);
+  const tableRows = rowsOf(transactionTable), pageText = textOf(html);
   const header = tableRows.find(row => row.some(cell => /job\s*card\s*no/i.test(cell)) && row.some(cell => /reference\s*no/i.test(cell)));
   if (!header || !/FTO\s+Transaction\s+Details/i.test(pageText)) {
     throw new Error("FTO " + ftoNumber + " did not return a valid FTO Transaction Details page.");

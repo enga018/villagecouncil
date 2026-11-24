@@ -351,7 +351,7 @@ export function findBlockSignedCountControl(html: string, pageUrl: string, block
       .replace(/\s+/g, " ")
       .trim();
     const signatoryCols = Array.from({ length: width }, (_, i) => i)
-      .filter(i => /(?:first|1st) signatory/.test(headerPath(i)));
+      .filter(i => /(?:first|1st|ist) signatory/.test(headerPath(i)));
     const signedCol = signatoryCols.find(i => {
       const path = headerPath(i);
       return /(?:no of )?signed ftos?/.test(path) ||

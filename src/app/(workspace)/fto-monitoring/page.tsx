@@ -49,14 +49,6 @@ async function invokeErrorMessage(error: unknown, fallback: string) {
   return value?.message || fallback;
 }
 
-function validateSampleResults(
-  sample: string[],
-  response: FtoDetailsResponse | null | undefined,
-  requestError?: string,
-): NonNullable<ReturnType<typeof getSampleResults>> {
-  return getSampleResults(sample, response, requestError);
-}
-
 function getSampleResults(
   sample: string[],
   response: FtoDetailsResponse | null | undefined,
@@ -226,6 +218,7 @@ export default function FtoMonitoringPage() {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
+      if (!numbers.length) throw new Error("The Government listing returned no eligible FTO numbers to test.");
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
       setFtoNumbers(numbers);

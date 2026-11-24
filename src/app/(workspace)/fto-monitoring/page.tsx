@@ -72,7 +72,9 @@ export default function FtoMonitoringPage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
+  const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null; registerTotal: number | null }>({ ftos: null, transactions: null, registerTotal: null });
+  const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
+  const statusLoaded = useRef(false);
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
   const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
 
@@ -80,12 +82,29 @@ export default function FtoMonitoringPage() {
     let active = true;
     async function loadSummary() {
       const supabase = createClient();
-      const [ftos, transactions] = await Promise.all([
+      const [ftos, transactions, byStatus, registerTotals] = await Promise.all([
         supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }),
+        supabase
+          .from("council_fto_transactions")
+          .select("normalized_status", { count: "exact", groupBy: ["normalized_status"], head: true })
+          .in("normalized_status", ["processed", "deferred", "rejected"]),
+        supabase
+          .from("council_ftos")
+          .select("id", { count: "exact", head: true }),
       ]);
       if (!active) return;
-      setSummary({ ftos: ftos.count ?? null, transactions: transactions.count ?? null });
+      const totals = new Map<string, number>();
+      for (const row of ((byStatus?.data || []) as Array<{ normalized_status: string; count: number | string }>)) {
+        const count = Number(row.count);
+        if (count > 0) totals.set(row.normalized_status, count);
+      }
+      setStatusTotals({
+        processed: totals.get("processed") ?? 0,
+        deferred: totals.get("deferred") ?? 0,
+        rejected: totals.get("rejected") ?? 0,
+      });
+      setSummary({ ftos: ftos.count ?? null, transactions: transactions.count ?? null, registerTotal: registerTotals.count ?? null });
     }
     void loadSummary();
     return () => { active = false; };
@@ -301,12 +320,14 @@ export default function FtoMonitoringPage() {
         </button>
       </section>
 
-      <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {([
           ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", importIncrement?.newFtos || 0],
           ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", importIncrement?.newTransactions || 0],
-          ["Needs review", preview ? preview.reviewFtos : null, "FTOs with blank Panchayat rows in the latest fetch", "RV", 0],
-          ["Out-of-village", preview ? preview.outOfVillageFtos : null, "FTOs excluded in the latest fetch", "OV", 0],
+          ["Processed", statusTotals.processed, "Processed in the register", "PT", 0],
+          ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", 0],
+          ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", 0],
+          ["FTO register", summary.registerTotal, "Total FTOs in the register", "TOT", 0],
         ] as const).map(([label, value, description, mark, delta]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
             <div className="flex items-start justify-between gap-2">
@@ -315,11 +336,6 @@ export default function FtoMonitoringPage() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <p className="text-2xl font-bold tracking-tight tabular-nums text-slate-950 sm:text-[28px]">{value === null ? "—" : formatNumber(value)}</p>
-              {delta !== 0 && (
-                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${delta > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                  {delta > 0 ? "+" : "−"}{formatNumber(delta)}
-                </span>
-              )}
             </div>
             <p className="mt-1.5 text-[10px] text-slate-400">{description}</p>
           </div>

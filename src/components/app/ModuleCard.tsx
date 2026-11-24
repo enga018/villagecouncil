@@ -64,7 +64,7 @@ export function ModuleCard({ title, description, href, mark, eyebrow, action, ac
   children?: ReactNode;
 }) {
   return (
-    <Link href={href} className={`group flex min-h-[250px] flex-col rounded-2xl border bg-white p-5 shadow-[var(--vc-shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 sm:p-6 ${accentStyles[accent]}`}>
+    <Link href={href} className={`group flex min-h-[250px] flex-col rounded-2xl border bg-white p-5 shadow-[var(--vc-shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 ${actionStyles[accent]} sm:p-6 ${accentStyles[accent]}`}>
       <div className="flex items-start justify-between gap-4">
         <span className={`flex h-11 w-11 items-center justify-center rounded-xl text-xs font-bold tracking-wide ${iconStyles[accent]}`}>{mark}</span>
         <StatusBadge status="Available" />
@@ -73,7 +73,7 @@ export function ModuleCard({ title, description, href, mark, eyebrow, action, ac
       <h3 className="mt-1 text-base font-bold tracking-tight text-slate-900">{title}</h3>
       <p className="mt-1.5 text-xs leading-5 text-slate-600">{description}</p>
       {children && <div className="mt-4">{children}</div>}
-      <span className="mt-auto inline-flex items-center gap-2 pt-5 text-xs font-bold text-blue-700">
+      <span className="mt-auto inline-flex items-center gap-2 pt-5 text-xs font-bold ${actionStyles[accent]}">
         {action}<span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
       </span>
     </Link>

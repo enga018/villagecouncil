@@ -1,3 +1,5 @@
+<!-- Archived: these decisions belong to the superseded survey-management application and must not be treated as current architecture or product requirements. -->
+
 # Project Memory
 
 This document captures the current design decisions for Village Council.

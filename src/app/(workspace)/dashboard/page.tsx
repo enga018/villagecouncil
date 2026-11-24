@@ -35,7 +35,38 @@ const plannedModules = [
 export default function DashboardPage() {
   const [activeJobCards, setActiveJobCards] = useState<number | null>(null);
   const [activeApplicants, setActiveApplicants] = useState<number | null>(null);
+  const [ftoImported, setFtoImported] = useState<number | null>(null);
+  const [ftoTransactions, setFtoTransactions] = useState<number | null>(null);
+  const [ftoTotal, setFtoTotal] = useState<number | null>(null);
+  const [ftoProcessed, setFtoProcessed] = useState<number | null>(null);
+  const [ftoDeferred, setFtoDeferred] = useState<number | null>(null);
+  const [ftoRejected, setFtoRejected] = useState<number | null>(null);
+  const [ftoDataMissing, setFtoDataMissing] = useState(false);
   const [kpiError, setKpiError] = useState("");
+
+  async function loadFtoSummary(councilId: string) {
+    try {
+      const supabase = createClient();
+      const [ftosResult, transactionsResult, statusRowsResult] = await Promise.all([
+        supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
+        supabase.from("council_fto_transactions").select("normalized_status").eq("village_council_id", councilId),
+        supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+      ]);
+      if (ftosResult.error || transactionsResult.error || statusRowsResult.error) {
+        setFtoDataMissing(true);
+        return;
+      }
+      const rows = Array.isArray(transactionsResult.data) ? transactionsResult.data as Array<{ normalized_status: string }> : [];
+      setFtoImported(ftosResult.count ?? 0);
+      setFtoTransactions(transactionsResult.count ?? 0);
+      setFtoTotal(statusRowsResult.count ?? 0);
+      setFtoProcessed(rows.filter(row => row.normalized_status === "processed").length);
+      setFtoDeferred(rows.filter(row => row.normalized_status === "deferred").length);
+      setFtoRejected(rows.filter(row => row.normalized_status === "rejected").length);
+    } catch {
+      setFtoDataMissing(true);
+    }
+  }
 
   useEffect(() => {
     let current = true;
@@ -57,6 +88,7 @@ export default function DashboardPage() {
         if (!membership) throw new Error("No active Village Council assignment was found.");
 
         const councilId = membership.village_council_id;
+        void loadFtoSummary(councilId);
         const [cardsResult, applicantsResult] = await Promise.all([
           supabase
             .from("council_job_cards")
@@ -116,7 +148,51 @@ export default function DashboardPage() {
           </div>
           <p className="mt-3 text-[11px] text-slate-400">Applicants across active Job Cards</p>
         </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">FTO Register</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{ftoImported === null ? "—" : ftoImported.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[11px] font-bold text-blue-800">FTO</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Imported FTOs for this Council</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Transactions</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{ftoTransactions === null ? "—" : ftoTransactions.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[11px] font-bold text-blue-800">TX</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Imported transaction rows</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Processed</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-emerald-950">{ftoProcessed === null ? "—" : ftoProcessed.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[11px] font-bold text-emerald-800">PT</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Transactions with Government status Processed</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Deferred</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-amber-900">{ftoDeferred === null ? "—" : ftoDeferred.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-[11px] font-bold text-amber-900">DR</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Transactions with a deferred status</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">Rejected</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-rose-950">{ftoRejected === null ? "—" : ftoRejected.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-[11px] font-bold text-rose-900">RJ</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Transactions with Government status Rejected</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
+          <div className="flex items-start justify-between">
+            <div><p className="text-xs font-medium text-slate-500">All FTOs</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{ftoTotal === null ? "—" : ftoTotal.toLocaleString("en-IN")}</p></div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-[11px] font-bold text-slate-500">AL</span>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-400">Total FTOs in the register</p>
+        </div>
       </section>
+
+      {ftoDataMissing && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">FTO summary data is not available yet.</p>}
 
       {kpiError && <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">{kpiError}</p>}
 

@@ -22,6 +22,12 @@ const SYNTHETIC_DETAIL_HTML = `
       <td>Applicant Two</td><td>Household Head Two</td><td>500</td><td>500</td>
       <td></td><td></td><td></td>
     </tr>
+    <tr><td colspan="10">SubTotal</td></tr>
+    <tr><td colspan="10">Total</td></tr>
+  </table>
+  <table>
+    <tr><th>S.No.</th><th>Block_name</th><th>Fto No</th><th>Bank Name/HO Name</th><th>Amount</th></tr>
+    <tr><td>1</td><td>serchhip</td><td>FTO-TEST-001</td><td>Mizoram Rural Bank</td><td>1,450</td></tr>
   </table>
 </body></html>`;
 

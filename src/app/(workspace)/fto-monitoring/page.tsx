@@ -75,6 +75,7 @@ export default function FtoMonitoringPage() {
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null; registerTotal: number | null }>({ ftos: null, transactions: null, registerTotal: null });
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
+  const [fetchDelta, setFetchDelta] = useState<FtoAutoIncrement>(null);
   const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
 
   useEffect(() => {
@@ -136,6 +137,7 @@ export default function FtoMonitoringPage() {
     const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
+    setFetchDelta(null);
     const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
     fetchBaselineRef.current = null;
     const ftos = Number(data.importedFtos || 0), transactions = Number(data.importedTransactions || 0);
@@ -217,6 +219,15 @@ export default function FtoMonitoringPage() {
         lastBatchComplete = batch?.status === "pending";
       }
       if (!failedList.length && lastBatchComplete) {
+        const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
+        fetchBaselineRef.current = null;
+        const [nextFtosResult, nextTransactionsResult] = await Promise.all([
+          supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("status", "active"),
+          supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }),
+        ]);
+        const nextFtos = nextFtosResult.count ?? 0, nextTransactions = nextTransactionsResult.count ?? 0;
+        const delta = { newFtos: Math.max(0, nextFtos - baseline.ftos), newTransactions: Math.max(0, nextTransactions - baseline.transactions) };
+        setFetchDelta(delta.newFtos > 0 || delta.newTransactions > 0 ? delta : null);
         await loadPreview(supabase, currentBatchId);
         await applyAndActivate(supabase, currentBatchId);
         setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");
@@ -239,12 +250,13 @@ export default function FtoMonitoringPage() {
     setNotice("");
     setPreview(null);
     setImportResult(null);
+    setImportIncrement(null);
+    setFetchDelta(null);
     setFailedFtos([]);
     setFailureDetails([]);
     setProgress(null);
     setBatchId("");
     setManifestToken("");
-    setImportIncrement(null);
     try {
       const supabase = createClient();
       const { data, error: invokeError } = await supabase.functions.invoke<FtoSourceResponse>("council-fto-source", { body: { forceRefresh } });
@@ -257,6 +269,7 @@ export default function FtoMonitoringPage() {
       }
       const beforeFetch = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
       fetchBaselineRef.current = null;
+      setFetchDelta(null);
       if (!data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
@@ -312,8 +325,8 @@ export default function FtoMonitoringPage() {
 
       <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {([
-          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", importIncrement?.newFtos || 0],
-          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", importIncrement?.newTransactions || 0],
+          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", importIncrement?.newFtos || fetchDelta?.newFtos || 0],
+          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", importIncrement?.newTransactions || fetchDelta?.newTransactions || 0],
           ["Processed", statusTotals.processed, "Processed in the register", "PT", 0],
           ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", 0],
           ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", 0],
@@ -332,7 +345,7 @@ export default function FtoMonitoringPage() {
         ))}
       </section>
 
-      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement} />
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement || fetchDelta} />
 
       <div className="space-y-4">
         {progress && (

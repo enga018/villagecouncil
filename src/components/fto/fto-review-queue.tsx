@@ -188,20 +188,22 @@ export default function FtoReviewQueue({ batchId, applied }: { batchId: string; 
           </div>
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">{loading ? "Loading…" : `${pendingCount.toLocaleString("en-IN")} of ${items.length.toLocaleString("en-IN")} awaiting decision`}</span>
         </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          {!loading && suggestedItems.length > 0 && (
+            <span className="text-[11px] font-semibold text-emerald-800">
+              {suggestedItems.length.toLocaleString("en-IN")} awaiting rows have an active Job Card in your register.
+            </span>
+          )}
+          <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
+            className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-700">
+            {expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}
+          </button>
+        </div>
         {!loading && suggestedItems.length > 0 && (
-          <div className="mt-4 flex flex-col gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-emerald-900">{suggestedItems.length.toLocaleString("en-IN")} awaiting rows have an active Job Card in your register.</p>
+          <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
             <button type="button" onClick={applyDecisions} disabled={Boolean(applyState === "applying") || Boolean(bulkProgress)}
-              className="min-h-9 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50">
+              className="min-h-9 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50">
               {applyState === "applying" ? "Applying…" : applyState === "done" ? "Applied" : `Accept ${suggestedItems.length.toLocaleString("en-IN")} suggested as In village`}
-            </button>
-          </div>
-        )}
-        {!loading && items.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
-              className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-700">
-              {expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}
             </button>
           </div>
         )}

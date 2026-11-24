@@ -74,7 +74,6 @@ function validateGovernmentTransactions(transactions: Transaction[], listingRow:
   for (let index = 0; index < transactions.length; index++) {
     const tx = transactions[index], label = "Government row " + (index + 1);
     if (!tx.jobCardNumber) errors.push(label + ": missing or invalid Job Card Number.");
-    if (!tx.village) errors.push(label + ": missing Panchayat name in the Job Card/Panchayat cell.");
     if (!tx.referenceNumber) errors.push(label + ": missing Reference Number.");
     const ref = String(tx.referenceNumber || "").trim().toUpperCase();
     if (ref && refs.has(ref)) errors.push(label + ": duplicate Reference Number " + ref + ".");
@@ -228,10 +227,12 @@ async function main(req: Request, origin: string | null) {
           continue;
         }
         const matching: Transaction[] = transactions.filter((tx: Transaction) =>
-          normalizeVillage(tx.village) === targetPanchayat
+          !tx.village || normalizeVillage(tx.village) === targetPanchayat
         );
+        const reviewTransactionCount = matching.filter((tx: Transaction) => !tx.village).length;
+        const namedMatchCount = matching.length - reviewTransactionCount;
         const unmatchedCount = transactions.length - matching.length;
-        const scope = matching.length ? "IN_SCOPE" : "OUT_OF_SCOPE";
+        const scope = namedMatchCount ? "IN_SCOPE" : reviewTransactionCount ? "NEEDS_REVIEW" : "OUT_OF_SCOPE";
         const listingRow = item.candidate.listingRow || [];
         const ftoRow = {
           scope,
@@ -262,7 +263,7 @@ async function main(req: Request, origin: string | null) {
           village_council_id: tenantId,
           fto_number: item.candidate.ftoNumber,
           listing_fingerprint: await fingerprintCandidate(item.candidate),
-          inspection_result: scope === "IN_SCOPE" ? "matched" : "no_match",
+          inspection_result: scope === "OUT_OF_SCOPE" ? "no_match" : "matched",
           matching_transaction_count: matching.length,
           unresolved_transaction_count: unresolvedCount,
           last_inspected_at: new Date().toISOString(),
@@ -272,9 +273,10 @@ async function main(req: Request, origin: string | null) {
         });
         results.push({
           ftoNumber: item.candidate.ftoNumber,
-          kind: scope === "IN_SCOPE" ? "village_match" : "out_of_village",
+          kind: scope === "OUT_OF_SCOPE" ? "out_of_village" : scope === "NEEDS_REVIEW" ? "needs_review" : "village_match",
           governmentTransactionCount: transactions.length,
           matchingTransactionCount: matching.length,
+          reviewTransactionCount,
           excludedTransactionCount: unmatchedCount,
           matchedJobCards: [...new Set(matching.map((tx: Transaction) => String(tx.jobCardNumber).trim().toUpperCase()))],
         });
@@ -290,7 +292,7 @@ async function main(req: Request, origin: string | null) {
   await Promise.all(workers);
 
   if (dryRun) {
-    const successful = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+    const successful = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;
     const failed = results.filter(result => result.kind === "validation_failure" || result.kind === "fetch_failure").length;
     return reply({
       success: failed === 0 && successful === requested.length,

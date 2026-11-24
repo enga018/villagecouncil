@@ -46,6 +46,51 @@ Deno.test("parses transaction rows from a synthetic detail-page fixture", () => 
   assertEquals(rows[1].village, "Other Village");
 });
 
+// Structure captured from a live Government FTO detail page. Applicant names are replaced with placeholders.
+// The Panchayat cell is blank on the portal and renders as "()" after the Job Card number.
+const CAPTURED_BLANK_PANCHAYAT_HTML = `
+<html><body>
+  <h2>FTO Transaction Details</h2>
+  <table>
+    <tr>
+      <th>S.No</th><th>Block Name</th><th>Job Card No.<br>(Panchayat Name)</th><th>Reference No.</th>
+      <th>Transaction Date</th><th>Applicant Name</th><th>Wagelist No.</th><th>Name of Primary Account Holder</th>
+      <th>Bank Code</th><th>IFSC code</th><th>Amount to be credited (In Rs.)</th><th>Credit Amount(In Rs.)</th>
+      <th>Status</th><th>Processed Date</th><th>Bank To co-operative/postoffice Processed Date</th>
+      <th>UTR No.</th><th>Rejection Reason</th><th>Paid in account of (in case of ABP)</th><th>Paid in Bank (in case of ABP)</th>
+    </tr>
+    <tr>
+      <td>1</td><td>serchhip</td><td>MZ-02-001-028-001/1<br>()</td><td>2202001000VBG27270820260106362</td>
+      <td>29/08/2026</td><td>APPLICANT A</td><td>2202001WL000203</td><td>APPLICANT A</td>
+      <td>00293</td><td>SBIN0RRMIGB</td><td>2100</td><td>2100</td>
+      <td>Processed</td><td>23/09/2026</td><td></td><td>003806</td><td></td><td>APPLICANT A</td><td></td>
+    </tr>
+    <tr>
+      <td>2</td><td>serchhip</td><td>New Serchhip North (MZ-07-001-005-001/835)</td><td>REF-PLACEHOLDER-2</td>
+      <td>29/08/2026</td><td>APPLICANT B</td><td>2202001WL000203</td><td>APPLICANT B</td>
+      <td>00293</td><td>SBIN0RRMIGB</td><td>1800</td><td>1800</td>
+      <td>Processed</td><td>23/09/2026</td><td></td><td>003725</td><td></td><td>APPLICANT B</td><td></td>
+    </tr>
+    <tr><td>SubTotal</td><td>3900</td><td>3900</td></tr>
+    <tr><td>Total</td><td>3900</td><td>3900</td></tr>
+  </table>
+  <table>
+    <tr><th>S.No.</th><th>Block_name</th><th>Fto No</th><th>Bank Name/HO Name</th><th>Amount</th></tr>
+    <tr><td>1</td><td>serchhip</td><td>FTO-TEST-003</td><td>Mizoram Rural Bank</td><td>3900</td></tr>
+  </table>
+</body></html>`;
+
+Deno.test("keeps a blank Panchayat cell as an empty village instead of inventing one", () => {
+  const rows = parseGovernmentFtoDetailHtml(CAPTURED_BLANK_PANCHAYAT_HTML, "FTO-TEST-003");
+  assertEquals(rows.length, 2);
+  assertEquals(rows[0].jobCardNumber, "MZ-02-001-028-001/1");
+  assertEquals(rows[0].village, "");
+  assertEquals(rows[0].normalizedStatus, "processed");
+  assertEquals(rows[0].creditAmount, "2100");
+  assertEquals(rows[1].jobCardNumber, "MZ-07-001-005-001/835");
+  assertEquals(rows[1].village, "New Serchhip North");
+});
+
 Deno.test("rejects pages without the expected FTO detail title and headers", () => {
   assertThrows(
     () => parseGovernmentFtoDetailHtml("<html><body><table><tr><td>Hello</td></tr></table></body></html>", "FTO-TEST-002"),

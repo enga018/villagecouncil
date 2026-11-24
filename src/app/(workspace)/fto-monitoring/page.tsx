@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoImportedRegister from "@/components/fto/fto-imported-register";
+import FtoReviewQueue from "@/components/fto/fto-review-queue";
 
 type FtoPreview = {
   inScopeFtos: number;
+  reviewFtos: number;
   outOfVillageFtos: number;
   transactions: number;
   sample: Array<{ ftoNumber: string; transactionCount: number; jobCards: string[] }>;
@@ -94,7 +96,23 @@ export default function FtoMonitoringPage() {
   const [failureDetails, setFailureDetails] = useState<Array<{ ftoNumber: string; reason: string }>>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [preview, setPreview] = useState<FtoPreview | null>(null);
-  const [importResult, setImportResult] = useState<{ ftos: number; transactions: number; excluded: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ ftos: number; transactions: number; excluded: number; pendingReview: number } | null>(null);
+  const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
+
+  useEffect(() => {
+    let active = true;
+    async function loadSummary() {
+      const supabase = createClient();
+      const [ftos, transactions] = await Promise.all([
+        supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }),
+      ]);
+      if (!active) return;
+      setSummary({ ftos: ftos.count ?? null, transactions: transactions.count ?? null });
+    }
+    void loadSummary();
+    return () => { active = false; };
+  }, [importResult]);
 
   async function loadPreview(supabase: ReturnType<typeof createClient>, currentBatchId: string) {
     const rows: FtoImportRow[] = [];
@@ -110,10 +128,12 @@ export default function FtoMonitoringPage() {
       if (!data || data.length < 1000) break;
     }
     const inScope = rows.filter(row => row.row_data?.scope === "IN_SCOPE");
+    const reviewRows = rows.filter(row => row.row_data?.scope === "NEEDS_REVIEW");
     const outOfVillage = rows.filter(row => row.row_data?.scope === "OUT_OF_SCOPE");
     const transactions = inScope.reduce((sum, row) => sum + (Array.isArray(row.row_data?.transactions) ? row.row_data.transactions.length : 0), 0);
     setPreview({
       inScopeFtos: inScope.length,
+      reviewFtos: reviewRows.length,
       outOfVillageFtos: outOfVillage.length,
       transactions,
       sample: inScope.slice(0, 12).map(row => ({
@@ -237,7 +257,7 @@ export default function FtoMonitoringPage() {
       });
       const requestError = testError ? await invokeErrorMessage(testError, "Live parser test request failed.") : undefined;
       const testResults = getSampleResults(sample, testData, requestError);
-      const passed = testResults.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+      const passed = testResults.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;
       const failed = testResults.length - passed;
       setLiveTest({ checked: sample.length, passed, failed, results: testResults });
       setNotice(failed
@@ -283,7 +303,7 @@ export default function FtoMonitoringPage() {
       });
       const requestError = invokeError ? await invokeErrorMessage(invokeError, "Live parser test request failed.") : undefined;
       const results = getSampleResults(sample, data, requestError);
-      const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village").length;
+      const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;
       const failed = results.length - passed;
       setLiveTest({ checked: sample.length, passed, failed, results });
       setNotice(failed
@@ -297,7 +317,7 @@ export default function FtoMonitoringPage() {
   }
 
   async function activateImport() {
-    if (!batchId || !preview || preview.inScopeFtos === 0 || activating || busy) return;
+    if (!batchId || !preview || preview.inScopeFtos + preview.reviewFtos === 0 || activating || busy) return;
     setActivating(true);
     setError("");
     setNotice("");
@@ -310,6 +330,7 @@ export default function FtoMonitoringPage() {
         ftos: Number(data.importedFtos || 0),
         transactions: Number(data.importedTransactions || 0),
         excluded: Number(data.excludedOutOfVillageFtos || 0),
+        pendingReview: Number(data.pendingReviewTransactions || 0),
       });
       setNotice("Village FTO import completed successfully.");
     } catch (err) {
@@ -327,24 +348,50 @@ export default function FtoMonitoringPage() {
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">FTO Monitoring</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">Discover First Signatory FTOs, validate their details and review transactions belonging to this Village Council before importing.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Discover First Signatory FTOs, validate their details and review transactions belonging to this Village Council before importing.</p>
         </div>
-        <span className="inline-flex items-center gap-2 self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-2 text-[10px] font-semibold text-blue-800 sm:self-auto"><span className="h-1.5 w-1.5 rounded-full bg-blue-600"/> Government portal connection</span>
+        <button
+          type="button"
+          onClick={() => startFetch(false)}
+          disabled={busy || activating || Boolean(preview && !importResult)}
+          aria-busy={busy}
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} stroke="currentColor" strokeWidth="1.7">
+            <path d="M16.5 7.5A6.8 6.8 0 0 0 4.2 5.2L2.5 7M2.5 7V3.8M2.5 7h3.2M3.5 12.5a6.8 6.8 0 0 0 12.3 2.3l1.7-1.8m0 0v3.2m0-3.2h-3.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {busy ? "Fetching…" : "Fetch FTOs"}
+        </button>
+      </section>
+
+      <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {([
+          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT"],
+          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX"],
+          ["Needs review", preview ? preview.reviewFtos : null, "FTOs with blank Panchayat rows in the latest fetch", "RV"],
+          ["Out-of-village", preview ? preview.outOfVillageFtos : null, "FTOs excluded in the latest fetch", "OV"],
+        ] as const).map(([label, value, description, mark]) => (
+          <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-slate-500">{label}</p>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-[9px] font-bold text-slate-500">{mark}</span>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums text-slate-950 sm:text-[28px]">{value === null ? "—" : formatNumber(value)}</p>
+            <p className="mt-1.5 text-[10px] text-slate-400">{description}</p>
+          </div>
+        ))}
       </section>
 
       <FtoImportedRegister key={importResult ? "after-import" : "initial"} />
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
-        <div className="border-b border-slate-100 p-4 sm:p-6">
-          <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
-            <div className="max-w-xl">
-              <div className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[10px] font-bold text-blue-800">FTO</span><div><h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2><p className="mt-0.5 text-xs text-slate-500">First Signatory listing for this Council&apos;s Block</p></div></div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">Uses saved District/Block navigation and official Government links. No CAPTCHA or manual file upload is required.</p>
+        <div className="border-b border-slate-100 p-4 sm:p-5">
+          <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-end">
+            <div className="max-w-2xl">
+              <h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-500">First Signatory listing for this Council&apos;s Block. Uses saved District/Block navigation and official Government links; no CAPTCHA or manual file upload is required.</p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <button type="button" onClick={() => startFetch(false)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
-                {busy ? "Fetching…" : "Fetch FTOs"}
-              </button>
               {awaitingConfirmation && liveTest?.failed === 0 && <button type="button" onClick={continueProcessing} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Continue and prepare all FTOs</button>}
               {awaitingConfirmation && liveTest && liveTest.failed > 0 && <button type="button" onClick={testLiveParser} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 disabled:opacity-50">{testingParser ? "Retesting…" : "Retry sample test"}</button>}
             </div>
@@ -417,20 +464,23 @@ export default function FtoMonitoringPage() {
 
           <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-xl text-[11px] leading-5 text-slate-500">Review the counts and sample before confirming. No FTO records are activated until you confirm.</p>
-            <button type="button" onClick={activateImport} disabled={activating || busy || preview.inScopeFtos === 0 || Boolean(importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+            <button type="button" onClick={activateImport} disabled={activating || busy || preview.inScopeFtos + preview.reviewFtos === 0 || Boolean(importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
               {activating ? "Activating import…" : importResult ? "Import completed" : "Confirm and import village FTOs"}
             </button>
           </div>
         </section>
       )}
 
+      {batchId && preview && <FtoReviewQueue batchId={batchId} />}
+
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import activation returned successfully.</p></div></div>
-          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-4">
             <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">FTOs imported</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Transactions imported</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-[11px] text-emerald-800">Out-of-village FTOs excluded</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-amber-800">{formatNumber(importResult.pendingReview)}</p><p className="text-[11px] text-emerald-800">Review rows still undecided</p></div>
           </div>
         </section>
       )}

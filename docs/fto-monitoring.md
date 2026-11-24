@@ -47,7 +47,14 @@ For each transaction, the parser:
 
 Only matching transactions are staged as in-scope. FTOs with no matching transactions are recorded as out-of-scope for that Council.
 
-If the Panchayat value is missing or cannot be validated, the detail inspection fails safely; the transaction is not assigned based on Job Card number alone.
+Job Card numbers are never used to decide ownership on their own. A Job Card keeps its original number after transfer, so the Panchayat code inside the number reflects where the card was issued, not where it works now.
+
+If the Government Panchayat name is blank (the portal shows only `()` in the Job Card/Panchayat cell), the row is **not** rejected and is **not** assigned automatically. Instead:
+
+1. The FTO is staged, and the blank-name transaction row is marked **needs review**. Other validation checks still apply to the whole FTO.
+2. The review list shows each row's Job Card, reference number, amount, and source FTO. If the Job Card is in the Council's job card register, the row shows a "found in your register" hint. The hint never decides the outcome.
+3. An authorized Council user marks each row **In village** or **Not in village**. Decisions are stored per transaction row (FTO number and reference number), with the user and timestamp, and are not overwritten silently.
+4. Activation imports named in-village rows plus review rows marked In village. Undecided review rows are not imported; their count is shown before and after activation.
 
 ## Detail validation
 

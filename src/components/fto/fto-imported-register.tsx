@@ -140,23 +140,22 @@ export default function FtoImportedRegister() {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
-      <div className="border-b border-slate-100 p-4 sm:p-6">
+      <div className="border-b border-slate-100 p-4 sm:p-5">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blue-700">Permanent Council records</p>
-            <h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Imported FTO Register</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">FTOs activated for this Village Council and their imported transaction details.</p>
+            <h2 className="text-base font-bold tracking-tight text-slate-950">Imported FTO register</h2>
+            <p className="mt-1 text-xs text-slate-500">FTOs activated for this Village Council and their imported transaction details</p>
           </div>
-          <div className="flex gap-5">
-            <div><p className="text-xl font-bold tabular-nums text-slate-950">{number(records.length)}</p><p className="text-[10px] text-slate-500">FTOs</p></div>
-            <div><p className="text-xl font-bold tabular-nums text-slate-950">{number(transactionCount)}</p><p className="text-[10px] text-slate-500">Transactions</p></div>
-          </div>
+          <span className="text-[11px] font-medium text-slate-400">{number(records.length)} FTOs · {number(transactionCount)} transactions</span>
         </div>
         <div className="mt-4">
-          <label htmlFor="fto-register-search" className="sr-only">Search imported FTOs</label>
-          <input id="fto-register-search" value={search} onChange={event => setSearch(event.target.value)}
-            placeholder="Search FTO, Job Card, reference number or applicant…"
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"/>
+          <label htmlFor="fto-register-search" className="relative block">
+            <span className="sr-only">Search imported FTOs</span>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+            <input id="fto-register-search" value={search} onChange={event => setSearch(event.target.value)}
+              placeholder="Search FTO No., Job Card, reference number or applicant"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
+          </label>
         </div>
       </div>
 

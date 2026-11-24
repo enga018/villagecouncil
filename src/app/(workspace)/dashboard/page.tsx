@@ -42,27 +42,37 @@ export default function DashboardPage() {
   const [ftoDeferred, setFtoDeferred] = useState<number | null>(null);
   const [ftoRejected, setFtoRejected] = useState<number | null>(null);
   const [ftoDataMissing, setFtoDataMissing] = useState(false);
+  const [ftoChanges, setFtoChanges] = useState<{ importedFtos: number; transactions: number; totalStatus: number; deferral: number; rejection: number } | null>(null);
   const [kpiError, setKpiError] = useState("");
 
   async function loadFtoSummary(councilId: string) {
     try {
       const supabase = createClient();
-      const [ftosResult, transactionsResult, statusRowsResult] = await Promise.all([
+      const [ftosResult, transactionsResult, statusRowsResult, totalFtosResult] = await Promise.all([
         supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
         supabase.from("council_fto_transactions").select("normalized_status").eq("village_council_id", councilId),
         supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+        supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
       ]);
-      if (ftosResult.error || transactionsResult.error || statusRowsResult.error) {
+      if (ftosResult.error || transactionsResult.error || statusRowsResult.error || totalFtosResult.error) {
         setFtoDataMissing(true);
         return;
       }
       const rows = Array.isArray(transactionsResult.data) ? transactionsResult.data as Array<{ normalized_status: string }> : [];
       setFtoImported(ftosResult.count ?? 0);
       setFtoTransactions(transactionsResult.count ?? 0);
-      setFtoTotal(statusRowsResult.count ?? 0);
+      setFtoTotal(totalFtosResult.count ?? 0);
       setFtoProcessed(rows.filter(row => row.normalized_status === "processed").length);
       setFtoDeferred(rows.filter(row => row.normalized_status === "deferred").length);
       setFtoRejected(rows.filter(row => row.normalized_status === "rejected").length);
+      const changes = {
+        importedFtos: ftosResult.count ?? 0,
+        transactions: transactionsResult.count ?? 0,
+        totalStatus: rows.filter(row => row.normalized_status === "processed").length,
+        deferral: rows.filter(row => row.normalized_status === "deferred").length,
+        rejection: rows.filter(row => row.normalized_status === "rejected").length,
+      };
+      setFtoChanges(changes);
     } catch {
       setFtoDataMissing(true);
     }
@@ -120,6 +130,14 @@ export default function DashboardPage() {
     return () => { current = false; };
   }, []);
 
+  function deltaBadge(value: number | null, base: number | null) {
+    if (value === null || base === null) return null;
+    const delta = value - base;
+    if (delta === 0) return null;
+    const className = delta > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
+    return <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${className}`}>{delta > 0 ? "+" : "−"}{delta.toLocaleString("en-IN")}</span>;
+  }
+
   return (
     <div className="space-y-9">
       <section className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -153,35 +171,35 @@ export default function DashboardPage() {
             <div><p className="text-xs font-medium text-slate-500">FTO Register</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{ftoImported === null ? "—" : ftoImported.toLocaleString("en-IN")}</p></div>
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[11px] font-bold text-blue-800">FTO</span>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Imported FTOs for this Council</p>
+          <div className="mt-2 flex items-center gap-2">{deltaBadge(ftoChanges?.importedFtos ?? null, ftoChanges?.importedFtos ?? null)}<span className="text-[11px] text-slate-400">Imported FTOs for this Council</span></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex items-start justify-between">
             <div><p className="text-xs font-medium text-slate-500">Transactions</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-slate-950">{ftoTransactions === null ? "—" : ftoTransactions.toLocaleString("en-IN")}</p></div>
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-[11px] font-bold text-blue-800">TX</span>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Imported transaction rows</p>
+          <div className="mt-2 flex items-center gap-2">{deltaBadge(ftoChanges?.transactions ?? null, ftoChanges?.transactions ?? null)}<span className="text-[11px] text-slate-400">Imported transaction rows</span></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex items-start justify-between">
             <div><p className="text-xs font-medium text-slate-500">Processed</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-emerald-950">{ftoProcessed === null ? "—" : ftoProcessed.toLocaleString("en-IN")}</p></div>
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-[11px] font-bold text-emerald-800">PT</span>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Transactions with Government status Processed</p>
+          <div className="mt-2 flex items-center gap-2">{deltaBadge(ftoChanges?.totalStatus ?? null, ftoChanges?.totalStatus ?? null)}<span className="text-[11px] text-slate-400">Transactions with status Processed</span></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex items-start justify-between">
             <div><p className="text-xs font-medium text-slate-500">Deferred</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-amber-900">{ftoDeferred === null ? "—" : ftoDeferred.toLocaleString("en-IN")}</p></div>
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-[11px] font-bold text-amber-900">DR</span>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Transactions with a deferred status</p>
+          <div className="mt-2 flex items-center gap-2">{deltaBadge(ftoChanges?.deferral ?? null, ftoChanges?.deferral ?? null)}<span className="text-[11px] text-slate-400">Transactions with a deferred status</span></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex items-start justify-between">
             <div><p className="text-xs font-medium text-slate-500">Rejected</p><p className="mt-3 text-3xl font-bold tracking-tight tabular-nums text-rose-950">{ftoRejected === null ? "—" : ftoRejected.toLocaleString("en-IN")}</p></div>
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-[11px] font-bold text-rose-900">RJ</span>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">Transactions with Government status Rejected</p>
+          <div className="mt-2 flex items-center gap-2">{deltaBadge(ftoChanges?.rejection ?? null, ftoChanges?.rejection ?? null)}<span className="text-[11px] text-slate-400">Transactions with Government status Rejected</span></div>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex items-start justify-between">

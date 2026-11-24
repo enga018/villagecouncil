@@ -29,6 +29,18 @@ export function extractJobCard(value: string): string {
   return match ? match[0].toUpperCase() : "";
 }
 
+export function countUnresolvedTransactions(
+  transactions: Array<{ normalizedStatus: string; village: string; referenceNumber: string }>,
+  ftoNumber: string,
+  decidedReferences: Set<string>,
+): number {
+  return transactions.filter(tx =>
+    tx.normalizedStatus !== "processed" &&
+    tx.normalizedStatus !== "rejected" &&
+    !(!tx.village && decidedReferences.has(ftoNumber + "|" + tx.referenceNumber))
+  ).length;
+}
+
 export function normalizeVillage(value: string): string {
   return String(value || "").normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
 }

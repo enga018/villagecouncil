@@ -1,4 +1,5 @@
 import {
+  countUnresolvedTransactions,
   extractJobCard,
   extractVillage,
   normalizeGovernmentStatus,
@@ -6,6 +7,22 @@ import {
   parseGovernmentAmount,
   parseGovernmentDate,
 } from "./fto-domain.ts";
+
+Deno.test("counts only undecided blank-name rows and non-terminal named rows as unresolved", () => {
+  const rows = [
+    { normalizedStatus: "processed", village: "New Serchhip North", referenceNumber: "R1" },
+    { normalizedStatus: "deferred", village: "New Serchhip North", referenceNumber: "R2" },
+    { normalizedStatus: "blank", village: "", referenceNumber: "R3" },
+    { normalizedStatus: "blank", village: "", referenceNumber: "R4" },
+    { normalizedStatus: "rejected", village: "", referenceNumber: "R5" },
+  ];
+  const decided = new Set(["FTO-1|R3"]);
+  const unresolved = countUnresolvedTransactions(rows, "FTO-1", decided);
+  if (unresolved !== 2) throw new Error("Expected 2 unresolved (R2 named deferred, R4 undecided), got " + unresolved);
+  if (countUnresolvedTransactions(rows, "FTO-2", decided) !== 3) {
+    throw new Error("Decisions for another FTO must not count.");
+  }
+});
 
 Deno.test("extracts supported Mizoram Job Card formats", () => {
   if (extractJobCard("New Serchhip North MZ-07-001-005-001/835") !== "MZ-07-001-005-001/835") {

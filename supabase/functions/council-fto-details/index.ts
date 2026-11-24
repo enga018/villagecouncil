@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { normalizeVillage } from "../_shared/fto-domain.ts";
+import { countUnresolvedTransactions, normalizeVillage } from "../_shared/fto-domain.ts";
 import { parseGovernmentFtoDetailHtml } from "../_shared/fto-html-parser.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
@@ -210,6 +210,10 @@ async function main(req: Request, origin: string | null) {
     .select("row_number").eq("import_batch_id", batchId).eq("village_council_id", tenantId).in("row_number", selectedRowNumbers);
   if (existingRowsError) throw new Error("Could not check previously processed FTOs: " + existingRowsError.message);
   const alreadyStaged = new Set((existingRows || []).map((row: { row_number: number }) => Number(row.row_number)));
+  const { data: reviewDecisions, error: decisionsError } = await admin.from("council_fto_review_decisions")
+    .select("fto_number,reference_number").eq("village_council_id", tenantId);
+  if (decisionsError) throw new Error("Could not read review decisions: " + decisionsError.message);
+  const decidedReferences = new Set((reviewDecisions || []).map((row: { fto_number: string; reference_number: string }) => row.fto_number + "|" + row.reference_number));
   // Dry runs deliberately refetch even already-staged FTOs, but never write staged rows or inspection history.
   const pending = dryRun ? selected : selected.filter(item => !alreadyStaged.has(item.rowNumber));
   const results: Record<string, unknown>[] = [];
@@ -256,9 +260,7 @@ async function main(req: Request, origin: string | null) {
           row_number: item.rowNumber,
           row_data: ftoRow,
         });
-        const unresolvedCount = matching.filter((tx: Transaction) =>
-          tx.normalizedStatus !== "processed" && tx.normalizedStatus !== "rejected"
-        ).length;
+        const unresolvedCount = countUnresolvedTransactions(matching, item.candidate.ftoNumber, decidedReferences);
         inspectionRows.push({
           village_council_id: tenantId,
           fto_number: item.candidate.ftoNumber,

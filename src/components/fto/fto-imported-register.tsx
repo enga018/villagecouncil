@@ -1,0 +1,188 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase";
+
+type Transaction = {
+  id: string;
+  job_card_number: string;
+  reference_number: string;
+  transaction_date: string | null;
+  processed_date: string | null;
+  applicant_name: string | null;
+  primary_account_holder: string | null;
+  amount_to_be_credited: number | null;
+  credit_amount: number | null;
+  government_status: string;
+  normalized_status: string;
+  rejection_reason: string | null;
+};
+
+type Fto = {
+  id: string;
+  fto_number: string;
+  fto_date: string | null;
+  fto_status: string | null;
+  block: string | null;
+  first_signatory: string | null;
+  beneficiary_count: number | null;
+  wage_amount: number | null;
+  first_imported_at: string;
+  last_seen_in_import_at: string | null;
+  updated_at: string;
+  council_fto_transactions: Transaction[];
+};
+
+function number(value: number | null | undefined) {
+  return value == null ? "—" : new Intl.NumberFormat("en-IN").format(value);
+}
+
+function money(value: number | null | undefined) {
+  return value == null ? "—" : new Intl.NumberFormat("en-IN", {
+    style: "currency", currency: "INR", maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function date(value: string | null | undefined) {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+  }).format(parsed);
+}
+
+export default function FtoImportedRegister() {
+  const [records, setRecords] = useState<Fto[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      setLoading(true);
+      setError("");
+      const supabase = createClient();
+      const { data, error: queryError } = await supabase
+        .from("council_ftos")
+        .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
+        .eq("status", "active")
+        .order("fto_date", { ascending: false, nullsFirst: false })
+        .order("fto_number", { ascending: false });
+      if (!active) return;
+      if (queryError) {
+        setError(queryError.message || "Could not load imported FTO records.");
+        setRecords([]);
+      } else {
+        const rows = (data || []) as unknown as Fto[];
+        setRecords(rows);
+      }
+      setLoading(false);
+    }
+    void load();
+    return () => { active = false; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    if (!term) return records;
+    return records.filter(item =>
+      [item.fto_number, item.fto_status, item.block, item.first_signatory]
+        .some(value => String(value || "").toLocaleLowerCase().includes(term))
+      || item.council_fto_transactions.some(tx =>
+        [tx.job_card_number, tx.reference_number, tx.applicant_name, tx.government_status]
+          .some(value => String(value || "").toLocaleLowerCase().includes(term))
+      )
+    );
+  }, [records, search]);
+
+  const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
+      <div className="border-b border-slate-100 p-4 sm:p-6">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blue-700">Permanent Council records</p>
+            <h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Imported FTO Register</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-500">FTOs activated for this Village Council and their imported transaction details.</p>
+          </div>
+          <div className="flex gap-5">
+            <div><p className="text-xl font-bold tabular-nums text-slate-950">{number(records.length)}</p><p className="text-[10px] text-slate-500">FTOs</p></div>
+            <div><p className="text-xl font-bold tabular-nums text-slate-950">{number(transactionCount)}</p><p className="text-[10px] text-slate-500">Transactions</p></div>
+          </div>
+        </div>
+        <div className="mt-4">
+          <label htmlFor="fto-register-search" className="sr-only">Search imported FTOs</label>
+          <input id="fto-register-search" value={search} onChange={event => setSearch(event.target.value)}
+            placeholder="Search FTO, Job Card, reference number or applicant…"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100"/>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-xs text-slate-500">Loading imported FTO records…</div>
+      ) : error ? (
+        <div role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</div>
+      ) : filtered.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-sm font-semibold text-slate-800">{records.length ? "No matching FTO records" : "No imported FTOs yet"}</p>
+          <p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term." : "After you confirm an FTO import, the activated records will appear here."}</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {filtered.map(item => {
+            const expanded = selectedId === item.id;
+            return (
+              <div key={item.id}>
+                <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
+                  aria-expanded={expanded}
+                  className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-slate-50 sm:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,.7fr))_auto] sm:items-center sm:px-6">
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
+                  </div>
+                  <div><p className="text-xs font-semibold text-slate-800">{date(item.fto_date)}</p><p className="text-[10px] text-slate-400">FTO date</p></div>
+                  <div><p className="text-xs font-semibold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p className="text-[10px] text-slate-400">Beneficiaries</p></div>
+                  <div><p className="text-xs font-semibold tabular-nums text-slate-800">{money(item.wage_amount)}</p><p className="text-[10px] text-slate-400">Wage amount</p></div>
+                  <span className="text-[10px] font-semibold text-blue-700">{expanded ? "Close −" : "Details +"}</span>
+                </button>
+                {expanded && (
+                  <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div><h3 className="text-xs font-bold text-slate-900">Transaction details</h3><p className="mt-1 text-[10px] text-slate-500">{number(item.council_fto_transactions.length)} imported transaction(s) · Last imported {date(item.last_seen_in_import_at || item.first_imported_at)}</p></div>
+                      {item.fto_status && <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600">{item.fto_status}</span>}
+                    </div>
+                    {item.council_fto_transactions.length === 0 ? (
+                      <p className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                        <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
+                          <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
+                            <th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th>
+                          </tr></thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {item.council_fto_transactions.map(tx => <tr key={tx.id}>
+                              <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{tx.job_card_number}</td>
+                              <td className="whitespace-nowrap px-3 py-3 text-slate-600">{tx.reference_number}</td>
+                              <td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td>
+                              <td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td>
+                              <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(tx.amount_to_be_credited)}</td>
+                              <td className="whitespace-nowrap px-3 py-3"><span className={tx.government_status.toLowerCase() === "rejected" ? "rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700" : tx.government_status.toLowerCase() === "processed" ? "rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700" : "rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800"}>{tx.government_status || "Blank"}</span></td>
+                              <td className="max-w-[240px] whitespace-normal px-3 py-3 text-slate-600">{tx.rejection_reason || "—"}</td>
+                            </tr>)}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}

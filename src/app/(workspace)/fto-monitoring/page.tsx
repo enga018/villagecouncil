@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import FtoImportedRegister from "@/components/fto/fto-imported-register";
+import FtoImportedRegister, { type FtoAutoIncrement } from "@/components/fto/fto-imported-register";
 import FtoReviewQueue from "@/components/fto/fto-review-queue";
 
 type FtoPreview = {
@@ -35,7 +35,14 @@ type FtoSourceResponse = {
   councilLocation?: { block?: string };
   listing?: { manifestToken?: string; ftoNumbers?: string[]; alreadyImportedCount?: number };
 };
-type ImportResult = { ftos: number; transactions: number; excluded: number; pendingReview: number; autoIncluded: number };
+type ImportResult = {
+  ftos: number;
+  transactions: number;
+  excluded: number;
+  pendingReview: number;
+  autoIncluded: number;
+};
+type FtoCountBaseline = { ftos: number; transactions: number };
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
@@ -66,6 +73,8 @@ export default function FtoMonitoringPage() {
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
+  const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
+  const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -118,13 +127,29 @@ export default function FtoMonitoringPage() {
     const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
-    setImportResult({
-      ftos: Number(data.importedFtos || 0),
-      transactions: Number(data.importedTransactions || 0),
-      excluded: Number(data.excludedOutOfVillageFtos || 0),
-      pendingReview: Number(data.pendingReviewTransactions || 0),
-      autoIncluded: Number(autoIncluded || 0),
-    });
+    const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
+    fetchBaselineRef.current = null;
+    const ftos = Number(data.importedFtos || 0), transactions = Number(data.importedTransactions || 0);
+    const newFtos = Math.max(0, ftos - baseline.ftos);
+    const newTransactions = Math.max(0, transactions - baseline.transactions);
+    setImportResult({ ftos, transactions, excluded: Number(data.excludedOutOfVillageFtos || 0), pendingReview: Number(data.pendingReviewTransactions || 0), autoIncluded: Number(autoIncluded || 0) });
+    setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
+  }
+
+  async function applyReviewDecisions() {
+    if (!batchId || activating || busy) return;
+    setActivating(true);
+    setError("");
+    setNotice("");
+    try {
+      await applyAndActivate(createClient(), batchId);
+      setImportIncrement(null);
+      setNotice("Review decisions applied. Rows marked In village are now in the Council's FTO register.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Applying review decisions failed.");
+    } finally {
+      setActivating(false);
+    }
   }
 
   async function processNumbers(numbers: string[], currentBatchId: string, token: string, supabase: ReturnType<typeof createClient>, initialNotice?: string) {
@@ -192,6 +217,7 @@ export default function FtoMonitoringPage() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to complete the FTO import.");
+      setImportIncrement(null);
     } finally {
       setBusy(false);
     }
@@ -209,6 +235,7 @@ export default function FtoMonitoringPage() {
     setProgress(null);
     setBatchId("");
     setManifestToken("");
+    setImportIncrement(null);
     try {
       const supabase = createClient();
       const { data, error: invokeError } = await supabase.functions.invoke<FtoSourceResponse>("council-fto-source", { body: { forceRefresh } });
@@ -219,6 +246,8 @@ export default function FtoMonitoringPage() {
         setBusy(false);
         return;
       }
+      const beforeFetch = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
+      fetchBaselineRef.current = null;
       if (!data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
@@ -227,6 +256,7 @@ export default function FtoMonitoringPage() {
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
+      fetchBaselineRef.current = beforeFetch;
       const skipped = Number(data.listing.alreadyImportedCount || 0);
       const initialNotice = "Importing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
         (skipped ? "; skipped " + formatNumber(skipped) + " completed or out-of-village FTOs." : ".");
@@ -304,7 +334,7 @@ export default function FtoMonitoringPage() {
         ))}
       </section>
 
-      <FtoImportedRegister key={importResult ? "after-import" : "initial"} />
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement} />
 
       <div className="space-y-4">
         {progress && (
@@ -365,9 +395,8 @@ export default function FtoMonitoringPage() {
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import returned successfully.</p></div></div>
           <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-5">
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">FTOs in register</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Transactions in register</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.autoIncluded)}</p><p className="text-[11px] text-emerald-800">Auto-included from register</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">Total FTOs in register</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Total transactions in register</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-[11px] text-emerald-800">Out-of-village FTOs excluded</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-amber-800">{formatNumber(importResult.pendingReview)}</p><p className="text-[11px] text-emerald-800">Review rows still undecided</p></div>
           </div>

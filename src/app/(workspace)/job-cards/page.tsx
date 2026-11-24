@@ -36,6 +36,7 @@ export default function JobCardsPage() {
   const [fetchError, setFetchError] = useState("");
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const [kpiChanges, setKpiChanges] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
+  const [previousCounts, setPreviousCounts] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
   const pageSize = 20;
 
   useEffect(() => {
@@ -221,12 +222,13 @@ export default function JobCardsPage() {
         if (!rows || rows.length < 1000) break;
       }
 
-      const previousKpis = {
-        totalCards: jobCards.length,
-        activeCards: jobCards.filter(card => card.status === "active").length,
-        totalApplicants: applicants.length,
-        activeApplicants: applicants.filter(person => person.status === "active").length,
-      };
+      const previous = previousCounts
+        ?? {
+          totalCards: jobCards.length,
+          activeCards: jobCards.filter(card => card.status === "active").length,
+          totalApplicants: applicants.length,
+          activeApplicants: applicants.filter(person => person.status === "active").length,
+        };
       const nextKpis = {
         totalCards: cards.length,
         activeCards: cards.filter(card => card.status === "active").length,
@@ -234,11 +236,12 @@ export default function JobCardsPage() {
         activeApplicants: people.filter(person => person.status === "active").length,
       };
       setKpiChanges({
-        totalCards: nextKpis.totalCards - previousKpis.totalCards,
-        activeCards: nextKpis.activeCards - previousKpis.activeCards,
-        totalApplicants: nextKpis.totalApplicants - previousKpis.totalApplicants,
-        activeApplicants: nextKpis.activeApplicants - previousKpis.activeApplicants,
+        totalCards: nextKpis.totalCards - previous.totalCards,
+        activeCards: nextKpis.activeCards - previous.activeCards,
+        totalApplicants: nextKpis.totalApplicants - previous.totalApplicants,
+        activeApplicants: nextKpis.activeApplicants - previous.activeApplicants,
       });
+      setPreviousCounts(nextKpis);
       setJobCards(cards);
       setApplicants(people);
       setPage(1);

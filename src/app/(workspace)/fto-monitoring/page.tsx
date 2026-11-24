@@ -42,6 +42,13 @@ type ImportResult = {
   pendingReview: number;
   autoIncluded: number;
 };
+type FtoKpiChanges = {
+  ftos: number;
+  transactions: number;
+  totalStatus: number;
+  deferral: number;
+  rejection: number;
+};
 type FtoCountBaseline = { ftos: number; transactions: number };
 
 function formatNumber(value: number) {
@@ -73,6 +80,7 @@ export default function FtoMonitoringPage() {
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null; registerTotal: number | null }>({ ftos: null, transactions: null, registerTotal: null });
+  const [kpiChanges, setKpiChanges] = useState<FtoKpiChanges | null>(null);
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
   const [fetchDelta, setFetchDelta] = useState<FtoAutoIncrement>(null);
@@ -84,16 +92,19 @@ export default function FtoMonitoringPage() {
       const supabase = createClient();
       const [ftos, transactions, registerTotals, statusRows] = await Promise.all([
         supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("council_fto_transactions").select("id"),
+        supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }),
         supabase.from("council_ftos").select("id", { count: "exact", head: true }),
-        supabase.from("council_fto_transactions").select("normalized_status"),
+        supabase.from("council_fto_transactions").select("id"),
       ]);
       if (!active) return;
-      const rows = Array.isArray(statusRows?.data) ? statusRows.data as Array<{ normalized_status: string }> : [];
+      const rows = Array.isArray((statusRows as unknown as { data?: Array<{ normalized_status: string }> }).data || []) ? ((statusRows as unknown as { data?: Array<{ normalized_status: string }> }).data || []) : [];
+      const totalStatus = rows.filter(row => row.normalized_status === "processed").length;
+      const deferral = rows.filter(row => row.normalized_status === "deferred").length;
+      const rejection = rows.filter(row => row.normalized_status === "rejected").length;
       setStatusTotals({
-        processed: rows.filter(row => row.normalized_status === "processed").length,
-        deferred: rows.filter(row => row.normalized_status === "deferred").length,
-        rejected: rows.filter(row => row.normalized_status === "rejected").length,
+        processed: totalStatus,
+        deferred: deferral,
+        rejected: rejection,
       });
       setSummary({ ftos: ftos.count ?? null, transactions: transactions.count ?? null, registerTotal: registerTotals.count ?? null });
     }
@@ -138,6 +149,7 @@ export default function FtoMonitoringPage() {
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
     setFetchDelta(null);
+    setKpiChanges(null);
     const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
     fetchBaselineRef.current = null;
     const ftos = Number(data.importedFtos || 0), transactions = Number(data.importedTransactions || 0);
@@ -325,11 +337,11 @@ export default function FtoMonitoringPage() {
 
       <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {([
-          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", importIncrement?.newFtos || fetchDelta?.newFtos || 0],
-          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", importIncrement?.newTransactions || fetchDelta?.newTransactions || 0],
-          ["Processed", statusTotals.processed, "Processed in the register", "PT", 0],
-          ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", 0],
-          ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", 0],
+          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", kpiChanges?.ftos || importIncrement?.newFtos || fetchDelta?.newFtos || 0],
+          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", kpiChanges?.transactions || importIncrement?.newTransactions || fetchDelta?.newTransactions || 0],
+          ["Processed", statusTotals.processed, "Processed in the register", "PT", kpiChanges?.totalStatus || 0],
+          ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", kpiChanges?.deferral || 0],
+          ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", kpiChanges?.rejection || 0],
           ["FTO register", summary.registerTotal, "Total FTOs in the register", "TOT", 0],
         ] as const).map(([label, value, description, mark]) => (
           <div key={label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">

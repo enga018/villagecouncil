@@ -18,6 +18,16 @@ type Transaction = {
   rejection_reason: string | null;
 };
 
+type Inspection = {
+  fto_number: string;
+  last_inspected_at: string;
+  inspection_result: "matched" | "no_match";
+  matching_transaction_count: number;
+  unresolved_transaction_count: number;
+  last_error: string | null;
+  import_activated_at: string | null;
+};
+
 type Fto = {
   id: string;
   fto_number: string;
@@ -45,14 +55,31 @@ function money(value: number | null | undefined) {
 
 function date(value: string | null | undefined) {
   if (!value) return "—";
+  // FTO dates are stored as date-only text; avoid timezone shifts.
+  const dateOnly = value.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  if (dateOnly) return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))));
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
   }).format(parsed);
 }
 
+function dateTime(value: string | null | undefined) {
+  if (!value) return "Not checked";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(parsed);
+}
+
 export default function FtoImportedRegister() {
   const [records, setRecords] = useState<Fto[]>([]);
+  const [inspections, setInspections] = useState<Record<string, Inspection>>({});
+  const [inspectionError, setInspectionError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -64,19 +91,31 @@ export default function FtoImportedRegister() {
       setLoading(true);
       setError("");
       const supabase = createClient();
-      const { data, error: queryError } = await supabase
+      const [ftoResult, inspectionResult] = await Promise.all([
+        supabase
         .from("council_ftos")
         .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
         .eq("status", "active")
         .order("fto_date", { ascending: false, nullsFirst: false })
-        .order("fto_number", { ascending: false });
+        .order("fto_number", { ascending: false }),
+        supabase.functions.invoke<{ inspections?: Inspection[]; error?: string }>("council-fto-inspection-register", { body: {} }),
+      ]);
       if (!active) return;
-      if (queryError) {
-        setError(queryError.message || "Could not load imported FTO records.");
+      if (ftoResult.error) {
+        setError(ftoResult.error.message || "Could not load imported FTO records.");
         setRecords([]);
       } else {
-        const rows = (data || []) as unknown as Fto[];
+        const rows = (ftoResult.data || []) as unknown as Fto[];
         setRecords(rows);
+      }
+      if (inspectionResult.error || inspectionResult.data?.error) {
+        setInspectionError(inspectionResult.data?.error || inspectionResult.error?.message || "Inspection history is temporarily unavailable.");
+        setInspections({});
+      } else {
+        const map: Record<string, Inspection> = {};
+        for (const item of inspectionResult.data?.inspections || []) map[item.fto_number] = item;
+        setInspections(map);
+        setInspectionError("");
       }
       setLoading(false);
     }
@@ -121,6 +160,8 @@ export default function FtoImportedRegister() {
         </div>
       </div>
 
+      {inspectionError && !loading && <div role="status" className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-[10px] text-amber-900">{inspectionError} Imported FTO data is still available; last-checked timestamps are hidden until the inspection service responds.</div>}
+
       {loading ? (
         <div className="p-8 text-center text-xs text-slate-500">Loading imported FTO records…</div>
       ) : error ? (
@@ -142,6 +183,7 @@ export default function FtoImportedRegister() {
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
+                    <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <div><p className="text-xs font-semibold text-slate-800">{date(item.fto_date)}</p><p className="text-[10px] text-slate-400">FTO date</p></div>
                   <div><p className="text-xs font-semibold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p className="text-[10px] text-slate-400">Beneficiaries</p></div>
@@ -151,7 +193,12 @@ export default function FtoImportedRegister() {
                 {expanded && (
                   <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div><h3 className="text-xs font-bold text-slate-900">Transaction details</h3><p className="mt-1 text-[10px] text-slate-500">{number(item.council_fto_transactions.length)} imported transaction(s) · Last imported {date(item.last_seen_in_import_at || item.first_imported_at)}</p></div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900">Transaction details</h3>
+                        <p className="mt-1 text-[10px] text-slate-500">{number(item.council_fto_transactions.length)} imported transaction(s) · Last imported {dateTime(item.last_seen_in_import_at || item.first_imported_at)}</p>
+                        <p className="mt-1 text-[10px] text-slate-500">Last Government check: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
+                        {inspections[item.fto_number] && <p className="mt-1 text-[10px] text-slate-500">Inspection: {inspections[item.fto_number].inspection_result === "matched" ? "Transactions matched" : "No matching transactions"} · {number(inspections[item.fto_number].unresolved_transaction_count)} unresolved</p>}
+                      </div>
                       {item.fto_status && <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600">{item.fto_status}</span>}
                     </div>
                     {item.council_fto_transactions.length === 0 ? (

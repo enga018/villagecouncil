@@ -277,21 +277,6 @@ export default function FtoMonitoringPage() {
     await processNumbers(retryList, batchId, manifestToken, supabase);
   }
 
-  async function applyReviewDecisions() {
-    if (!batchId || activating || busy) return;
-    setActivating(true);
-    setError("");
-    setNotice("");
-    try {
-      await applyAndActivate(createClient(), batchId);
-      setNotice("Review decisions applied. Rows marked In village are now in the Council's FTO register.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Applying review decisions failed.");
-    } finally {
-      setActivating(false);
-    }
-  }
-
   const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
 
   return (

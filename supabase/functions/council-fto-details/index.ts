@@ -199,7 +199,8 @@ async function main(req: Request, origin: string | null) {
   manifest.candidates.forEach((candidate, index) => {
     candidateByNumber.set(String(candidate.ftoNumber || "").trim().toUpperCase(), { candidate, rowNumber: index + 1 });
   });
-  const selected: Array<{ candidate: Candidate; rowNumber: number; requestedNumber: string }> = requested.map((number: string) => {
+  type SelectedItem = { candidate: Candidate; rowNumber: number; requestedNumber: string; kind?: string };
+  const selected: SelectedItem[] = requested.map((number: string) => {
     const item = candidateByNumber.get(number.toUpperCase());
     if (!item) throw new Error("FTO " + number + " is not part of this Government listing.");
     return { ...item, requestedNumber: number };
@@ -216,44 +217,49 @@ async function main(req: Request, origin: string | null) {
   const decidedReferences = new Set((reviewDecisions || []).map((row: { fto_number: string; reference_number: string }) => row.fto_number + "|" + row.reference_number));
   // Dry runs deliberately refetch even already-staged FTOs, but never write staged rows or inspection history.
   const pending = dryRun ? selected : selected.filter(item => !alreadyStaged.has(item.rowNumber));
+  for (const item of selected) {
+    if (!dryRun && alreadyStaged.has(item.rowNumber)) item.kind = "already_staged";
+  }
   const results: Record<string, unknown>[] = [];
   const stagedRows: Record<string, unknown>[] = [];
   const inspectionRows: Record<string, unknown>[] = [];
-  let cursor = 0;
-  const workers = Array.from({ length: Math.min(2, pending.length) }, async () => {
-    while (cursor < pending.length) {
-      const item = pending[cursor++];
-      try {
-        const transactions = await getPage(item.candidate.detailUrl, item.candidate.ftoNumber);
-        const validationErrors = validateGovernmentTransactions(transactions, item.candidate.listingRow || []);
-        if (validationErrors.length) {
-          results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
-          continue;
-        }
-        const matching: Transaction[] = transactions.filter((tx: Transaction) =>
-          !tx.village || normalizeVillage(tx.village) === targetPanchayat
-        );
-        const reviewTransactionCount = matching.filter((tx: Transaction) => !tx.village).length;
-        const namedMatchCount = matching.length - reviewTransactionCount;
-        const unmatchedCount = transactions.length - matching.length;
-        const scope = namedMatchCount ? "IN_SCOPE" : reviewTransactionCount ? "NEEDS_REVIEW" : "OUT_OF_SCOPE";
-        const listingRow = item.candidate.listingRow || [];
-        const ftoRow = {
-          scope,
-          panchayat_name: panchayat.official_name,
-          fto_number: item.candidate.ftoNumber,
-          fto_date: listingRow[5] || "",
-          fto_status: "",
-          block: block.official_name,
-          first_signatory: "",
-          beneficiary_count: String(matching.length),
-          wage_amount: matching.reduce((sum: number, tx: Transaction) => sum + Number(tx.creditAmount || 0), 0).toFixed(2),
-          source_record_key: item.candidate.ftoNumber,
-          government_transaction_count: transactions.length,
-          matching_transaction_count: matching.length,
-          unmatched_transaction_count: unmatchedCount,
-          transactions: matching,
-        };
+  const processOne = async (item: (typeof selected)[number]) => {
+    if (item.kind === "already_staged" && !dryRun) {
+      results.push({ ftoNumber: item.candidate.ftoNumber, kind: "already_staged" });
+      return;
+    }
+    try {
+      const transactions = await getPage(item.candidate.detailUrl, item.candidate.ftoNumber);
+      const validationErrors = validateGovernmentTransactions(transactions, item.candidate.listingRow || []);
+      if (validationErrors.length) {
+        results.push({ ftoNumber: item.candidate.ftoNumber, kind: "validation_failure", validationErrors });
+        return;
+      }
+      const matching: Transaction[] = transactions.filter((tx: Transaction) =>
+        !tx.village || normalizeVillage(tx.village) === targetPanchayat
+      );
+      const reviewTransactionCount = matching.filter((tx: Transaction) => !tx.village).length;
+      const namedMatchCount = matching.length - reviewTransactionCount;
+      const unmatchedCount = transactions.length - matching.length;
+      const scope = namedMatchCount ? "IN_SCOPE" : reviewTransactionCount ? "NEEDS_REVIEW" : "OUT_OF_SCOPE";
+      const listingRow = item.candidate.listingRow || [];
+      const ftoRow = {
+        scope,
+        panchayat_name: panchayat.official_name,
+        fto_number: item.candidate.ftoNumber,
+        fto_date: listingRow[5] || "",
+        fto_status: "",
+        block: block.official_name,
+        first_signatory: "",
+        beneficiary_count: String(matching.length),
+        wage_amount: matching.reduce((sum: number, tx: Transaction) => sum + Number(tx.creditAmount || 0), 0).toFixed(2),
+        source_record_key: item.candidate.ftoNumber,
+        government_transaction_count: transactions.length,
+        matching_transaction_count: matching.length,
+        unmatched_transaction_count: unmatchedCount,
+        transactions: matching,
+      };
+      if (!dryRun) {
         stagedRows.push({
           village_council_id: tenantId,
           import_batch_id: batchId,
@@ -273,25 +279,28 @@ async function main(req: Request, origin: string | null) {
           import_activated_at: null,
           updated_at: new Date().toISOString(),
         });
-        results.push({
-          ftoNumber: item.candidate.ftoNumber,
-          kind: scope === "OUT_OF_SCOPE" ? "out_of_village" : scope === "NEEDS_REVIEW" ? "needs_review" : "village_match",
-          governmentTransactionCount: transactions.length,
-          matchingTransactionCount: matching.length,
-          reviewTransactionCount,
-          excludedTransactionCount: unmatchedCount,
-          matchedJobCards: [...new Set(matching.map((tx: Transaction) => String(tx.jobCardNumber).trim().toUpperCase()))],
-        });
-      } catch (error) {
-        results.push({
-          ftoNumber: item.candidate.ftoNumber,
-          kind: "fetch_failure",
-          error: error instanceof Error ? error.message : "FTO detail processing failed.",
-        });
       }
+      results.push({
+        ftoNumber: item.candidate.ftoNumber,
+        kind: scope === "OUT_OF_SCOPE" ? "out_of_village" : scope === "NEEDS_REVIEW" ? "needs_review" : "village_match",
+        governmentTransactionCount: transactions.length,
+        matchingTransactionCount: matching.length,
+        reviewTransactionCount,
+        excludedTransactionCount: unmatchedCount,
+        matchedJobCards: [...new Set(matching.map((tx: Transaction) => String(tx.jobCardNumber).trim().toUpperCase()))],
+      });
+    } catch (error) {
+      results.push({
+        ftoNumber: item.candidate.ftoNumber,
+        kind: "fetch_failure",
+        error: error instanceof Error ? error.message : "FTO detail processing failed.",
+      });
     }
-  });
-  await Promise.all(workers);
+  };
+  for (let offset = 0; offset < pending.length; offset += 2) {
+    const chunk = pending.slice(offset, offset + 2);
+    await Promise.allSettled(chunk.map(item => processOne(item)));
+  }
 
   if (dryRun) {
     const successful = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;

@@ -48,7 +48,7 @@ export function MiniKpi({ label, value, context, tone = "neutral" }: {
   tone?: Tone;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="min-w-0 rounded-xl border border-[var(--vc-border-subtle)] bg-slate-50 p-3">
       <p className="truncate text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">{label}</p>
       <p className={`mt-1.5 text-xl font-bold tracking-tight tabular-nums ${toneStyles[tone]}`}>
         {value === null ? "—" : value.toLocaleString("en-IN")}

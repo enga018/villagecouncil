@@ -50,15 +50,14 @@ function rowsOf(html: string) {
 function transactionTableOf(html: string) {
   // The Government detail page contains a transaction table and a separate
   // bank/branch summary table. Select the table by its transaction headers.
-  return [...html.matchAll(/<table\\b[^>]*>([\\s\\S]*?)<\\/table>/gi)]
+  return [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)]
     .map(match => match[1])
     .find(table => {
       const rows = rowsOf(table);
-      return rows.some(row => row.some(cell => /job\\s*card\\s*no/i.test(cell)) &&
-        row.some(cell => /reference\\s*no/i.test(cell)));
+      return rows.some(row => row.some(cell => /job\s*card\s*no/i.test(cell)) &&
+        row.some(cell => /reference\s*no/i.test(cell)));
     }) || "";
-}
-/**
+}/**
  * Parses the Government FTO transaction-detail table.
  * Synthetic fixtures may exercise this function, but only captured Government HTML
  * can establish compatibility with the live portal.

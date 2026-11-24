@@ -35,6 +35,7 @@ type FtoSourceResponse = {
   councilLocation?: { block?: string };
   listing?: { manifestToken?: string; ftoNumbers?: string[]; alreadyImportedCount?: number };
 };
+type ImportResult = { ftos: number; transactions: number; excluded: number; pendingReview: number; autoIncluded: number };
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
@@ -52,35 +53,6 @@ async function invokeErrorMessage(error: unknown, fallback: string) {
   return value?.message || fallback;
 }
 
-function getSampleResults(
-  sample: string[],
-  response: FtoDetailsResponse | null | undefined,
-  requestError?: string,
-) {
-  type Result = NonNullable<FtoDetailsResponse["results"]>[number];
-  if (requestError) return sample.map(ftoNumber => ({ ftoNumber, kind: "request_failure", error: requestError }));
-  if (!response || response.success !== true || !Array.isArray(response.results)) {
-    const message = response?.error || "The parser test returned an incomplete or unsuccessful response.";
-    return sample.map(ftoNumber => ({ ftoNumber, kind: "request_failure", error: message }));
-  }
-  const grouped = new Map<string, Result[]>();
-  for (const result of response.results) {
-    const number = String(result.ftoNumber || "");
-    grouped.set(number, [...(grouped.get(number) || []), result]);
-  }
-  return sample.map(ftoNumber => {
-    const matches = grouped.get(ftoNumber) || [];
-    if (matches.length !== 1) {
-      return { ftoNumber, kind: "response_validation_failure", error: matches.length ? "The parser returned duplicate results for this FTO." : "The parser did not return a result for this FTO." };
-    }
-    const result = matches[0];
-    if (result.kind !== "village_match" && result.kind !== "out_of_village") {
-      return { ...result, ftoNumber };
-    }
-    return { ...result, ftoNumber };
-  });
-}
-
 export default function FtoMonitoringPage() {
   const [busy, setBusy] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -88,15 +60,11 @@ export default function FtoMonitoringPage() {
   const [notice, setNotice] = useState("");
   const [batchId, setBatchId] = useState("");
   const [manifestToken, setManifestToken] = useState("");
-  const [ftoNumbers, setFtoNumbers] = useState<string[]>([]);
-  const [testingParser, setTestingParser] = useState(false);
-  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
-  const [liveTest, setLiveTest] = useState<{ checked: number; passed: number; failed: number; results: Array<{ ftoNumber?: string; kind: string; error?: string; validationErrors?: string[] }> } | null>(null);
   const [failedFtos, setFailedFtos] = useState<string[]>([]);
   const [failureDetails, setFailureDetails] = useState<Array<{ ftoNumber: string; reason: string }>>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [preview, setPreview] = useState<FtoPreview | null>(null);
-  const [importResult, setImportResult] = useState<{ ftos: number; transactions: number; excluded: number; pendingReview: number } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
 
   useEffect(() => {
@@ -144,6 +112,21 @@ export default function FtoMonitoringPage() {
     });
   }
 
+  async function applyAndActivate(supabase: ReturnType<typeof createClient>, currentBatchId: string) {
+    const { data: autoIncluded, error: suggestionError } = await supabase.rpc("apply_register_fto_review_suggestions", { p_batch_id: currentBatchId });
+    if (suggestionError) throw suggestionError;
+    const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
+    if (activationError) throw activationError;
+    if (!data) throw new Error("The FTO import did not return a confirmation.");
+    setImportResult({
+      ftos: Number(data.importedFtos || 0),
+      transactions: Number(data.importedTransactions || 0),
+      excluded: Number(data.excludedOutOfVillageFtos || 0),
+      pendingReview: Number(data.pendingReviewTransactions || 0),
+      autoIncluded: Number(autoIncluded || 0),
+    });
+  }
+
   async function processNumbers(numbers: string[], currentBatchId: string, token: string, supabase: ReturnType<typeof createClient>, initialNotice?: string) {
     if (!numbers.length) return;
     setBusy(true);
@@ -188,7 +171,7 @@ export default function FtoMonitoringPage() {
       setFailedFtos(failedList);
       setFailureDetails([...failed.entries()].map(([ftoNumber, reason]) => ({ ftoNumber, reason })));
       if (failedList.length) {
-        setNotice(formatNumber(failedList.length) + " FTO(s) need retry. No manual import option is available.");
+        setNotice(formatNumber(failedList.length) + " FTO(s) need retry. Successful FTOs stay staged.");
       } else if (!lastBatchComplete) {
         // A partial retry can finish a previously staged batch; verify its status below.
         const { data: batch, error: batchError } = await supabase
@@ -201,13 +184,14 @@ export default function FtoMonitoringPage() {
       }
       if (!failedList.length && lastBatchComplete) {
         await loadPreview(supabase, currentBatchId);
-        setNotice("FTO details parsed. Only transactions whose FTO Panchayat matches this Village Council are included in the import preview.");
+        await applyAndActivate(supabase, currentBatchId);
+        setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");
       } else if (!failedList.length) {
         setFailedFtos(numbers);
         setNotice("The batch is not complete yet. Retry this set; FTOs already staged will be skipped automatically.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to prepare the FTO import preview.");
+      setError(err instanceof Error ? err.message : "Unable to complete the FTO import.");
     } finally {
       setBusy(false);
     }
@@ -239,44 +223,18 @@ export default function FtoMonitoringPage() {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
-      if (!numbers.length) throw new Error("The Government listing returned no eligible FTO numbers to test.");
+      if (!numbers.length) throw new Error("The Government listing returned no eligible FTO numbers.");
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
-      setFtoNumbers(numbers);
-      setLiveTest(null);
-      setAwaitingConfirmation(true);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
       const skipped = Number(data.listing.alreadyImportedCount || 0);
-      const initialNotice = "Processing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
-        (skipped ? "; skipped " + formatNumber(skipped) + " completed or out-of-village FTOs." : ".") +
-        " Matching the Panchayat recorded in each FTO to this Village Council.";
-      setNotice(initialNotice + " Running a read-only parser test on the first two FTOs before any staging.");
-      const sample = numbers.slice(0, 2);
-      const { data: testData, error: testError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
-        body: { manifestToken: data.listing.manifestToken, batchId: data.batchId, ftoNumbers: sample, dryRun: true },
-      });
-      const requestError = testError ? await invokeErrorMessage(testError, "Live parser test request failed.") : undefined;
-      const testResults = getSampleResults(sample, testData, requestError);
-      const passed = testResults.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;
-      const failed = testResults.length - passed;
-      setLiveTest({ checked: sample.length, passed, failed, results: testResults });
-      setNotice(failed
-        ? "The initial live parser test failed. No FTO records or inspection history were changed. Review the errors before continuing."
-        : "Initial live parser test passed. No FTO records or inspection history were changed. Review the result, then continue when ready.");
-      setBusy(false);
+      const initialNotice = "Importing " + formatNumber(numbers.length) + " eligible First Signatory FTOs for " + (data.councilLocation?.block || "the selected Block") +
+        (skipped ? "; skipped " + formatNumber(skipped) + " completed or out-of-village FTOs." : ".");
+      await processNumbers(numbers, data.batchId, data.listing.manifestToken, supabase, initialNotice);
     } catch (err) {
       setError(err instanceof Error ? err.message : "FTO discovery failed.");
       setBusy(false);
     }
-  }
-
-  async function continueProcessing() {
-    if (!awaitingConfirmation || !liveTest || liveTest.failed > 0 || !batchId || !manifestToken || busy) return;
-    setAwaitingConfirmation(false);
-    setLiveTest(null);
-    const supabase = createClient();
-    await processNumbers(ftoNumbers, batchId, manifestToken, supabase,
-      "Initial parser test passed. Preparing all discovered FTO details for manual review; nothing will be activated.");
   }
 
   async function retryFailed() {
@@ -289,52 +247,16 @@ export default function FtoMonitoringPage() {
     await processNumbers(retryList, batchId, manifestToken, supabase);
   }
 
-  async function testLiveParser() {
-    if (!batchId || !manifestToken || !ftoNumbers.length || busy || activating || testingParser) return;
-    setTestingParser(true);
-    setError("");
-    setNotice("Retesting the first two Government FTO detail pages without staging or importing records.");
-    setLiveTest(null);
-    try {
-      const supabase = createClient();
-      const sample = ftoNumbers.slice(0, 2);
-      const { data, error: invokeError } = await supabase.functions.invoke<FtoDetailsResponse>("council-fto-details", {
-        body: { manifestToken, batchId, ftoNumbers: sample, dryRun: true },
-      });
-      const requestError = invokeError ? await invokeErrorMessage(invokeError, "Live parser test request failed.") : undefined;
-      const results = getSampleResults(sample, data, requestError);
-      const passed = results.filter(result => result.kind === "village_match" || result.kind === "out_of_village" || result.kind === "needs_review").length;
-      const failed = results.length - passed;
-      setLiveTest({ checked: sample.length, passed, failed, results });
-      setNotice(failed
-        ? "Live parser test completed with failures. No FTO records or inspection history were changed."
-        : "Live parser test passed for the first two FTOs. No FTO records or inspection history were changed.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Live parser test failed.");
-    } finally {
-      setTestingParser(false);
-    }
-  }
-
-  async function activateImport() {
-    if (!batchId || !preview || preview.inScopeFtos + preview.reviewFtos === 0 || activating || busy) return;
+  async function applyReviewDecisions() {
+    if (!batchId || activating || busy) return;
     setActivating(true);
     setError("");
     setNotice("");
     try {
-      const supabase = createClient();
-      const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: batchId });
-      if (activationError) throw activationError;
-      if (!data) throw new Error("The FTO import did not return a confirmation.");
-      setImportResult({
-        ftos: Number(data.importedFtos || 0),
-        transactions: Number(data.importedTransactions || 0),
-        excluded: Number(data.excludedOutOfVillageFtos || 0),
-        pendingReview: Number(data.pendingReviewTransactions || 0),
-      });
-      setNotice("Village FTO import completed successfully.");
+      await applyAndActivate(createClient(), batchId);
+      setNotice("Review decisions applied. Rows marked In village are now in the Council's FTO register.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "FTO import activation failed.");
+      setError(err instanceof Error ? err.message : "Applying review decisions failed.");
     } finally {
       setActivating(false);
     }
@@ -348,12 +270,12 @@ export default function FtoMonitoringPage() {
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">FTO Monitoring</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Discover First Signatory FTOs, validate their details and review transactions belonging to this Village Council before importing.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Fetching imports this Council&apos;s FTOs automatically. Only rows without a Panchayat name on the Government page need a manual decision.</p>
         </div>
         <button
           type="button"
           onClick={() => startFetch(false)}
-          disabled={busy || activating || Boolean(preview && !importResult)}
+          disabled={busy || activating}
           aria-busy={busy}
           className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -391,10 +313,6 @@ export default function FtoMonitoringPage() {
               <h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2>
               <p className="mt-1 text-xs leading-5 text-slate-500">First Signatory listing for this Council&apos;s Block. Uses saved District/Block navigation and official Government links; no CAPTCHA or manual file upload is required.</p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {awaitingConfirmation && liveTest?.failed === 0 && <button type="button" onClick={continueProcessing} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Continue and prepare all FTOs</button>}
-              {awaitingConfirmation && liveTest && liveTest.failed > 0 && <button type="button" onClick={testLiveParser} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 disabled:opacity-50">{testingParser ? "Retesting…" : "Retry sample test"}</button>}
-            </div>
           </div>
         </div>
 
@@ -403,21 +321,6 @@ export default function FtoMonitoringPage() {
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-700">FTO detail processing</p><p className="text-xs tabular-nums text-slate-500">{formatNumber(progress.attempted)} / {formatNumber(progress.total)} attempted</p></div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }}/></div>
             <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.staged)} staged FTO results</span></div>
-          </div>
-        )}
-
-        {liveTest && (
-          <div className="border-b border-slate-100 p-4 sm:p-6">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">Live parser test</h3><span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500">Read-only test</span></div>
-              <div className="mt-4 grid grid-cols-3 gap-3">
-                <div><p className="text-2xl font-bold tabular-nums text-slate-950">{formatNumber(liveTest.checked)}</p><p className="text-[10px] text-slate-500">Checked</p></div>
-                <div><p className="text-2xl font-bold tabular-nums text-emerald-700">{formatNumber(liveTest.passed)}</p><p className="text-[10px] text-slate-500">Passed</p></div>
-                <div><p className="text-2xl font-bold tabular-nums text-red-700">{formatNumber(liveTest.failed)}</p><p className="text-[10px] text-slate-500">Failed</p></div>
-              </div>
-              {liveTest.failed > 0 && <ul className="mt-4 space-y-2 border-t border-slate-200 pt-3 text-xs text-red-700">{liveTest.results.filter(item => item.kind !== "village_match" && item.kind !== "out_of_village").slice(0, 12).map((item, index) => <li key={String(item.ftoNumber || index)}><span className="font-semibold">{item.ftoNumber || "Request"}:</span> {item.error || (item.validationErrors || []).join(" ") || item.kind}</li>)}</ul>}
-              <p className="mt-3 text-[10px] text-slate-500">Read-only sample: first two discovered FTOs. No FTO records or inspection history are changed by this test.</p>
-            </div>
           </div>
         )}
 
@@ -439,11 +342,11 @@ export default function FtoMonitoringPage() {
       {preview && (
         <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-6">
           <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-            <div><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-emerald-700">Review before activation</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Import preview</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Ownership is determined by the Panchayat recorded in each FTO transaction, not by matching Job Card numbers alone.</p></div>
-            <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1.5 text-[10px] font-semibold text-amber-800">Not imported yet</span>
+            <div><p className="text-[10px] font-semibold uppercase tracking-[.14em] text-emerald-700">Import summary</p><h2 className="mt-1 text-lg font-bold tracking-tight text-slate-950">Matching transactions</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">Named Panchayat rows are included when they match this Council. Blank-name rows are included when their Job Card is active in your register, or when you mark them In village below.</p></div>
+            <span className={`rounded-full border px-3 py-1.5 text-[10px] font-semibold ${importResult ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-amber-100 bg-amber-50 text-amber-800"}`}>{importResult ? "Imported" : "Not imported yet"}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4"><p className="text-2xl font-bold tabular-nums text-emerald-900">{formatNumber(preview.inScopeFtos)}</p><p className="mt-1 text-[11px] font-medium text-emerald-800">FTOs matching this Council</p></div>
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4"><p className="text-2xl font-bold tabular-nums text-emerald-900">{formatNumber(preview.inScopeFtos + preview.reviewFtos)}</p><p className="mt-1 text-[11px] font-medium text-emerald-800">FTOs with transactions for this Council</p></div>
             <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4"><p className="text-2xl font-bold tabular-nums text-blue-900">{formatNumber(preview.transactions)}</p><p className="mt-1 text-[11px] font-medium text-blue-800">Matching transaction rows</p></div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><p className="text-2xl font-bold tabular-nums text-slate-800">{formatNumber(preview.outOfVillageFtos)}</p><p className="mt-1 text-[11px] font-medium text-slate-500">Out-of-village FTOs excluded</p></div>
           </div>
@@ -463,9 +366,9 @@ export default function FtoMonitoringPage() {
           )}
 
           <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-xl text-[11px] leading-5 text-slate-500">Review the counts and sample before confirming. No FTO records are activated until you confirm.</p>
-            <button type="button" onClick={activateImport} disabled={activating || busy || preview.inScopeFtos + preview.reviewFtos === 0 || Boolean(importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
-              {activating ? "Activating import…" : importResult ? "Import completed" : "Confirm and import village FTOs"}
+            <p className="max-w-xl text-[11px] leading-5 text-slate-500">After you mark review rows, apply the decisions to add them to the register. Undecided rows stay out of the register.</p>
+            <button type="button" onClick={applyReviewDecisions} disabled={activating || busy || !batchId} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+              {activating ? "Applying decisions…" : "Apply review decisions"}
             </button>
           </div>
         </section>
@@ -475,10 +378,11 @@ export default function FtoMonitoringPage() {
 
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">
-          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import activation returned successfully.</p></div></div>
-          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-4">
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">FTOs imported</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Transactions imported</p></div>
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import returned successfully.</p></div></div>
+          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-5">
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">FTOs in register</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Transactions in register</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.autoIncluded)}</p><p className="text-[11px] text-emerald-800">Auto-included from register</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-[11px] text-emerald-800">Out-of-village FTOs excluded</p></div>
             <div><p className="text-2xl font-bold tabular-nums text-amber-800">{formatNumber(importResult.pendingReview)}</p><p className="text-[11px] text-emerald-800">Review rows still undecided</p></div>
           </div>

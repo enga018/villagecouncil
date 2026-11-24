@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
+import FtoImportedRegister from "@/components/fto/fto-imported-register";
 
 type FtoPreview = {
   inScopeFtos: number;
@@ -331,6 +332,8 @@ export default function FtoMonitoringPage() {
         <span className="inline-flex items-center gap-2 self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-2 text-[10px] font-semibold text-blue-800 sm:self-auto"><span className="h-1.5 w-1.5 rounded-full bg-blue-600"/> Government portal connection</span>
       </section>
 
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} />
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
         <div className="border-b border-slate-100 p-4 sm:p-6">
           <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
@@ -341,9 +344,6 @@ export default function FtoMonitoringPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button type="button" onClick={() => startFetch(false)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
                 {busy ? "Fetching…" : "Fetch FTOs"}
-              </button>
-              <button type="button" onClick={() => startFetch(true)} disabled={busy || activating || Boolean(preview && !importResult)} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
-                Force refresh all
               </button>
               {awaitingConfirmation && liveTest?.failed === 0 && <button type="button" onClick={continueProcessing} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Continue and prepare all FTOs</button>}
               {awaitingConfirmation && liveTest && liveTest.failed > 0 && <button type="button" onClick={testLiveParser} disabled={busy || testingParser} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900 disabled:opacity-50">{testingParser ? "Retesting…" : "Retry sample test"}</button>}

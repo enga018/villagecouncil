@@ -42,6 +42,8 @@ type ImportResult = {
   pendingReview: number;
   autoIncluded: number;
 };
+
+type FtoCountBaseline = { ftos: number; transactions: number };
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }

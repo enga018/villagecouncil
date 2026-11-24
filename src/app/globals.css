@@ -25,7 +25,15 @@
   --vc-brand: #2563eb;
   --vc-brand-hover: #1e293b;
   --vc-brand-soft: #eff6ff;
-  --vc-brand-border: #bfdbfe;\n  --vc-fto-brand: #4f46e5;\n  --vc-fto-brand-soft: #eef2ff;\n  --vc-fto-brand-border: #c7d2fe;\n  --vc-action: #0f172a;\n  --vc-action-hover: #1e293b;\n  --vc-success-border: #a7f3d0;\n  --vc-warning-border: #fde68a;\n  --vc-danger-border: #fecdd3;
+  --vc-brand-border: #bfdbfe;
+  --vc-fto-brand: #4f46e5;
+  --vc-fto-brand-soft: #eef2ff;
+  --vc-fto-brand-border: #c7d2fe;
+  --vc-action: #0f172a;
+  --vc-action-hover: #1e293b;
+  --vc-success-border: #a7f3d0;
+  --vc-warning-border: #fde68a;
+  --vc-danger-border: #fecdd3;
 
   /* Borders and interaction */
   --vc-border: #cbd5e1;
@@ -64,7 +72,27 @@
   --color-vc-brand: var(--vc-brand);
   --color-vc-brand-hover: var(--vc-brand-hover);
   --color-vc-brand-soft: var(--vc-brand-soft);
-  --color-vc-border: var(--vc-border);\n  --color-slate-50: var(--vc-surface-subtle);\n  --color-slate-100: var(--vc-background);\n  --color-slate-200: var(--vc-border);\n  --color-slate-500: var(--vc-text-muted);\n  --color-slate-600: var(--vc-text-secondary);\n  --color-slate-900: var(--vc-foreground);\n  --color-blue-600: var(--vc-brand);\n  --color-emerald-700: var(--vc-success);\n  --color-amber-700: var(--vc-warning);\n  --color-rose-700: var(--vc-danger);
+  --color-vc-border: var(--vc-border);
+  --color-slate-50: var(--vc-surface-subtle);
+  --color-slate-100: var(--vc-background);
+  --color-slate-200: var(--vc-border);
+  --color-slate-500: var(--vc-text-muted);
+  --color-slate-600: var(--vc-text-secondary);
+  --color-slate-900: var(--vc-foreground);
+  --color-blue-600: var(--vc-brand);
+  --color-emerald-700: var(--vc-success);
+  --color-amber-700: var(--vc-warning);
+  --color-rose-700: var(--vc-danger);
+  --color-slate-50: var(--vc-surface-subtle);
+  --color-slate-100: var(--vc-background);
+  --color-slate-200: var(--vc-border);
+  --color-slate-500: var(--vc-text-muted);
+  --color-slate-600: var(--vc-text-secondary);
+  --color-slate-900: var(--vc-foreground);
+  --color-blue-600: var(--vc-brand);
+  --color-emerald-700: var(--vc-success);
+  --color-amber-700: var(--vc-warning);
+  --color-rose-700: var(--vc-danger);
   --font-sans: var(--vc-font-sans);
   --font-mono: var(--vc-font-mono);
 }

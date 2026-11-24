@@ -197,11 +197,22 @@ async function activateControl(jars: Jar, page: PortalPage, control: Control): P
   const action = safeGovernmentUrl(actionRaw || page.url, page.url);
   const body = buildPostbackBody(page.html, control.target || "", control.argument || "", control.inputName, control.inputValue);
   const host = new URL(action).hostname, cookies = cookieHeader(jars, host);
-  const response = await fetch(action, {
-    method: "POST", redirect: "follow",
-    headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: page.url, "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(), signal: AbortSignal.timeout(25000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(action, {
+      method: "POST", redirect: "follow",
+      headers: { ...baseHeaders, ...(cookies ? { Cookie: cookies } : {}), Referer: page.url, "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(), signal: AbortSignal.timeout(25000),
+    });
+  } catch (error) {
+    const reason = errorMessage(error);
+    const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    throw new PortalTransportError(
+      timeout
+        ? "VBGRAMG postback timed out after 25 seconds at " + new URL(action).pathname + "."
+        : "VBGRAMG postback network request failed at " + new URL(action).pathname + ": " + reason
+    );
+  }
   absorbCookies(response.headers, response.url || action, jars);
   if (!response.ok) throw new Error("VBGRAMG postback returned HTTP " + response.status + ".");
   const contentType = response.headers.get("content-type") || "";

@@ -46,13 +46,25 @@ function rowsOf(html: string) {
     .filter(row => row.some(Boolean));
 }
 
-/**
+
+function transactionTableOf(html: string) {
+  // The Government detail page contains a transaction table and a separate
+  // bank/branch summary table. Select the table by its transaction headers.
+  return [...html.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)]
+    .map(match => match[1])
+    .find(table => {
+      const rows = rowsOf(table);
+      return rows.some(row => row.some(cell => /job\s*card\s*no/i.test(cell)) &&
+        row.some(cell => /reference\s*no/i.test(cell)));
+    }) || "";
+}/**
  * Parses the Government FTO transaction-detail table.
  * Synthetic fixtures may exercise this function, but only captured Government HTML
  * can establish compatibility with the live portal.
  */
 export function parseGovernmentFtoDetailHtml(html: string, ftoNumber: string): GovernmentFtoTransaction[] {
-  const tableRows = rowsOf(html), pageText = textOf(html);
+  const transactionTable = transactionTableOf(html);
+  const tableRows = rowsOf(transactionTable), pageText = textOf(html);
   const header = tableRows.find(row => row.some(cell => /job\s*card\s*no/i.test(cell)) && row.some(cell => /reference\s*no/i.test(cell)));
   if (!header || !/FTO\s+Transaction\s+Details/i.test(pageText)) {
     throw new Error("FTO " + ftoNumber + " did not return a valid FTO Transaction Details page.");
@@ -75,7 +87,9 @@ export function parseGovernmentFtoDetailHtml(html: string, ftoNumber: string): G
   }
 
   const headerIndex = tableRows.indexOf(header), transactions: GovernmentFtoTransaction[] = [];
-  for (const row of tableRows.slice(headerIndex + 1)) {
+  for (const row of tableRows.slice(headerIndex + 1).filter(row =>
+    !row.some(cell => /^(?:sub\s*total|total)$/i.test(String(cell || "").trim()))
+  )) {
     const jobCell = row[job] || "", jobCardNumber = extractJobCard(jobCell);
     const referenceNumber = (row[reference] || "").trim();
     const rawStatus = (row[status] || "").trim(), normalizedStatus = normalizeGovernmentStatus(rawStatus);

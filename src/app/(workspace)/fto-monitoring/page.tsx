@@ -306,28 +306,19 @@ export default function FtoMonitoringPage() {
 
       <FtoImportedRegister key={importResult ? "after-import" : "initial"} />
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
-        <div className="border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex flex-col justify-between gap-3 xl:flex-row xl:items-end">
-            <div className="max-w-2xl">
-              <h2 className="text-base font-bold tracking-tight text-slate-950">Discover Government FTOs</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-500">First Signatory listing for this Council&apos;s Block. Uses saved District/Block navigation and official Government links; no CAPTCHA or manual file upload is required.</p>
-            </div>
-          </div>
-        </div>
-
+      <div className="space-y-4">
         {progress && (
-          <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-700">FTO detail processing</p><p className="text-xs tabular-nums text-slate-500">{formatNumber(progress.attempted)} / {formatNumber(progress.total)} attempted</p></div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }}/></div>
             <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.staged)} staged FTO results</span></div>
           </div>
         )}
 
-        {(error || notice) && <div className="space-y-2 border-b border-slate-100 p-4 sm:px-6">{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"><span className="font-bold">Action required: </span>{error}</p>}{notice && <p role="status" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">{notice}</p>}</div>}
+        {(error || notice) && <div className="space-y-2">{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"><span className="font-bold">Action required: </span>{error}</p>}{notice && <p role="status" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">{notice}</p>}</div>}
 
         {failedFtos.length > 0 && (
-          <div className="border-b border-slate-100 p-4 sm:p-6">
+          <div>
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div><p className="text-sm font-bold text-amber-950">{formatNumber(failedFtos.length)} FTO detail page(s) need retry</p><p className="mt-1 text-xs text-amber-800">Only failed records will be retried. Successful results remain staged.</p></div>
@@ -337,7 +328,7 @@ export default function FtoMonitoringPage() {
             </div>
           </div>
         )}
-      </section>
+      </div>
 
       {preview && (
         <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-6">

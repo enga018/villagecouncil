@@ -73,7 +73,7 @@ export function ModuleCard({ title, description, href, mark, eyebrow, action, ac
       <h3 className="mt-1 text-base font-bold tracking-tight text-slate-900">{title}</h3>
       <p className="mt-1.5 text-xs leading-5 text-slate-600">{description}</p>
       {children && <div className="mt-4">{children}</div>}
-      <span className="mt-auto inline-flex items-center gap-2 pt-5 text-xs font-bold ${actionStyles[accent]}">
+      <span className={`mt-auto inline-flex items-center gap-2 pt-5 text-xs font-bold ${actionStyles[accent]}`}>
         {action}<span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
       </span>
     </Link>

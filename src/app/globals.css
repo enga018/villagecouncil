@@ -10,9 +10,9 @@
   color-scheme: light;
 
   /* Surfaces */
-  --vc-background: #f6f8fb;
+  --vc-background: #f1f5f9;
   --vc-surface: #ffffff;
-  --vc-surface-muted: #f3f6fa;
+  --vc-surface-muted: #f8fafc;
   --vc-surface-subtle: #f8fafc;
 
   /* Text */
@@ -22,30 +22,30 @@
   --vc-text-subtle: #94a3b8;
 
   /* Brand */
-  --vc-brand: #2457c5;
-  --vc-brand-hover: #1d469f;
-  --vc-brand-soft: #edf3ff;
-  --vc-brand-border: #bfdbfe;
+  --vc-brand: #2563eb;
+  --vc-brand-hover: #1e293b;
+  --vc-brand-soft: #eff6ff;
+  --vc-brand-border: #bfdbfe;\n  --vc-fto-brand: #4f46e5;\n  --vc-fto-brand-soft: #eef2ff;\n  --vc-fto-brand-border: #c7d2fe;\n  --vc-action: #0f172a;\n  --vc-action-hover: #1e293b;\n  --vc-success-border: #a7f3d0;\n  --vc-warning-border: #fde68a;\n  --vc-danger-border: #fecdd3;
 
   /* Borders and interaction */
-  --vc-border: #e2e8f0;
-  --vc-border-subtle: #f1f5f9;
+  --vc-border: #cbd5e1;
+  --vc-border-subtle: #e2e8f0;
   --vc-focus: #2563eb;
 
   /* Status */
   --vc-success: #047857;
   --vc-success-soft: #ecfdf5;
-  --vc-warning: #92400e;
+  --vc-warning: #b45309;
   --vc-warning-soft: #fffbeb;
-  --vc-danger: #b91c1c;
-  --vc-danger-soft: #fef2f2;
+  --vc-danger: #be123c;
+  --vc-danger-soft: #fff1f2;
 
   /* Shape and layout */
   --vc-radius-sm: 0.5rem;
   --vc-radius-md: 0.75rem;
   --vc-radius-lg: 1rem;
   --vc-radius-xl: 1.25rem;
-  --vc-shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.035);
+  --vc-shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
   --vc-sidebar-width: 17rem;
   --vc-topbar-height: 4.25rem;
   --vc-content-width: 90rem;
@@ -64,7 +64,7 @@
   --color-vc-brand: var(--vc-brand);
   --color-vc-brand-hover: var(--vc-brand-hover);
   --color-vc-brand-soft: var(--vc-brand-soft);
-  --color-vc-border: var(--vc-border);
+  --color-vc-border: var(--vc-border);\n  --color-slate-50: var(--vc-surface-subtle);\n  --color-slate-100: var(--vc-background);\n  --color-slate-200: var(--vc-border);\n  --color-slate-500: var(--vc-text-muted);\n  --color-slate-600: var(--vc-text-secondary);\n  --color-slate-900: var(--vc-foreground);\n  --color-blue-600: var(--vc-brand);\n  --color-emerald-700: var(--vc-success);\n  --color-amber-700: var(--vc-warning);\n  --color-rose-700: var(--vc-danger);
   --font-sans: var(--vc-font-sans);
   --font-mono: var(--vc-font-mono);
 }

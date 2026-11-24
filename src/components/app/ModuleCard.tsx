@@ -14,6 +14,11 @@ const iconStyles: Record<Accent, string> = {
   indigo: "bg-indigo-50 text-indigo-700",
 };
 
+const actionStyles: Record<Accent, string> = {
+  blue: "text-blue-700 focus-visible:outline-blue-600",
+  indigo: "text-indigo-700 focus-visible:outline-indigo-600",
+};
+
 const toneStyles: Record<Tone, string> = {
   neutral: "text-slate-900",
   blue: "text-blue-700",

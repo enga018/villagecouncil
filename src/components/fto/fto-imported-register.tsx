@@ -56,7 +56,7 @@ function money(value: number | null | undefined) {
 function date(value: string | null | undefined) {
   if (!value) return "—";
   // FTO dates are stored as date-only text; avoid timezone shifts.
-  const dateOnly = value.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnly) return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
     timeZone: "UTC",

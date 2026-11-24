@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { countUnresolvedTransactions, normalizeVillage } from "../_shared/fto-domain.ts";
+import { countUnresolvedTransactions, normalizeVillage, parseGovernmentDate } from "../_shared/fto-domain.ts";
 import { parseGovernmentFtoDetailHtml } from "../_shared/fto-html-parser.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
@@ -247,7 +247,7 @@ async function main(req: Request, origin: string | null) {
         scope,
         panchayat_name: panchayat.official_name,
         fto_number: item.candidate.ftoNumber,
-        fto_date: listingRow[5] || "",
+        fto_date: parseGovernmentDate(listingRow[5] || ""),
         fto_status: "",
         block: block.official_name,
         first_signatory: "",

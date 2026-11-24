@@ -299,7 +299,7 @@ export default function JobCardsPage() {
           <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className={`h-4 w-4 ${refetching ? "animate-spin" : ""}`} stroke="currentColor" strokeWidth="1.7">
             <path d="M16.5 7.5A6.8 6.8 0 0 0 4.2 5.2L2.5 7M2.5 7V3.8M2.5 7h3.2M3.5 12.5a6.8 6.8 0 0 0 12.3 2.3l1.7-1.8m0 0v3.2m0-3.2h-3.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          {refetching ? "Refetching register…" : "Refetch official register"}
+          {refetching ? "Fetching…" : "Fetch Job Cards"}
         </button>
       </section>
 

@@ -356,16 +356,10 @@ export default function FtoMonitoringPage() {
             </div>
           )}
 
-          <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-xl text-[11px] leading-5 text-slate-500">After you mark review rows, apply the decisions to add them to the register. Undecided rows stay out of the register.</p>
-            <button type="button" onClick={applyReviewDecisions} disabled={activating || busy || !batchId} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
-              {activating ? "Applying decisions…" : "Apply review decisions"}
-            </button>
-          </div>
         </section>
       )}
 
-      {batchId && preview && <FtoReviewQueue batchId={batchId} />}
+      {batchId && preview && <FtoReviewQueue batchId={batchId} applied={applyReviewDecisions} />}
 
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">

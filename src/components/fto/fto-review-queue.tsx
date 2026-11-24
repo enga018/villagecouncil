@@ -27,6 +27,7 @@ type ReviewItem = {
 };
 
 type Decision = "in_village" | "not_in_village";
+type ApplyState = "idle" | "applying" | "done";
 
 function money(value: string) {
   const amount = Number(value);
@@ -41,12 +42,17 @@ function normalizeJobCard(value: string) {
   return value.trim().toUpperCase();
 }
 
-export default function FtoReviewQueue({ batchId }: { batchId: string }) {
+function decisionButtonClasses(isActive: boolean, busy: boolean) {
+  return `min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${isActive ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}${busy ? " disabled:cursor-not-allowed" : ""}`;
+}
+
+export default function FtoReviewQueue({ batchId, applied }: { batchId: string; applied?: () => void }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [registerStatus, setRegisterStatus] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
+  const [applyState, setApplyState] = useState<ApplyState>("idle");
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [registerError, setRegisterError] = useState("");
@@ -58,6 +64,7 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
       setLoading(true);
       setError("");
       setRegisterError("");
+      setApplyState("idle");
       const supabase = createClient();
       const rows: ReviewRow[] = [];
       for (let offset = 0; ; offset += 1000) {
@@ -155,27 +162,16 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
     setSaving("");
   }
 
-  async function acceptSuggestions() {
-    if (!suggestedItems.length || bulkProgress || saving) return;
+  async function applyDecisions() {
+    if (!applied || applyState !== "idle") return;
+    setApplyState("applying");
     setError("");
-    const supabase = createClient();
-    const total = suggestedItems.length;
-    setBulkProgress({ done: 0, total });
-    for (let index = 0; index < suggestedItems.length; index++) {
-      const item = suggestedItems[index];
-      const { error: rpcError } = await supabase.rpc("set_council_fto_review_decision", {
-        p_fto_number: item.ftoNumber,
-        p_reference_number: item.referenceNumber,
-        p_decision: "in_village",
-      });
-      if (rpcError) {
-        setError(`Stopped after ${index} of ${total} suggestions: ${rpcError.message}`);
-        break;
-      }
-      setDecisions(current => ({ ...current, [item.key]: "in_village" }));
-      setBulkProgress({ done: index + 1, total });
+    try {
+      await applied();
+      setApplyState("done");
+    } catch {
+      setApplyState("idle");
     }
-    setBulkProgress(null);
   }
 
   if (!loading && items.length === 0 && !error) return null;
@@ -195,21 +191,21 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
         {!loading && suggestedItems.length > 0 && (
           <div className="mt-4 flex flex-col gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-emerald-900">{suggestedItems.length.toLocaleString("en-IN")} awaiting rows have an active Job Card in your register.</p>
-            <button type="button" onClick={acceptSuggestions} disabled={Boolean(bulkProgress) || Boolean(saving)}
+            <button type="button" onClick={applyDecisions} disabled={Boolean(applyState === "applying") || Boolean(bulkProgress)}
               className="min-h-9 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50">
-              {bulkProgress ? `Accepting ${bulkProgress.done.toLocaleString("en-IN")} of ${bulkProgress.total.toLocaleString("en-IN")}…` : `Accept ${suggestedItems.length.toLocaleString("en-IN")} suggested as In village`}
+              {applyState === "applying" ? "Applying…" : applyState === "done" ? "Applied" : `Accept ${suggestedItems.length.toLocaleString("en-IN")} suggested as In village`}
+            </button>
+          </div>
+        )}
+        {!loading && items.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
+              className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-700">
+              {expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}
             </button>
           </div>
         )}
       </div>
-
-      {!loading && items.length > 0 && (
-        <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
-          className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left text-xs font-semibold text-slate-700 transition hover:bg-slate-50 sm:px-5">
-          <span>{expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}</span>
-          <span aria-hidden="true" className={`text-base text-slate-400 transition ${expanded ? "rotate-180" : ""}`}>⌄</span>
-        </button>
-      )}
 
       {registerError && <p role="status" className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">{registerError}. Register suggestions are unavailable until this is fixed.</p>}
       {error && <p role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</p>}
@@ -251,12 +247,10 @@ export default function FtoReviewQueue({ batchId }: { batchId: string }) {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button type="button" disabled={busy || Boolean(bulkProgress)} onClick={() => decide(item, "in_village")}
-                          className={"min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 " + (decision === "in_village" ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")}>
+                        <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
                           In village
                         </button>
-                        <button type="button" disabled={busy || Boolean(bulkProgress)} onClick={() => decide(item, "not_in_village")}
-                          className={"min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 " + (decision === "not_in_village" ? "border-slate-600 bg-slate-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50")}>
+                        <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
                           Not in village
                         </button>
                         {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}

@@ -71,8 +71,9 @@ Deno.test("parses Government amounts and rejects malformed values", () => {
 });
 
 Deno.test("normalizes supported Government date formats", () => {
-  if (parseGovernmentDate("7/3/2026") !== "2026-03-07") throw new Error("Slash date parsing failed.");
-  if (parseGovernmentDate("07-11-2026") !== "2026-11-07") throw new Error("Dash date parsing failed.");
+  if (parseGovernmentDate("7/3/2026") !== "2026-07-03") throw new Error("Slash date parsing failed.");
+  if (parseGovernmentDate("07-11-2026") !== "2026-07-11") throw new Error("Dash date parsing failed.");
   if (parseGovernmentDate("2026-11-07") !== "2026-11-07") throw new Error("ISO date parsing failed.");
+  if (parseGovernmentDate("29/08/2026") !== "2026-08-29") throw new Error("Day-first date parsing failed.");
   if (parseGovernmentDate("not a date") !== "") throw new Error("Invalid date should be rejected.");
 });

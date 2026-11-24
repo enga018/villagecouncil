@@ -11,7 +11,13 @@ export function parseGovernmentDate(value: string): string {
   const text = String(value || "").trim();
   if (!text) return "";
   const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-  if (match) return match[3] + "-" + match[2].padStart(2, "0") + "-" + match[1].padStart(2, "0");
+  if (match) {
+    const first = Number(match[1]), second = Number(match[2]);
+    // If the first number is after 12, it must be the day (day-first format).
+    const day = first > 12 ? first : second;
+    const month = first > 12 ? second : first;
+    return match[3] + "-" + month.toString().padStart(2, "0") + "-" + day.toString().padStart(2, "0");
+  }
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
   return "";
 }

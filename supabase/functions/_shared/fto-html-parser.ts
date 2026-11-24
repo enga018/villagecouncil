@@ -88,7 +88,7 @@ export function parseGovernmentFtoDetailHtml(html: string, ftoNumber: string): G
 
   const headerIndex = tableRows.indexOf(header), transactions: GovernmentFtoTransaction[] = [];
   for (const row of tableRows.slice(headerIndex + 1).filter(row =>
-    !row.some(cell => /^(?:sub\\s*total|total)$/i.test(String(cell || "").trim()))
+    !row.some(cell => /^(?:sub\s*total|total)$/i.test(String(cell || "").trim()))
   )) {
     const jobCell = row[job] || "", jobCardNumber = extractJobCard(jobCell);
     const referenceNumber = (row[reference] || "").trim();

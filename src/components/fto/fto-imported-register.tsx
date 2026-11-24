@@ -238,7 +238,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                               <td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td>
                               <td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td>
                               <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(tx.amount_to_be_credited)}</td>
-                              <td className="whitespace-nowrap px-3 py-3"><span className={tx.government_status.toLowerCase() === "rejected" ? "rounded-full bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700" : tx.government_status.toLowerCase() === "processed" ? "rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700" : "rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800"}>{tx.government_status || "Blank"}</span></td>
+                              <td className="whitespace-nowrap px-3 py-3"><span className={tx.government_status.toLowerCase() === "rejected" ? "rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700" : tx.government_status.toLowerCase() === "processed" ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700" : "rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700"}>{tx.government_status || "Blank"}</span></td>
                               <td className="max-w-[240px] whitespace-normal px-3 py-3 text-slate-600">{tx.rejection_reason || "—"}</td>
                             </tr>)}
                           </tbody>

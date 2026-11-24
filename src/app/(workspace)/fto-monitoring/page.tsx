@@ -42,15 +42,6 @@ type ImportResult = {
   pendingReview: number;
   autoIncluded: number;
 };
-type FtoKpiChanges = {
-  ftos: number;
-  transactions: number;
-  totalStatus: number;
-  deferral: number;
-  rejection: number;
-};
-type FtoCountBaseline = { ftos: number; transactions: number };
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
@@ -95,7 +86,6 @@ export default function FtoMonitoringPage() {
   const [preview, setPreview] = useState<FtoPreview | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
-  const [kpiChanges, setKpiChanges] = useState<FtoKpiChanges | null>(null);
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
   const [fetchDelta, setFetchDelta] = useState<FtoAutoIncrement>(null);
@@ -168,7 +158,6 @@ export default function FtoMonitoringPage() {
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
     setFetchDelta(null);
-    setKpiChanges(null);
     const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
     fetchBaselineRef.current = null;
     const ftos = Number(data.importedFtos || 0), transactions = Number(data.importedTransactions || 0);

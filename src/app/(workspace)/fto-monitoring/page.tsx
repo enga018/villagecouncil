@@ -124,23 +124,19 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions(_batchIds: string[], _autoFtos: string[] = []) {
-    if ((!batchIds.length && !autoFtos.length) || activating || busy) return;
+  async function applyReviewDecisions(_batchIds: string[] = [], _autoFtos: string[] = []) {
+    if (activating || busy) return;
     setActivating(true);
     setError("");
     setNotice("");
     try {
       const supabase = createClient();
-      if (autoFtos.length) {
-        const { error: autoError } = await supabase.rpc("set_council_fto_review_decision_many", { p_fto_numbers: autoFtos });
-        if (autoError) throw autoError;
-      }
       const { data: batches, error: batchError } = await supabase
         .from("council_fto_import_batches")
         .select("id,status")
-        .in("id", batchIds);
+        .in("status", ["pending", "completed"]);
       if (batchError) throw batchError;
-      const ready = (batches || []).filter(batch => batch.status === "pending" || batch.status === "completed").map(batch => String(batch.id));
+      const ready = (batches || []).map(batch => String(batch.id));
       for (const readyBatchId of ready) {
         await applyAndActivate(supabase, readyBatchId);
       }

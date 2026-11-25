@@ -116,8 +116,13 @@ function statusPill(key: "processed" | "deferred" | "rejected" | "other", count:
 
 function statusSummary(transactions: Transaction[]) {
   const counts = statusSummaryClasses(transactions);
-  const pills = [counts.processed, counts.deferred, counts.rejected, counts.other].filter((value, index) => value > 0).map(value => value === counts.processed && index === 0 ? statusPill("processed", value) : value === counts.deferred ? statusPill("deferred", value) : value === counts.rejected ? statusPill("rejected", value) : statusPill("other", value));
-  return pills.length ? <div className="mt-2 flex flex-wrap items-center gap-2">{pills}</div> : <div className="mt-2 text-[11px] text-slate-500">No transactions</div>;
+  const items = [
+    counts.processed > 0 && statusPill("processed", counts.processed),
+    counts.deferred > 0 && statusPill("deferred", counts.deferred),
+    counts.rejected > 0 && statusPill("rejected", counts.rejected),
+    counts.other > 0 && statusPill("other", counts.other),
+  ].filter(Boolean) as ReturnType<typeof statusPill>[];
+  return items.length ? <div className="mt-2 flex flex-wrap items-center gap-2">{items}</div> : <div className="mt-2 text-[11px] text-slate-500">No transactions</div>;
 }
 
 function dateTime(value: string | null | undefined) {
@@ -240,70 +245,34 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   <div className="min-w-0 flex-1">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     {statusSummary(item.council_fto_transactions)}
-                    <p className="mt-2 text-[10px] text-slate-400">{date(item.fto_date)} · Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
+                    <p className="mt-2 text-[10px] text-slate-400">{date(item.fto_date)} Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
                     aria-expanded={expanded}
                     className="mt-3 w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 lg:mt-0 lg:w-auto">
-                    {expanded ? "Close −" : "Details +"}
+                    {expanded ? "Close" : "Details"}
                   </button>
                 </div>
-              </div>
                 {expanded && (
-                  <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <h3 className="text-xs font-bold text-slate-900">Transaction details</h3>
-                        <p className="mt-1 text-[10px] text-slate-500">{number(item.council_fto_transactions.length)} imported transaction(s) · Last imported {dateTime(item.last_seen_in_import_at || item.first_imported_at)}</p>
-                        <p className="mt-1 text-[10px] text-slate-500">Last Government check: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
-                        {inspections[item.fto_number] && <p className="mt-1 text-[10px] text-slate-500">Inspection: {inspections[item.fto_number].inspection_result === "matched" ? "Transactions matched" : "No matching transactions"} · {number(inspections[item.fto_number].unresolved_transaction_count)} unresolved</p>}
-                      </div>
-                      {item.fto_status && <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600">{item.fto_status}</span>}
+                  <div className="mt-4 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-xs font-bold text-slate-900">Transaction details</h3>
+                      <span className="text-[10px] text-slate-400">{number(item.council_fto_transactions.length)} imported</span>
                     </div>
+                    <p className="mt-1 text-[10px] text-slate-500">Last Government check: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                     {item.council_fto_transactions.length === 0 ? (
-                      <p className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
+                      <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
-                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                        <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
-                          <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
-                            <th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th>
-                          </tr></thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {item.council_fto_transactions.map(tx => <tr key={tx.id}>
-                              <td className="whitespace-nowrap px-3 py-3 font-bold text-slate-900">{tx.job_card_number}</td>
-                              <td className="whitespace-nowrap px-3 py-3 text-slate-600">{tx.reference_number}</td>
-                              <td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td>
-                              <td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td>
-                              <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(tx.amount_to_be_credited)}</td>
-                              <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span></td>
-                              <td className="max-w-[240px] whitespace-normal px-3 py-3 text-slate-600">{tx.rejection_reason || "—"}</td>
-                            </tr>)}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                    {item.council_fto_transactions.length > 0 && (
-                      <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="mt-3 hidden md:grid gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center gap-2">{statusSummary(item.council_fto_transactions)}</div>
                         {item.council_fto_transactions.map(tx => (
-                          <div key={tx.id} className="rounded-xl border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</p>
-                                <p className="mt-0.5 text-[10px] text-slate-500">Ref: {tx.reference_number}</p>
-                              </div>
-                              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
-                            </div>
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-                              <p><span className="font-semibold text-slate-700">Date:</span> {date(tx.transaction_date)}</p>
-                              <p className="text-right"><span className="font-semibold text-slate-700">Amount:</span> <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span></p>
-                            </div>
-                            {tx.applicant_name || tx.primary_account_holder ? <p className="mt-2 text-[10px] text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</p> : null}
-                            {tx.rejection_reason && (
-                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
-                                <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>
-                                <p className="mt-1 text-[10px] text-rose-700">{tx.rejection_reason}</p>
-                              </div>
-                            )}
+                          <div key={tx.id} className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
+                            <span className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</span>
+                            <span className="text-xs text-slate-600">Ref: {tx.reference_number}</span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
+                            <span className="text-xs text-slate-600">{money(tx.amount_to_be_credited)}</span>
+                            <span className="text-xs text-slate-600">{date(tx.transaction_date)}</span>
+                            {tx.applicant_name || tx.primary_account_holder ? <span className="text-xs text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</span> : null}
                           </div>
                         ))}
                       </div>

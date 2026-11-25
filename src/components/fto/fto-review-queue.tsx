@@ -210,12 +210,12 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
     const { error: rpcError } = await createClient().rpc("set_council_fto_review_decision", {
       p_fto_number: item.ftoNumber,
       p_reference_number: item.referenceNumber,
-      p_decision: decisions[item.key] || decision,
+      p_decision: decision,
     });
     if (rpcError) {
       setError(rpcError.message);
     } else {
-      setDecisions(current => ({ ...current, [item.key]: decisions[item.key] || decision }));
+      setDecisions(current => ({ ...current, [item.key]: decision }));
     }
     setSaving("");
   }

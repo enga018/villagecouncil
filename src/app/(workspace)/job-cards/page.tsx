@@ -375,7 +375,7 @@ export default function JobCardsPage() {
                 return (
                   <article key={card.id} className={`overflow-hidden rounded-xl border transition-colors ${isExpanded ? "border-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-slate-300"}`}>
                     <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full flex-col items-stretch gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4 md:flex-row md:items-center md:justify-between md:gap-4">
-                      <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-1">
+                      <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-none">
                         <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">

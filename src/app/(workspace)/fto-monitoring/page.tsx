@@ -125,13 +125,17 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions(batchIds: string[]) {
-    if (!batchIds.length || activating || busy) return;
+  async function applyReviewDecisions(batchIds: string[], autoFtos: string[] = []) {
+    if ((!batchIds.length && !autoFtos.length) || activating || busy) return;
     setActivating(true);
     setError("");
     setNotice("");
     try {
       const supabase = createClient();
+      if (autoFtos.length) {
+        const { error: autoError } = await supabase.rpc("set_council_fto_review_decision_many", { p_fto_numbers: autoFtos });
+        if (autoError) throw autoError;
+      }
       const { data: batches, error: batchError } = await supabase
         .from("council_fto_import_batches")
         .select("id,status")
@@ -286,6 +290,8 @@ export default function FtoMonitoringPage() {
 
   const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
 
+  const [autoSuggestedFtos, setAutoSuggestedFtos] = useState<string[]>([]);
+
   return (
     <div className="mx-auto max-w-6xl space-y-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -331,6 +337,12 @@ export default function FtoMonitoringPage() {
 
       <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement || fetchDelta} />
 
+      {autoSuggestedFtos.length > 0 && (
+        <p className="text-[11px] font-semibold text-emerald-800">
+          {formatNumber(autoSuggestedFtos.length)} FTO(s) have a new register match. Accept all as In village below.
+        </p>
+      )}
+
       <div className="space-y-4">
         {progress && (
           <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-6">
@@ -355,7 +367,7 @@ export default function FtoMonitoringPage() {
         )}
       </div>
 
-      <FtoReviewQueue applied={applyReviewDecisions} />
+      <FtoReviewQueue applied={applyReviewDecisions} autoCount={autoSuggestedFtos.length} onAutoFtos={setAutoSuggestedFtos} />
 
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">

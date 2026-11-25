@@ -47,6 +47,10 @@ function decisionButtonClasses(isActive: boolean, busy: boolean) {
   return `min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${isActive ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}${busy ? " disabled:cursor-not-allowed" : ""}`;
 }
 
+function rowKey(item: ReviewItem) {
+  return item.key;
+}
+
 async function loadBatchRows(supabase: ReturnType<typeof createClient>, batchId: string) {
   const rows: ReviewRow[] = [];
   for (let offset = 0; ; offset += 1000) {
@@ -63,16 +67,18 @@ async function loadBatchRows(supabase: ReturnType<typeof createClient>, batchId:
   return rows;
 }
 
-export default function FtoReviewQueue({ applied }: { applied?: (batchIds: string[]) => Promise<void> }) {
+export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: { applied?: (batchIds: string[], autoFtos: string[]) => Promise<void>; autoCount?: number; onAutoFtos?: (ftos: string[]) => void }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [registerStatus, setRegisterStatus] = useState<Map<string, string>>(new Map());
+  const [autoFtos, setAutoFtos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [applyState, setApplyState] = useState<ApplyState>("idle");
   const [error, setError] = useState("");
   const [registerError, setRegisterError] = useState("");
-  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -81,6 +87,7 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
       setError("");
       setRegisterError("");
       setApplyState("idle");
+      setAutoFtos([]);
       try {
         const supabase = createClient();
         const { data: batches, error: batchesError } = await supabase
@@ -146,6 +153,17 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
         setDecisions(decisionMap);
         setRegisterStatus(registered);
         setRegisterError(lookupError ? "Could not check the job card register: " + lookupError : "");
+        const byCard = new Map<string, string>();
+        for (const item of reviewItems) {
+          if (!item.jobCardNumber || byCard.has(item.jobCardNumber)) continue;
+          const alreadyDecided = decisionMap[item.key] === "in_village";
+          const activeMatch = registerStatus.get(normalizeJobCard(item.jobCardNumber)) === "active";
+          if (!alreadyDecided && activeMatch && !byCard.has(item.jobCardNumber)) byCard.set(item.jobCardNumber, item.ftoNumber);
+          if (alreadyDecided) byCard.set(item.jobCardNumber, item.ftoNumber);
+        }
+        const suggested = [...byCard.values()];
+        setAutoFtos(suggested);
+        onAutoFtos?.(suggested);
       } catch (err) {
         if (active) setError(err instanceof Error ? err.message : "Could not load manual review rows.");
       } finally {
@@ -154,7 +172,7 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
     }
     void load();
     return () => { active = false; };
-  }, []);
+  }, [onAutoFtos]);
 
   const pendingCount = useMemo(() => items.filter(item => !decisions[item.key]).length, [items, decisions]);
 
@@ -162,6 +180,21 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
     () => items.filter(item => !decisions[item.key] && registerStatus.get(normalizeJobCard(item.jobCardNumber)) === "active"),
     [items, decisions, registerStatus],
   );
+  const visibleSuggested = showAll || suggestedItems.length <= 1 ? suggestedItems : suggestedItems.slice(0, 1);
+
+  const filteredItems = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase();
+    if (!term) return items;
+    return items.filter(item =>
+      item.ftoNumber.toLowerCase().includes(term) ||
+      item.jobCardNumber.toLowerCase().includes(term) ||
+      item.referenceNumber.toLowerCase().includes(term) ||
+      item.date.toLowerCase().includes(term) ||
+      money(item.amount).toLowerCase().includes(term)
+    );
+  }, [items, search]);
+
+  const visible = filteredItems.filter(item => showAll || pendingCount <= 1 || !decisions[item.key] || showAll);
 
   async function decide(item: ReviewItem, decision: Decision) {
     setSaving(item.key);
@@ -169,12 +202,13 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
     const { error: rpcError } = await createClient().rpc("set_council_fto_review_decision", {
       p_fto_number: item.ftoNumber,
       p_reference_number: item.referenceNumber,
-      p_decision: decision,
+      p_decision: decisions[item.key] || decision,
+      p_job_card_number: item.jobCardNumber,
     });
     if (rpcError) {
       setError(rpcError.message);
     } else {
-      setDecisions(current => ({ ...current, [item.key]: decision }));
+      setDecisions(current => ({ ...current, [item.key]: decisions[item.key] || decision }));
     }
     setSaving("");
   }
@@ -184,7 +218,8 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
     setApplyState("applying");
     setError("");
     try {
-      await applied([...new Set(items.map(item => item.batchId))]);
+      const autoBatchFtos = [...new Set(autoFtos.filter(number => !items.some(item => item.ftoNumber === number && decisions[item.key])))];
+      await applied([...new Set(items.map(item => item.batchId))], autoBatchFtos);
       setApplyState("done");
     } catch {
       setApplyState("idle");
@@ -196,24 +231,25 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
       <div className="border-b border-slate-100 p-4 sm:p-5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div className="max-w-3xl">
-            <h2 className="text-base font-bold tracking-tight text-slate-950">Manual review: Panchayat not shown</h2>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              Government did not show the Panchayat name for these transactions. Job Cards that are <span className="font-semibold text-slate-700">active</span> in your register are suggested as In village. Suggestions are not applied until you accept them, and any row can be changed. Undecided rows are not imported.
-            </p>
-          </div>
+        <h2 className="text-base font-bold tracking-tight text-slate-950">Manual review: Panchayat not shown</h2>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Government did not show the Panchayat name for these transactions. Job Cards that are <span className="font-semibold text-slate-700">active</span> in your register are suggested. Any row can be decided manually.
+        </p>
+        {registerError && <p role="status" className="mt-2 text-[11px] text-amber-900">{registerError}</p>}
+        {error && <p role="alert" className="mt-2 text-xs text-red-800">{error}</p>}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800">{loading ? "Loading…" : `${pendingCount.toLocaleString("en-IN")} of ${items.length.toLocaleString("en-IN")} awaiting decision`}</span>
+          <label className="relative min-w-0 flex-1 md:max-w-2xl">
+            <span className="sr-only">Search review rows</span>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+            <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search FTO, Job Card, reference or amount"
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
+          </label>
         </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          {!loading && suggestedItems.length > 0 && (
-            <span className="text-[11px] font-semibold text-emerald-800">
-              {suggestedItems.length.toLocaleString("en-IN")} awaiting rows have an active Job Card in your register.
-            </span>
-          )}
-          <button type="button" onClick={() => setExpanded(current => !current)} aria-expanded={expanded}
-            className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-700">
-            {expanded ? "Hide review table" : `Show review table (${items.length.toLocaleString("en-IN")} rows)`}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold text-emerald-800">{(visibleSuggested.length || autoFtos.length).toLocaleString("en-IN")} suggested from active Job Cards{autoCount ? ` · page total: ${autoCount.toLocaleString("en-IN")}` : ""}</span>
+          <button type="button" onClick={() => setShowAll(current => !current)} aria-expanded={showAll} className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-700">
+            {showAll ? "Hide other rows" : "Show other rows"}
           </button>
         </div>
         {!loading && suggestedItems.length > 0 && (
@@ -226,62 +262,55 @@ export default function FtoReviewQueue({ applied }: { applied?: (batchIds: strin
         )}
       </div>
 
-      {registerError && <p role="status" className="m-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">{registerError}. Register suggestions are unavailable until this is fixed.</p>}
-      {error && <p role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</p>}
-
-      {loading ? (
-        <div className="p-8 text-center text-xs text-slate-500">Loading review rows…</div>
-      ) : expanded ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-[960px] divide-y divide-slate-200 text-xs">
-            <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">FTO</th>
-                <th className="px-4 py-3">Job Card</th>
-                <th className="px-4 py-3">Reference</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Register</th>
-                <th className="px-4 py-3">Decision</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {items.map(item => {
-                const decision = decisions[item.key];
-                const busy = saving === item.key;
-                const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
-                return (
-                  <tr key={item.key}>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{item.ftoNumber}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">{item.jobCardNumber || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.referenceNumber || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.date || "—"}</td>
-                    <td className="whitespace-nowrap px-4 py-3 tabular-nums text-slate-700">{money(item.amount)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">{item.status}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
-                        : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
-                        : <span className="text-[10px] text-slate-400">Not in register</span>}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
-                          In village
-                        </button>
-                        <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
-                          Not in village
-                        </button>
-                        {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1000px] divide-y divide-slate-200 text-xs">
+          <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="w-40 px-3 py-3">Job Card</th>
+              <th className="px-3 py-3">Reference</th>
+              <th className="w-44 px-3 py-3">Date</th>
+              <th className="w-32 px-3 py-3">Amount</th>
+              <th className="w-20 px-3 py-3">Status</th>
+              <th className="w-28 px-3 py-3">FTO</th>
+              <th className="w-28 px-3 py-3">Register</th>
+              <th className="w-64 px-3 py-3">Decision</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {visible.map(item => {
+              const decision = decisions[item.key];
+              const busy = saving === item.key;
+              const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
+              return (
+                <tr key={rowKey(item)}>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-700">{item.jobCardNumber || "—"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.referenceNumber || "—"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.date || "—"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(item.amount)}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.status}</td>
+                  <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{item.ftoNumber}</td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
+                      : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
+                      : <span className="text-[10px] text-slate-400">Not in register</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
+                        In village
+                      </button>
+                      <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
+                        Not in village
+                      </button>
+                      {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

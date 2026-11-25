@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
+const FTO_PAGE_SIZE = 5;
 import { createClient } from "@/lib/supabase";
 
 type Transaction = {
@@ -175,6 +177,8 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     return () => { active = false; };
   }, []);
 
+  const [ftoPage, setFtoPage] = useState(1);
+  const [txPage, setTxPage] = useState(1);
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return records;
@@ -187,6 +191,13 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
       )
     );
   }, [records, search]);
+
+  const ftoPageCount = Math.max(1, Math.ceil(filtered.length / FTO_PAGE_SIZE));
+  const visibleFtos = filtered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
+  const visibleFtoTransactions = visibleFtos.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
+  const txPageCount = Math.max(1, Math.ceil(visibleFtoTransactions / 50));
+  const txOffset = (txPage - 1) * 50;
+  const txRows = visibleFtos.flatMap(item => item.council_fto_transactions).slice(txOffset, txOffset + 50);
 
   const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
 
@@ -209,7 +220,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
           <label htmlFor="fto-register-search" className="relative block">
             <span className="sr-only">Search imported FTOs</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-            <input id="fto-register-search" value={search} onChange={event => setSearch(event.target.value)}
+            <input id="fto-register-search" value={search} onChange={event => { setSearch(event.target.value); setFtoPage(1); setTxPage(1); }}
               placeholder="Search FTO No., Job Card, reference number or applicant"
               className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
           </label>
@@ -229,7 +240,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {filtered.map(item => {
+          {visibleFtos.map(item => {
             const expanded = selectedId === item.id;
             return (
               <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left sm:px-5">
@@ -256,15 +267,26 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                       <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
                       <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-3">
-                        <div className="flex flex-wrap items-center gap-2">{statusSummary(item.council_fto_transactions)}</div>
                         {item.council_fto_transactions.map(tx => (
-                          <div key={tx.id} className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">
-                            <span className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</span>
-                            <span className="text-xs text-slate-600">Ref: {tx.reference_number}</span>
-                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
-                            <span className="text-xs text-slate-600">{money(tx.amount_to_be_credited)}</span>
-                            <span className="text-xs text-slate-600">{date(tx.transaction_date)}</span>
-                            {tx.applicant_name || tx.primary_account_holder ? <span className="text-xs text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</span> : null}
+                          <div key={tx.id} className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</p>
+                                <p className="mt-0.5 text-[10px] text-slate-500">Ref: {tx.reference_number}</p>
+                              </div>
+                              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                              <p><span className="font-semibold text-slate-700">Date:</span> {date(tx.transaction_date)}</p>
+                              <p className="text-right"><span className="font-semibold text-slate-700">Amount:</span> <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span></p>
+                            </div>
+                            {tx.applicant_name || tx.primary_account_holder ? <p className="mt-2 text-[10px] text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</p> : null}
+                            {tx.rejection_reason && (
+                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+                                <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>
+                                <p className="mt-1 text-[10px] text-rose-700">{tx.rejection_reason}</p>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

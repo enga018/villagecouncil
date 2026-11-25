@@ -273,21 +273,18 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                     {item.council_fto_transactions.length === 0 ? (
                       <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
-                      <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-2.5 sm:p-4">
                         {item.council_fto_transactions.map(tx => (
                           <div key={tx.id} className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</p>
-                                <p className="mt-0.5 text-[10px] text-slate-500">Ref: {tx.reference_number}</p>
-                              </div>
-                              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="min-w-0 break-all text-xs font-semibold text-slate-900">{tx.applicant_name || tx.primary_account_holder || tx.job_card_number}</p>
+                              <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
                             </div>
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-                              <p><span className="font-semibold text-slate-700">Date:</span> {date(tx.transaction_date)}</p>
-                              <p className="text-right"><span className="font-semibold text-slate-700">Amount:</span> <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span></p>
+                            <p className="mt-1 text-[10px] text-slate-500 break-all">{tx.job_card_number} · Ref: {tx.reference_number}</p>
+                            <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] text-slate-600">
+                              <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span>
+                              <span>{date(tx.transaction_date)}</span>
                             </div>
-                            {tx.applicant_name || tx.primary_account_holder ? <p className="mt-2 text-[10px] text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</p> : null}
                             {tx.rejection_reason && (
                               <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
                                 <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>

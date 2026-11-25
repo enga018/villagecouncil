@@ -199,9 +199,10 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
   const reviewPageCount = Math.max(1, Math.ceil(filteredItems.length / REVIEW_PAGE_SIZE));
   const visible = filteredItems.slice((reviewPage - 1) * REVIEW_PAGE_SIZE, reviewPage * REVIEW_PAGE_SIZE);
 
-  useEffect(() => {
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
     setReviewPage(1);
-  }, [search]);
+  };
 
   async function decide(item: ReviewItem, decision: Decision) {
     setSaving(item.key);
@@ -248,7 +249,7 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
           <label className="relative min-w-0 flex-1 md:max-w-2xl">
             <span className="sr-only">Search review rows</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-            <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search FTO, Job Card, reference or amount"
+            <input value={search} onChange={event => handleSearchChange(event.target.value)} placeholder="Search FTO, Job Card, reference or amount"
               className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
           </label>
         </div>

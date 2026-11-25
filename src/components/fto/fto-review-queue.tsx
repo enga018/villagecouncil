@@ -309,7 +309,7 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
             <button type="button" onClick={() => setReviewPage(page => Math.min(reviewPageCount, page + 1))} disabled={reviewPage >= reviewPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
           </div>
         </div>
-      </div
+      </div>
     </section>
   );
 }

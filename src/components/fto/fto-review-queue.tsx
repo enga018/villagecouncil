@@ -18,6 +18,7 @@ type ReviewRow = {
 
 type ReviewItem = {
   key: string;
+  batchId: string;
   ftoNumber: string;
   referenceNumber: string;
   jobCardNumber: string;
@@ -46,14 +47,29 @@ function decisionButtonClasses(isActive: boolean, busy: boolean) {
   return `min-h-9 rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${isActive ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"}${busy ? " disabled:cursor-not-allowed" : ""}`;
 }
 
-export default function FtoReviewQueue({ batchId, applied }: { batchId: string; applied?: () => void }) {
+async function loadBatchRows(supabase: ReturnType<typeof createClient>, batchId: string) {
+  const rows: ReviewRow[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await supabase
+      .from("council_fto_import_rows")
+      .select("row_data")
+      .eq("import_batch_id", batchId)
+      .order("row_number", { ascending: true })
+      .range(offset, offset + 999);
+    if (error) throw error;
+    rows.push(...((data || []) as ReviewRow[]));
+    if (!data || data.length < 1000) break;
+  }
+  return rows;
+}
+
+export default function FtoReviewQueue({ applied }: { applied?: (batchIds: string[]) => Promise<void> }) {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [registerStatus, setRegisterStatus] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [applyState, setApplyState] = useState<ApplyState>("idle");
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [expanded, setExpanded] = useState(false);
@@ -65,79 +81,80 @@ export default function FtoReviewQueue({ batchId, applied }: { batchId: string; 
       setError("");
       setRegisterError("");
       setApplyState("idle");
-      const supabase = createClient();
-      const rows: ReviewRow[] = [];
-      for (let offset = 0; ; offset += 1000) {
-        const { data, error: rowsError } = await supabase
-          .from("council_fto_import_rows")
-          .select("row_data")
-          .eq("import_batch_id", batchId)
-          .order("row_number", { ascending: true })
-          .range(offset, offset + 999);
-        if (rowsError) {
-          if (active) { setError(rowsError.message); setLoading(false); }
-          return;
+      try {
+        const supabase = createClient();
+        const { data: batches, error: batchesError } = await supabase
+          .from("council_fto_import_batches")
+          .select("id,status,created_at")
+          .in("status", ["processing", "pending", "completed"])
+          .order("created_at", { ascending: false });
+        if (batchesError) throw batchesError;
+
+        const seenFtos = new Set<string>();
+        const reviewItems: ReviewItem[] = [];
+        for (const batch of batches || []) {
+          const batchId = String(batch.id);
+          const rows = await loadBatchRows(supabase, batchId);
+          for (const row of rows) {
+            const ftoNumber = String(row.row_data?.fto_number || "");
+            if (!ftoNumber || seenFtos.has(ftoNumber)) continue;
+            seenFtos.add(ftoNumber);
+            const scope = row.row_data?.scope;
+            if (scope !== "IN_SCOPE" && scope !== "NEEDS_REVIEW") continue;
+            for (const tx of row.row_data?.transactions || []) {
+              if (String(tx.village || "").trim()) continue;
+              const referenceNumber = String(tx.referenceNumber || "");
+              reviewItems.push({
+                key: itemKey(ftoNumber, referenceNumber),
+                batchId,
+                ftoNumber,
+                referenceNumber,
+                jobCardNumber: String(tx.jobCardNumber || ""),
+                amount: String(tx.creditAmount || ""),
+                status: String(tx.governmentStatus || "blank"),
+                date: String(tx.transactionDate || ""),
+              });
+            }
+          }
         }
-        rows.push(...((data || []) as ReviewRow[]));
-        if (!data || data.length < 1000) break;
-      }
 
-      const reviewItems: ReviewItem[] = [];
-      for (const row of rows) {
-        const scope = row.row_data?.scope;
-        if (scope !== "IN_SCOPE" && scope !== "NEEDS_REVIEW") continue;
-        const ftoNumber = String(row.row_data?.fto_number || "");
-        for (const tx of row.row_data?.transactions || []) {
-          if (String(tx.village || "").trim()) continue;
-          const referenceNumber = String(tx.referenceNumber || "");
-          reviewItems.push({
-            key: itemKey(ftoNumber, referenceNumber),
-            ftoNumber,
-            referenceNumber,
-            jobCardNumber: String(tx.jobCardNumber || ""),
-            amount: String(tx.creditAmount || ""),
-            status: String(tx.governmentStatus || "blank"),
-            date: String(tx.transactionDate || ""),
-          });
+        const { data: decisionRows, error: decisionError } = await supabase
+          .from("council_fto_review_decisions")
+          .select("fto_number,reference_number,decision");
+        if (decisionError) throw decisionError;
+        const decisionMap: Record<string, Decision> = {};
+        for (const item of decisionRows || []) {
+          decisionMap[itemKey(String(item.fto_number), String(item.reference_number))] = item.decision as Decision;
         }
-      }
 
-      const { data: decisionRows, error: decisionError } = await supabase
-        .from("council_fto_review_decisions")
-        .select("fto_number,reference_number,decision");
-      if (decisionError) {
-        if (active) { setError(decisionError.message); setLoading(false); }
-        return;
-      }
-      const decisionMap: Record<string, Decision> = {};
-      for (const item of decisionRows || []) {
-        decisionMap[itemKey(String(item.fto_number), String(item.reference_number))] = item.decision as Decision;
-      }
-
-      const jobCards = Array.from(new Set(reviewItems.map(item => normalizeJobCard(item.jobCardNumber)).filter(Boolean)));
-      const registered = new Map<string, string>();
-      let lookupError = "";
-      for (let offset = 0; offset < jobCards.length; offset += 200) {
-        const { data: cards, error: cardError } = await supabase
-          .from("council_job_cards")
-          .select("job_card_number,status")
-          .in("job_card_number", jobCards.slice(offset, offset + 200));
-        if (cardError) { lookupError = cardError.message; break; }
-        for (const card of cards || []) {
-          registered.set(normalizeJobCard(String(card.job_card_number || "")), String(card.status || ""));
+        const jobCards = Array.from(new Set(reviewItems.map(item => normalizeJobCard(item.jobCardNumber)).filter(Boolean)));
+        const registered = new Map<string, string>();
+        let lookupError = "";
+        for (let offset = 0; offset < jobCards.length; offset += 200) {
+          const { data: cards, error: cardError } = await supabase
+            .from("council_job_cards")
+            .select("job_card_number,status")
+            .in("job_card_number", jobCards.slice(offset, offset + 200));
+          if (cardError) { lookupError = cardError.message; break; }
+          for (const card of cards || []) {
+            registered.set(normalizeJobCard(String(card.job_card_number || "")), String(card.status || ""));
+          }
         }
-      }
 
-      if (!active) return;
-      setItems(reviewItems);
-      setDecisions(decisionMap);
-      setRegisterStatus(registered);
-      setRegisterError(lookupError ? "Could not check the job card register: " + lookupError : "");
-      setLoading(false);
+        if (!active) return;
+        setItems(reviewItems);
+        setDecisions(decisionMap);
+        setRegisterStatus(registered);
+        setRegisterError(lookupError ? "Could not check the job card register: " + lookupError : "");
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Could not load manual review rows.");
+      } finally {
+        if (active) setLoading(false);
+      }
     }
     void load();
     return () => { active = false; };
-  }, [batchId]);
+  }, []);
 
   const pendingCount = useMemo(() => items.filter(item => !decisions[item.key]).length, [items, decisions]);
 
@@ -167,7 +184,7 @@ export default function FtoReviewQueue({ batchId, applied }: { batchId: string; 
     setApplyState("applying");
     setError("");
     try {
-      await applied();
+      await applied([...new Set(items.map(item => item.batchId))]);
       setApplyState("done");
     } catch {
       setApplyState("idle");
@@ -201,7 +218,7 @@ export default function FtoReviewQueue({ batchId, applied }: { batchId: string; 
         </div>
         {!loading && suggestedItems.length > 0 && (
           <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-            <button type="button" onClick={applyDecisions} disabled={Boolean(applyState === "applying") || Boolean(bulkProgress)}
+            <button type="button" onClick={applyDecisions} disabled={applyState === "applying"}
               className="min-h-9 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:opacity-50">
               {applyState === "applying" ? "Applying…" : applyState === "done" ? "Applied" : `Accept ${suggestedItems.length.toLocaleString("en-IN")} suggested as In village`}
             </button>

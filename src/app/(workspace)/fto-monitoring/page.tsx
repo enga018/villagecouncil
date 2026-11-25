@@ -169,13 +169,22 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions() {
-    if (!batchId || activating || busy) return;
+  async function applyReviewDecisions(batchIds: string[]) {
+    if (!batchIds.length || activating || busy) return;
     setActivating(true);
     setError("");
     setNotice("");
     try {
-      await applyAndActivate(createClient(), batchId);
+      const supabase = createClient();
+      const { data: batches, error: batchError } = await supabase
+        .from("council_fto_import_batches")
+        .select("id,status")
+        .in("id", batchIds);
+      if (batchError) throw batchError;
+      const ready = (batches || []).filter(batch => batch.status === "pending" || batch.status === "completed").map(batch => String(batch.id));
+      for (const readyBatchId of ready) {
+        await applyAndActivate(supabase, readyBatchId);
+      }
       setImportIncrement(null);
       setNotice("Review decisions applied. Rows marked In village are now in the Council's FTO register.");
     } catch (err) {
@@ -422,7 +431,7 @@ export default function FtoMonitoringPage() {
         </section>
       )}
 
-      {batchId && preview && <FtoReviewQueue batchId={batchId} applied={applyReviewDecisions} />}
+      <FtoReviewQueue applied={applyReviewDecisions} />
 
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">

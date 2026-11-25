@@ -90,18 +90,34 @@ function statusBadgeClasses(tx: Transaction) {
   return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
-function statusSummary(transactions: Transaction[]) {
+function statusSummaryClasses(transactions: Transaction[]) {
   const counts = { processed: 0, rejected: 0, deferred: 0, other: 0 };
   for (const tx of transactions) {
     if (tx.normalized_status === "processed" || tx.normalized_status === "rejected" || tx.normalized_status === "deferred") counts[tx.normalized_status]++;
     else counts.other++;
   }
-  return [
+  return {
+    processed: counts.processed,
+    deferred: counts.deferred,
+    rejected: counts.rejected,
+    other: counts.other,
+  };
+}
+
+function statusClassName(key: string, count: number) {
+  const base = count === 0 ? "text-slate-500" : key === "processed" ? "text-emerald-700" : key === "deferred" ? "text-amber-800" : key === "rejected" ? "text-rose-700" : "text-slate-600";
+  return base + (count > 0 ? " font-semibold" : "");
+}
+
+function statusSummary(transactions: Transaction[]) {
+  const counts = statusSummaryClasses(transactions);
+  const items = [
     { key: "processed", value: counts.processed, label: "Processed" },
     { key: "deferred", value: counts.deferred, label: "Deferred" },
     { key: "rejected", value: counts.rejected, label: "Rejected" },
     { key: "other", value: counts.other, label: "Other" },
-  ].filter(item => item.value > 0).map(item => item.label + " " + number(item.value)).join(" · ") || "No transactions";
+  ].filter(item => item.value > 0).map(item => <span key={item.key} className={statusClassName(item.key, item.value)}>{item.label} {number(item.value)}</span>);
+  return items.length ? items.flatMap((item, index) => index === 0 ? [item] : [<span key={item.key + "-sep"} className="text-slate-400"> · </span>, item]) : [<span key="none" className="text-slate-500">No transactions</span>];
 }
 
 function dateTime(value: string | null | undefined) {
@@ -224,15 +240,11 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
-                    <p className="mt-2 text-[11px] font-semibold text-slate-700">{statusSummary(item.council_fto_transactions)}</p>
+                    <p className="mt-2 text-[11px] font-semibold">{statusSummary(item.council_fto_transactions)}</p>
                     <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-slate-50/60 p-3">
                     <p className="text-xs font-bold text-slate-800">{date(item.fto_date)}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-                      <div><p className="text-xs font-bold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p>Beneficiaries</p></div>
-                      <div><p className="text-xs font-bold tabular-nums text-slate-800">{money(item.wage_amount)}</p><p>Wage</p></div>
-                    </div>
                     {(() => {
                       const newest = [...item.council_fto_transactions].sort((a, b) => Date.parse(b.transaction_date || "") - Date.parse(a.transaction_date || ""));
                       return <span className={`mt-2 inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusBadgeClasses(newest[0] || { normalized_status: "", government_status: "Blank" } as Transaction)}`}>{item.council_fto_transactions.length} transactions</span>;

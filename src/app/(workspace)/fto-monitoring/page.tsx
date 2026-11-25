@@ -124,7 +124,7 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions(_batchIds: string[] = [], _autoFtos: string[] = []) {
+  async function applyReviewDecisions() {
     if (activating || busy) return;
     setActivating(true);
     setError("");
@@ -136,9 +136,8 @@ export default function FtoMonitoringPage() {
         .select("id,status")
         .in("status", ["pending", "completed"]);
       if (batchError) throw batchError;
-      const ready = (batches || []).map(batch => String(batch.id));
-      for (const readyBatchId of ready) {
-        await applyAndActivate(supabase, readyBatchId);
+      for (const batch of batches || []) {
+        await applyAndActivate(supabase, String(batch.id));
       }
       setImportIncrement(null);
       setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");

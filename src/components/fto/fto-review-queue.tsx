@@ -79,6 +79,8 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
   const [registerError, setRegisterError] = useState("");
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+  const REVIEW_PAGE_SIZE = 10;
 
   useEffect(() => {
     let active = true;
@@ -194,7 +196,12 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
     );
   }, [items, search]);
 
-  const visible = filteredItems.filter(item => showAll || pendingCount <= 1 || !decisions[item.key] || showAll);
+  const reviewPageCount = Math.max(1, Math.ceil(filteredItems.length / REVIEW_PAGE_SIZE));
+  const visible = filteredItems.slice((reviewPage - 1) * REVIEW_PAGE_SIZE, reviewPage * REVIEW_PAGE_SIZE);
+
+  useEffect(() => {
+    setReviewPage(1);
+  }, [search]);
 
   async function decide(item: ReviewItem, decision: Decision) {
     setSaving(item.key);
@@ -295,7 +302,14 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
             );
           })}
         </div>
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 sm:px-5">
+          <span className="text-[11px] text-slate-500">Page {reviewPage} of {reviewPageCount} · {REVIEW_PAGE_SIZE} rows per page</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setReviewPage(page => Math.max(1, page - 1))} disabled={reviewPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+            <button type="button" onClick={() => setReviewPage(page => Math.min(reviewPageCount, page + 1))} disabled={reviewPage >= reviewPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      </div
     </section>
   );
 }

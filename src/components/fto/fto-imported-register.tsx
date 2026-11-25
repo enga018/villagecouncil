@@ -192,13 +192,13 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             <span className="font-medium text-slate-400">{number(records.length)} FTOs · {number(transactionCount)} transactions</span>
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 w-full">
           <label htmlFor="fto-register-search" className="relative block">
             <span className="sr-only">Search imported FTOs</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
             <input id="fto-register-search" value={search} onChange={event => setSearch(event.target.value)}
               placeholder="Search FTO No., Job Card, reference number or applicant"
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
+              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
           </label>
         </div>
       </div>
@@ -220,14 +220,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             const expanded = selectedId === item.id;
             return (
               <div key={item.id}>
-                <div className="grid w-full gap-3 px-4 py-4 text-left sm:grid-cols-[minmax(0,2fr)_minmax(0,.8fr)_auto] sm:items-start sm:px-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-4 py-4 text-left sm:px-5">
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
                     <p className="mt-2 text-[11px] font-semibold text-slate-700">{statusSummary(item.council_fto_transactions)}</p>
                     <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-slate-50/60 p-3">
                     <p className="text-xs font-bold text-slate-800">{date(item.fto_date)}</p>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
                       <div><p className="text-xs font-bold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p>Beneficiaries</p></div>
@@ -240,7 +240,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   </div>
                   <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
                     aria-expanded={expanded}
-                    className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50">
+                    className="mt-3 w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 lg:mt-0 lg:w-auto">
                     {expanded ? "Close −" : "Details +"}
                   </button>
                 </div>
@@ -258,14 +258,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                     {item.council_fto_transactions.length === 0 ? (
                       <p className="rounded-lg border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
-                      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                      <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white">
                         <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
                           <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
                             <th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th>
                           </tr></thead>
                           <tbody className="divide-y divide-slate-100">
                             {item.council_fto_transactions.map(tx => <tr key={tx.id}>
-                              <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{tx.job_card_number}</td>
+                              <td className="whitespace-nowrap px-3 py-3 font-bold text-slate-900">{tx.job_card_number}</td>
                               <td className="whitespace-nowrap px-3 py-3 text-slate-600">{tx.reference_number}</td>
                               <td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td>
                               <td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td>
@@ -275,6 +275,32 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                             </tr>)}
                           </tbody>
                         </table>
+                      </div>
+                    )}
+                    {item.council_fto_transactions.length > 0 && (
+                      <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-3">
+                        {item.council_fto_transactions.map(tx => (
+                          <div key={tx.id} className="rounded-xl border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="break-all text-xs font-semibold text-slate-900">{tx.job_card_number}</p>
+                                <p className="mt-0.5 text-[10px] text-slate-500">Ref: {tx.reference_number}</p>
+                              </div>
+                              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                              <p><span className="font-semibold text-slate-700">Date:</span> {date(tx.transaction_date)}</p>
+                              <p className="text-right"><span className="font-semibold text-slate-700">Amount:</span> <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span></p>
+                            </div>
+                            {tx.applicant_name || tx.primary_account_holder ? <p className="mt-2 text-[10px] text-slate-700">Applicant: {tx.applicant_name || tx.primary_account_holder}</p> : null}
+                            {tx.rejection_reason && (
+                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+                                <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>
+                                <p className="mt-1 text-[10px] text-rose-700">{tx.rejection_reason}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

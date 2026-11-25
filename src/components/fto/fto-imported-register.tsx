@@ -67,19 +67,40 @@ function date(value: string | null | undefined) {
   }).format(parsed);
 }
 
+function governmentStatusClasses(status: string) {
+  const normalized = String(status || "blank").toLowerCase();
+  if (normalized === "processed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function normalizedStatusLabel(tx: Transaction) {
+  const normalized = String(tx.normalized_status || "").toLowerCase();
+  if (normalized === "processed") return "Processed";
+  if (normalized === "rejected") return "Rejected";
+  if (normalized === "deferred") return "Deferred";
+  return String(tx.government_status || "blank");
+}
+
+function statusBadgeClasses(transactionCount: number) {
+  if (transactionCount === 0) return "border-slate-200 bg-slate-50 text-slate-600";
+  if (transactionCount <= 50) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (transactionCount <= 100) return "border-blue-200 bg-blue-50 text-blue-700";
+  return "border-indigo-200 bg-indigo-50 text-indigo-700";
+}
+
 function statusSummary(transactions: Transaction[]) {
   const counts = { processed: 0, rejected: 0, deferred: 0, other: 0 };
   for (const tx of transactions) {
     if (tx.normalized_status === "processed" || tx.normalized_status === "rejected" || tx.normalized_status === "deferred") counts[tx.normalized_status]++;
     else counts.other++;
   }
-  const parts = [
-    counts.processed ? `${counts.processed} processed` : "",
-    counts.rejected ? `${counts.rejected} rejected` : "",
-    counts.deferred ? `${counts.deferred} deferred` : "",
-    counts.other ? `${counts.other} other` : "",
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : "No transactions";
+  return [
+    { key: "processed", value: counts.processed, label: "Processed" },
+    { key: "deferred", value: counts.deferred, label: "Deferred" },
+    { key: "rejected", value: counts.rejected, label: "Rejected" },
+    { key: "other", value: counts.other, label: "Other" },
+  ].filter(item => item.value > 0).map(item => item.label + " " + number(item.value)).join(" · ") || "No transactions";
 }
 
 function dateTime(value: string | null | undefined) {
@@ -198,20 +219,27 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             const expanded = selectedId === item.id;
             return (
               <div key={item.id}>
-                <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
-                  aria-expanded={expanded}
-                  className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-slate-50 sm:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,.7fr))_auto] sm:items-center sm:px-6">
+                <div className="grid w-full gap-3 px-4 py-4 text-left sm:grid-cols-[minmax(0,2fr)_minmax(0,.8fr)_auto] sm:items-start sm:px-5">
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
-                    <p className="mt-1 text-[11px] font-semibold text-slate-700">{statusSummary(item.council_fto_transactions)}</p>
+                    <p className="mt-2 text-[11px] font-semibold text-slate-700">{statusSummary(item.council_fto_transactions)}</p>
                     <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
-                  <div><p className="text-xs font-semibold text-slate-800">{date(item.fto_date)}</p><p className="text-[10px] text-slate-400">FTO date</p></div>
-                  <div><p className="text-xs font-semibold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p className="text-[10px] text-slate-400">Beneficiaries</p></div>
-                  <div><p className="text-xs font-semibold tabular-nums text-slate-800">{money(item.wage_amount)}</p><p className="text-[10px] text-slate-400">Wage amount</p></div>
-                  <span className="text-[10px] font-semibold text-blue-700">{expanded ? "Close −" : "Details +"}</span>
-                </button>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                    <p className="text-xs font-bold text-slate-800">{date(item.fto_date)}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                      <div><p className="text-xs font-bold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p>Beneficiaries</p></div>
+                      <div><p className="text-xs font-bold tabular-nums text-slate-800">{money(item.wage_amount)}</p><p>Wage</p></div>
+                    </div>
+                    <span className={`mt-2 inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusBadgeClasses(item.council_fto_transactions.length)}`}>{item.council_fto_transactions.length} transactions</span>
+                  </div>
+                  <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
+                    aria-expanded={expanded}
+                    className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50">
+                    {expanded ? "Close −" : "Details +"}
+                  </button>
+                </div>
                 {expanded && (
                   <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -238,7 +266,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                               <td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td>
                               <td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td>
                               <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(tx.amount_to_be_credited)}</td>
-                              <td className="whitespace-nowrap px-3 py-3"><span className={tx.government_status.toLowerCase() === "rejected" ? "rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-700" : tx.government_status.toLowerCase() === "processed" ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700" : "rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700"}>{tx.government_status || "Blank"}</span></td>
+                              <td className="px-3 py-3"><span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span></td>
                               <td className="max-w-[240px] whitespace-normal px-3 py-3 text-slate-600">{tx.rejection_reason || "—"}</td>
                             </tr>)}
                           </tbody>

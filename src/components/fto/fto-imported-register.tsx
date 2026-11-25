@@ -255,7 +255,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                     {item.council_fto_transactions.length === 0 ? (
                       <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
-                      <div className="mt-3 hidden md:grid gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="mt-3 grid gap-3 md:hidden rounded-xl border border-slate-200 bg-white p-3">
                         <div className="flex flex-wrap items-center gap-2">{statusSummary(item.council_fto_transactions)}</div>
                         {item.council_fto_transactions.map(tx => (
                           <div key={tx.id} className="grid grid-cols-3 gap-2 border-t border-slate-100 pt-3">

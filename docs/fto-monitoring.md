@@ -2,9 +2,9 @@
 
 ## Purpose
 
-FTO Monitoring discovers First Signatory Fund Transfer Orders (FTOs) from the official VBGRAMG portal, inspects their transaction details, and stages only the transactions belonging to the current Village Council.
+FTO Monitoring discovers First Signatory Fund Transfer Orders (FTOs) from the official VBGRAMG portal, inspects their transaction details, imports the transactions that belong to the current Village Council, and leaves the rest for manual review.
 
-Each Village Council maintains its own inspection and import records. The application does not create a shared Block-level FTO transaction ledger.
+Each Village Council maintains its own inspection, staging, review and import records. The application does not create a shared Block-level FTO transaction ledger.
 
 ## Government navigation
 
@@ -19,7 +19,7 @@ The source function follows the official portal navigation:
 
 The navigation does not require CAPTCHA entry or manual file upload.
 
-The portal uses ASP.NET navigation and opaque generated detail URLs. The application preserves the discovered URLs and postback values; it must not construct or guess the opaque detail payload.
+The portal uses ASP.NET navigation and opaque generated detail URLs. The application preserves the discovered URLs and postback values; it must not construct or guess the opaque detail payload. Each listing load generates new detail links.
 
 Official portal hosts currently allow-listed by the Edge Functions:
 - `vbgramg.dord.gov.in`
@@ -31,13 +31,13 @@ The application may cache verified District/Block navigation URLs in `shared_fto
 
 This cache contains navigation metadata only. It is not a shared FTO transaction store.
 
-FTO discovery, inspection outcomes, staged rows, and imported transactions are scoped to the current Village Council. Each Council independently inspects the Government detail page and applies its own Panchayat filter.
+FTO discovery, inspection outcomes, staged rows, review decisions and imported transactions are scoped to the current Village Council. Each Council independently inspects the Government detail page and applies its own Panchayat filter.
 
 ## Transaction ownership
 
 Ownership is determined by the Panchayat name embedded in the Government Job Card/Panchayat cell on each FTO transaction row.
 
-It is **not** determined by matching the Job Card number against the Council's local Job Card register. A Job Card number can exist in more than one Council, including after transfer.
+It is **not** determined by matching the Job Card number against the Council's local Job Card register on its own. A Job Card keeps its original number after transfer, so the Panchayat code inside the number reflects where the card was issued, not where it works now.
 
 For each transaction, the parser:
 1. Extracts the Job Card number from the combined Government cell.
@@ -45,16 +45,30 @@ For each transaction, the parser:
 3. Normalizes the Panchayat text using Unicode NFKC normalization, lowercase conversion, punctuation removal, and whitespace normalization.
 4. Compares it with the normalized official Panchayat name configured for the current Council.
 
-Only matching transactions are staged as in-scope. FTOs with no matching transactions are recorded as out-of-scope for that Council.
+Named Panchayat rows that match are in scope. FTOs with no matching transactions are recorded as out-of-scope for that Council.
 
-Job Card numbers are never used to decide ownership on their own. A Job Card keeps its original number after transfer, so the Panchayat code inside the number reflects where the card was issued, not where it works now.
+### Blank Panchayat name
 
-If the Government Panchayat name is blank (the portal shows only `()` in the Job Card/Panchayat cell), the row is **not** rejected and is **not** assigned automatically. Instead:
+If the Government Panchayat name is blank (the portal shows only `()` in the Job Card/Panchayat cell), the row is **not** rejected and is **not** assigned by Panchayat. Instead:
 
-1. The FTO is staged, and the blank-name transaction row is marked **needs review**. Other validation checks still apply to the whole FTO.
-2. The review list shows each row's Job Card, reference number, amount, and source FTO. If the Job Card is in the Council's job card register, the row shows a "found in your register" hint. The hint never decides the outcome.
-3. An authorized Council user marks each row **In village** or **Not in village**. Decisions are stored per transaction row (FTO number and reference number), with the user and timestamp, and are not overwritten silently.
-4. Activation imports named in-village rows plus review rows marked In village. Undecided review rows are not imported; their count is shown before and after activation.
+1. The FTO is staged as needing review, and each blank-name transaction is marked **needs review**. Other validation checks still apply to the whole FTO.
+2. If the row's Job Card is **active** in the Council's register, the row is included automatically as In village when the batch is applied. Inactive, missing and non-matching cards are not included automatically.
+3. Every other blank-name row appears in the manual review table. An authorized Council user marks it **In village** or **Not in village**. Decisions are stored per transaction row (FTO number and reference number), with the user and timestamp.
+4. A decision made by a user always takes precedence over the automatic register match. Automatic matches never overwrite an existing decision.
+5. Activation imports named in-scope rows plus review rows whose decision is In village. Undecided rows are not imported; their count is shown after activation.
+
+## Automatic import on Fetch
+
+Clicking **Fetch FTOs** runs the whole import without a further confirmation step:
+
+1. **Discover:** `council-fto-source` navigates the Government portal, lists the Block's First Signatory FTOs and returns a protected manifest for the batch. FTOs that don't need a check are skipped (see the refetch policy).
+2. **Fetch and validate:** `council-fto-details` processes FTOs in groups of up to five, two at a time.
+3. **Stage:** validated FTOs are written to the Council's batch, with in-scope and review transactions.
+4. **Apply and activate:** the page applies active register matches and imports the in-scope and decided rows through `activate_council_fto_import`. Inspection records are marked as activated.
+
+The **Apply review decisions** button, in the manual review table, applies decisions made after a fetch. It does this for every batch that still has review rows and is complete or pending.
+
+The manual review table loads from the Council's batches, not only the batch from the current session. For each FTO it uses the most recent batch that contains it, so rows survive a page reload and older rows are replaced once a newer fetch covers the same FTO.
 
 ## Detail validation
 
@@ -62,13 +76,14 @@ Before Council-specific filtering, the detail function validates the Government 
 
 Validation includes:
 - Job Card number is present and has the expected format.
-- Panchayat text is present.
 - Reference number is present and unique within the FTO.
 - Credit amount is present and valid.
 - Government status is recognized.
 - Processed count and amount match the listing.
 - Rejected count and amount match the listing.
 - Total transaction amount matches the listing.
+
+A blank Panchayat name is not a validation failure (see above).
 
 Status mapping:
 
@@ -80,6 +95,10 @@ Status mapping:
 | Any other nonblank value | `other` | Validation failure |
 
 A failed fetch or validation does not create a successful inspection record. The FTO therefore remains eligible for a later retry.
+
+## Dates
+
+Government dates are **day-first**, in `dd/mm/yy` or `dd/mm/yyyy`, using slashes or dashes. Both the FTO date and the transaction dates are converted to ISO `yyyy-mm-dd`. A two-digit year is read as 20yy. Impossible dates (for example 31/02) are rejected and stored as blank, and the validation step reports them.
 
 ## Inspection and refetch policy
 
@@ -95,55 +114,46 @@ The source function evaluates FTOs as follows:
 | Previous inspection has no matching transactions | Skip |
 | Inspection has not been activated by import | Fetch again |
 | Matching transactions remain unresolved | Fetch again |
-| All matching transactions are terminal and import is activated | Skip |
+| All matching transactions are resolved and import is activated | Skip |
 | Previous fetch or validation failed | Retry; no successful inspection record exists |
 
-For this policy, terminal statuses are Processed and Rejected. Blank Government statuses remain deferred and unresolved.
+A transaction is **resolved** when its Government status is Processed or Rejected, or when it is a blank-name row that has a decision (In village or Not in village). Blank Government statuses that are still deferred remain unresolved, and so do undecided blank-name rows.
 
-The fingerprint is based on the discovered detail URL, listing row, and listing headers. Changes to the Council's local Job Card register do not trigger an FTO refetch.
+The **listing fingerprint** is built from the FTO number, the listing row values and the listing headers. It does **not** include the detail link, because the link changes on every visit to the Government page. A changed amount, count or date in the listing triggers a fetch again.
+
+Changes to the Council's local Job Card register do not trigger an FTO refetch.
 
 The manual **Force refresh all** action requests a refresh of the current First Signatory listing, including FTOs that would normally be skipped.
 
-## Processing and import flow
-
-The current user-facing flow is:
-
-1. **Discover:** The `council-fto-source` Edge Function navigates the Government portal, prepares the eligible FTO listing, and returns a protected manifest for the batch.
-2. **Fetch and validate details:** The client invokes `council-fto-details` in groups of up to five FTOs.
-3. **Stage:** Validated FTO rows and Council-matching transactions are stored in the Council's import batch.
-4. **Review:** The page displays in-scope FTOs, out-of-village FTOs, transaction counts, and a sample of matching Job Cards.
-5. **Activate:** A user explicitly activates the batch through `activate_council_fto_import`. The database function imports the Council-owned records and marks the corresponding inspection records as activated.
-
-Failed FTO detail requests can be retried from the current batch. Already staged FTOs are not intended to be imported twice.
-
-## Security and isolation
-
-- Both Edge Functions require an authenticated user and validate the user's Council/jurisdiction context.
-- The detail manifest is encrypted and bound to its Council, batch, and Panchayat context.
-- Government requests are restricted to the allow-listed official hosts.
-- Discovered links and redirects are checked before requests are followed.
-- FTO inspection and transaction records are Council-scoped.
-- Row Level Security and database function permissions protect Council data.
-
 ## Current scope and limitations
 
-The current implementation supports manual discovery, detail processing, retry, review, and explicit batch activation.
+Implemented:
+- Manual discovery and fetch from the FTO Monitoring page, with automatic import of the results.
+- Automatic register matching for active Job Cards.
+- Manual review of blank-name rows, with decisions that are kept across page loads.
+- Retry of failed FTO detail requests.
 
-The following are **not implemented by this FTO feature yet**:
+Not implemented yet:
 - Scheduled daily FTO fetching.
-- Automatic FTO fetching after onboarding or Job Card import.
 - Background orchestration independent of a user-opened page.
-- Automatic import activation without user review.
+- Per-Job-Card review decisions (one decision covering all rows of a Job Card).
+- Cleanup of staging rows after activation.
 
 A future scheduled workflow must reuse the same validation, Council ownership, inspection, and idempotent activation rules. It must also ensure that FTO processing does not start if the prerequisite Job Card import fails.
 
 ## Related implementation
 
 - `supabase/functions/council-fto-source/index.ts` — Government navigation, listing discovery, and refetch eligibility.
-- `supabase/functions/council-fto-details/index.ts` — Detail-page parsing, validation, Panchayat ownership filtering, and inspection recording.
-- `src/app/(workspace)/fto-monitoring/page.tsx` — Manual fetch, force refresh, retry, review, and activation UI.
+- `supabase/functions/council-fto-details/index.ts` — Detail-page parsing, validation, Panchayat ownership, decided-row resolution and inspection recording.
+- `supabase/functions/_shared/fto-domain.ts` — Shared rules: day-first date parsing, listing fingerprint, unresolved counting, Panchayat normalization.
+- `src/app/(workspace)/fto-monitoring/page.tsx` — Fetch, retry, apply decisions, and the import summary.
+- `src/components/fto/fto-review-queue.tsx` — Manual review table and register suggestions.
+- `src/components/fto/fto-imported-register.tsx` — Imported FTO register and per-FTO status counts.
 - `supabase/migrations/20261123130000_create_shared_fto_navigation.sql` — Shared navigation cache.
 - `supabase/migrations/20261123140000_create_council_fto_transactions.sql` — Council FTO import data.
 - `supabase/migrations/20261123142000_use_fto_panchayat_for_ownership.sql` — Panchayat-based import ownership.
 - `supabase/migrations/20261123160000_add_council_fto_inspection_ledger.sql` — Council inspection ledger.
 - `supabase/migrations/20261123161000_track_fto_import_activation.sql` — Import activation tracking.
+- `supabase/migrations/20261124100000_add_fto_review_decisions.sql` — Review decisions and the activation rule for blank-name rows.
+- `supabase/migrations/20261124110000_auto_import_register_fto_review.sql` — Decision source and automatic register matching.
+- `supabase/migrations/20261124120000_normalize_fto_dates.sql` — ISO normalization of stored FTO dates.

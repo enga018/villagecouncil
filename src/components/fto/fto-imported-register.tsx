@@ -82,14 +82,6 @@ function normalizedStatusLabel(tx: Transaction) {
   return String(tx.government_status || "blank");
 }
 
-function statusBadgeClasses(tx: Transaction) {
-  const normalized = String(tx.normalized_status || "").toLowerCase();
-  if (normalized === "processed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (normalized === "deferred") return "border-amber-200 bg-amber-50 text-amber-700";
-  return "border-slate-200 bg-slate-50 text-slate-600";
-}
-
 function statusSummaryClasses(transactions: Transaction[]) {
   const counts = { processed: 0, rejected: 0, deferred: 0, other: 0 };
   for (const tx of transactions) {

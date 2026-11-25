@@ -45,6 +45,7 @@ begin
     and r.row_data->>'scope' in ('IN_SCOPE', 'NEEDS_REVIEW')
     and btrim(coalesce(tx.value->>'village', '')) = ''
     and tx.value->>'referenceNumber' = any (p_fto_numbers)
+    and btrim(tx.value->>'jobCardNumber') <> ''
   on conflict (village_council_id, fto_number, reference_number) do nothing;
   get diagnostics v_inserted = row_count;
 
@@ -93,9 +94,7 @@ begin
   if v_job_card_number is null then
     raise exception 'That transaction is not waiting for review.';
   end if;
-  if p_job_card_number is null or p_job_card_number = '' then
-    p_job_card_number := v_job_card_number;
-  end if;
+  p_job_card_number := v_job_card_number;
 
   insert into public.council_fto_review_decisions (
     village_council_id, fto_number, reference_number, job_card_number, decision, decided_by, decided_at, source

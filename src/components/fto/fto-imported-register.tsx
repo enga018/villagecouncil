@@ -253,6 +253,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                       {item.council_fto_transactions.length === 0 ? (
                         <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                       ) : (
+                        <>
                         <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
                           <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
                             <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
@@ -292,6 +293,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                             </div>
                           ))}
                         </div>
+                        </>
                       )}
                     </div>
                   )}

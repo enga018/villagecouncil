@@ -199,6 +199,12 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   const txOffset = (txPage - 1) * 50;
   const txRows = visibleFtos.flatMap(item => item.council_fto_transactions).slice(txOffset, txOffset + 50);
 
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setFtoPage(1);
+    setTxPage(1);
+  };
+
   const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
 
   return (
@@ -220,7 +226,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
           <label htmlFor="fto-register-search" className="relative block">
             <span className="sr-only">Search imported FTOs</span>
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-            <input id="fto-register-search" value={search} onChange={event => { setSearch(event.target.value); setFtoPage(1); setTxPage(1); }}
+            <input id="fto-register-search" value={search} onChange={event => handleSearchChange(event.target.value)}
               placeholder="Search FTO No., Job Card, reference number or applicant"
               className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
           </label>
@@ -239,8 +245,9 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
           <p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term." : "After you confirm an FTO import, the activated records will appear here."}</p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100">
-          {visibleFtos.map(item => {
+        <>
+          <div className="divide-y divide-slate-100">
+            {visibleFtos.map(item => {
             const expanded = selectedId === item.id;
             return (
               <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left sm:px-5">
@@ -297,6 +304,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             );
           })}
         </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 sm:px-5">
+          <span className="text-[11px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 5 FTOs per page</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => { setFtoPage(page => Math.max(1, page - 1)); setTxPage(1); }} disabled={ftoPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+            <button type="button" onClick={() => { setFtoPage(page => Math.min(ftoPageCount, page + 1)); setTxPage(1); }} disabled={ftoPage >= ftoPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      </>
       )}
     </section>
   );

@@ -348,7 +348,7 @@ export default function FtoMonitoringPage() {
           <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-6">
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-700">FTO detail processing</p><p className="text-xs tabular-nums text-slate-500">{formatNumber(progress.attempted)} / {formatNumber(progress.total)} attempted</p></div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }}/></div>
-            <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.attempted)} of {formatNumber(progress.total)} chunks attempted · {formatNumber(progress.staged)} staged FTO results</span></div>
+            <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.staged)} staged FTO results</span></div>
           </div>
         )}
 

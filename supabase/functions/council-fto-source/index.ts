@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { shouldRefetchFto } from "../_shared/fto-refetch.ts";
+import { listingFingerprint } from "../_shared/fto-domain.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
 const GOVERNMENT_HOSTS = new Set(["vbgramg.dord.gov.in", "vbgramgrep.dord.gov.in"]);
@@ -292,14 +293,8 @@ async function openCachedNavigation(jars: Jar, record: CachedNavigation, referer
   }
   return parent;
 }
-async function fingerprintCandidate(candidate: Candidate) {
-  const source = JSON.stringify({
-    detailUrl: candidate.detailUrl,
-    listingRow: candidate.listingRow,
-    listingHeaders: candidate.listingHeaders,
-  });
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
-  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+function fingerprintCandidate(candidate: Candidate) {
+  return listingFingerprint({ ftoNumber: candidate.ftoNumber, listingRow: candidate.listingRow, listingHeaders: candidate.listingHeaders });
 }
 function normalizeName(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();

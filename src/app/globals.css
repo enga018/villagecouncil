@@ -108,12 +108,17 @@ html {
 
 body {
   min-height: 100%;
+  width: 100%;
   background: var(--vc-background);
   color: var(--vc-foreground);
   font-family: var(--vc-font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+main {
+  width: 100%;
 }
 
 button,

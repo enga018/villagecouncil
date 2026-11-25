@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { countUnresolvedTransactions, normalizeVillage, parseGovernmentDate } from "../_shared/fto-domain.ts";
+import { countUnresolvedTransactions, listingFingerprint, normalizeVillage, parseGovernmentDate } from "../_shared/fto-domain.ts";
 import { parseGovernmentFtoDetailHtml } from "../_shared/fto-html-parser.ts";
 
 const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://enga018.github.io"]);
@@ -58,14 +58,8 @@ async function readJsonBody(req: Request, maxBytes: number) {
   for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
   return JSON.parse(new TextDecoder().decode(bytes));
 }
-async function fingerprintCandidate(candidate: Candidate) {
-  const source = JSON.stringify({
-    detailUrl: candidate.detailUrl,
-    listingRow: candidate.listingRow,
-    listingHeaders: candidate.listingHeaders,
-  });
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
-  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+function fingerprintCandidate(candidate: Candidate) {
+  return listingFingerprint({ ftoNumber: candidate.ftoNumber, listingRow: candidate.listingRow, listingHeaders: candidate.listingHeaders });
 }
 
 

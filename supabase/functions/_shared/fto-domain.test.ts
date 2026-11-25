@@ -1,5 +1,6 @@
 import {
   countUnresolvedTransactions,
+  listingFingerprint,
   extractJobCard,
   extractVillage,
   normalizeGovernmentStatus,
@@ -7,6 +8,15 @@ import {
   parseGovernmentAmount,
   parseGovernmentDate,
 } from "./fto-domain.ts";
+
+Deno.test("listing fingerprint ignores the per-visit detail link but detects row changes", async () => {
+  const row = ["1", "FTO-1", "MZ-02-001-028-001/1", "12", "29/08/2026", "2100"];
+  const first = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: row, listingHeaders: ["S.No"] });
+  const second = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: row, listingHeaders: ["S.No"] });
+  if (first !== second) throw new Error("Identical listings must produce the same fingerprint.");
+  const changed = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: ["1", "FTO-1", "MZ-02-001-028-001/1", "13", "29/08/2026", "2100"], listingHeaders: ["S.No"] });
+  if (changed === first) throw new Error("A changed listing row must produce a new fingerprint.");
+});
 
 Deno.test("counts only undecided blank-name rows and non-terminal named rows as unresolved", () => {
   const rows = [
@@ -71,9 +81,12 @@ Deno.test("parses Government amounts and rejects malformed values", () => {
 });
 
 Deno.test("normalizes supported Government date formats", () => {
-  if (parseGovernmentDate("7/3/2026") !== "2026-07-03") throw new Error("Slash date parsing failed.");
-  if (parseGovernmentDate("07-11-2026") !== "2026-07-11") throw new Error("Dash date parsing failed.");
+  if (parseGovernmentDate("7/3/2026") !== "2026-03-07") throw new Error("Slash date must be day-first.");
+  if (parseGovernmentDate("07-11-2026") !== "2026-11-07") throw new Error("Dash date must be day-first.");
   if (parseGovernmentDate("2026-11-07") !== "2026-11-07") throw new Error("ISO date parsing failed.");
   if (parseGovernmentDate("29/08/2026") !== "2026-08-29") throw new Error("Day-first date parsing failed.");
+  if (parseGovernmentDate("29/08/26") !== "2026-08-29") throw new Error("Two-digit year dd/mm/yy parsing failed.");
+  if (parseGovernmentDate("05-10-26") !== "2026-10-05") throw new Error("Two-digit year dash parsing failed.");
+  if (parseGovernmentDate("31/02/26") !== "") throw new Error("Impossible dates must be rejected.");
   if (parseGovernmentDate("not a date") !== "") throw new Error("Invalid date should be rejected.");
 });

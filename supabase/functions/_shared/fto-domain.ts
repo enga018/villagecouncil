@@ -7,16 +7,17 @@ export function parseGovernmentAmount(value: string): string {
   return Number.isFinite(amount) && amount >= 0 ? String(amount) : "";
 }
 
+// Government dates are day-first: dd/mm/yy or dd/mm/yyyy (slash or dash).
 export function parseGovernmentDate(value: string): string {
   const text = String(value || "").trim();
   if (!text) return "";
-  const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/);
   if (match) {
-    const first = Number(match[1]), second = Number(match[2]);
-    // If the first number is after 12, it must be the day (day-first format).
-    const day = first > 12 ? first : second;
-    const month = first > 12 ? second : first;
-    return match[3] + "-" + month.toString().padStart(2, "0") + "-" + day.toString().padStart(2, "0");
+    const day = Number(match[1]), month = Number(match[2]);
+    const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+    const check = new Date(Date.UTC(year, month - 1, day));
+    if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return "";
+    return year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
   return "";
@@ -33,6 +34,17 @@ export function normalizeGovernmentStatus(value: string): NormalizedGovernmentSt
 export function extractJobCard(value: string): string {
   const match = String(value || "").match(/\bMZ-\d{2}-(?:\d{3}-){2,3}\d{3}\/\d+(?:-[A-Z]+)?\b/i);
   return match ? match[0].toUpperCase() : "";
+}
+
+// The detail link carries a per-visit payload, so it is excluded from the change fingerprint.
+export async function listingFingerprint(candidate: { ftoNumber: string; listingRow: string[]; listingHeaders?: string[] }): Promise<string> {
+  const source = JSON.stringify({
+    ftoNumber: candidate.ftoNumber,
+    listingRow: candidate.listingRow,
+    listingHeaders: candidate.listingHeaders ?? [],
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
 }
 
 export function countUnresolvedTransactions(

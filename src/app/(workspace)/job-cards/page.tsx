@@ -374,19 +374,22 @@ export default function JobCardsPage() {
                 const isExpanded = expanded.includes(card.id);
                 return (
                   <article key={card.id} className={`overflow-hidden rounded-xl border transition-colors ${isExpanded ? "border-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-slate-300"}`}>
-                    <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full items-center justify-between gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4">
-                      <span className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-                        <span className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold sm:flex ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
+                    <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full flex-col items-stretch gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4 md:flex-row md:items-center md:justify-between md:gap-4">
+                      <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-1">
+                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">
                             <strong className="break-all text-[13px] font-bold tracking-tight text-slate-950 sm:text-sm">{card.job_card_number}</strong>
                             <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
                           </span>
                           <span className="mt-1 block truncate text-xs font-medium text-slate-600 sm:text-[13px]">{card.head_of_household}</span>
-                          <span className="mt-1 block text-[10px] text-slate-400">{people.length} applicants · {activePeople} active</span>
+                          <span className="mt-1 block text-[10px] text-slate-400 md:hidden">{people.length} applicants · {activePeople} active</span>
                         </span>
                       </span>
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400"}`} aria-hidden="true">⌄</span>
+                      <span className="flex w-full shrink-0 items-center justify-between gap-3 md:w-auto md:justify-end">
+                        <span className="hidden text-[11px] font-medium text-slate-500 md:block">{people.length} applicants · {activePeople} active</span>
+                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400"}`} aria-hidden="true">⌄</span>
+                      </span>
                     </button>
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-white px-3 py-2 sm:px-4">

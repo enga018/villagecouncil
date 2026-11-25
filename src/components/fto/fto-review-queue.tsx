@@ -203,7 +203,6 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
       p_fto_number: item.ftoNumber,
       p_reference_number: item.referenceNumber,
       p_decision: decisions[item.key] || decision,
-      p_job_card_number: item.jobCardNumber,
     });
     if (rpcError) {
       setError(rpcError.message);

@@ -63,7 +63,7 @@ async function getActiveCouncilId(supabase: ReturnType<typeof createClient>) {
 
 export default function FtoMonitoringPage() {
   const [busy, setBusy] = useState(false);
-  const [activating, setActivating] = useState(false);
+  const [activating] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [batchId, setBatchId] = useState("");

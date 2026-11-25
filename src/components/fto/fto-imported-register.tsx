@@ -104,20 +104,20 @@ function statusSummaryClasses(transactions: Transaction[]) {
   };
 }
 
-function statusClassName(key: string, count: number) {
-  const base = count === 0 ? "text-slate-500" : key === "processed" ? "text-emerald-700" : key === "deferred" ? "text-amber-800" : key === "rejected" ? "text-rose-700" : "text-slate-600";
-  return base + (count > 0 ? " font-semibold" : "");
+function statusPill(key: "processed" | "deferred" | "rejected" | "other", count: number) {
+  const base = {
+    processed: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    deferred: "bg-amber-50 border-amber-200 text-amber-700",
+    rejected: "bg-rose-50 border-rose-200 text-rose-700",
+    other: "bg-slate-100 border-slate-200 text-slate-600",
+  }[key];
+  return <span key={key} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${base}`}>{key === "processed" ? "Processed" : key === "deferred" ? "Deferred" : key === "rejected" ? "Rejected" : "Other"} {number(count)}</span>;
 }
 
 function statusSummary(transactions: Transaction[]) {
   const counts = statusSummaryClasses(transactions);
-  const items = [
-    { key: "processed", value: counts.processed, label: "Processed" },
-    { key: "deferred", value: counts.deferred, label: "Deferred" },
-    { key: "rejected", value: counts.rejected, label: "Rejected" },
-    { key: "other", value: counts.other, label: "Other" },
-  ].filter(item => item.value > 0).map(item => <span key={item.key} className={statusClassName(item.key, item.value)}>{item.label} {number(item.value)}</span>);
-  return items.length ? items.flatMap((item, index) => index === 0 ? [item] : [<span key={item.key + "-sep"} className="text-slate-400"> · </span>, item]) : [<span key="none" className="text-slate-500">No transactions</span>];
+  const pills = [counts.processed, counts.deferred, counts.rejected, counts.other].filter((value, index) => value > 0).map(value => value === counts.processed && index === 0 ? statusPill("processed", value) : value === counts.deferred ? statusPill("deferred", value) : value === counts.rejected ? statusPill("rejected", value) : statusPill("other", value));
+  return pills.length ? <div className="mt-2 flex flex-wrap items-center gap-2">{pills}</div> : <div className="mt-2 text-[11px] text-slate-500">No transactions</div>;
 }
 
 function dateTime(value: string | null | undefined) {
@@ -235,22 +235,12 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
           {filtered.map(item => {
             const expanded = selectedId === item.id;
             return (
-              <div key={item.id}>
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-4 py-4 text-left sm:px-5">
-                  <div className="min-w-0">
+              <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left sm:px-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
-                    <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-                      {statusSummary(item.council_fto_transactions)}
-                    </div>
-                    <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
-                  </div>
-                  <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                    <p className="text-xs font-bold text-slate-800">{date(item.fto_date)}</p>
-                    {(() => {
-                      const newest = [...item.council_fto_transactions].sort((a, b) => Date.parse(b.transaction_date || "") - Date.parse(a.transaction_date || ""));
-                      return <span className={`mt-2 inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusBadgeClasses(newest[0] || { normalized_status: "", government_status: "Blank" } as Transaction)}`}>{item.council_fto_transactions.length} transactions</span>;
-                    })()}
+                    {statusSummary(item.council_fto_transactions)}
+                    <p className="mt-2 text-[10px] text-slate-400">{date(item.fto_date)} · Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
                     aria-expanded={expanded}
@@ -258,6 +248,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                     {expanded ? "Close −" : "Details +"}
                   </button>
                 </div>
+              </div>
                 {expanded && (
                   <div className="border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

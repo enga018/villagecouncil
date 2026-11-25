@@ -1,5 +1,6 @@
 import {
   countUnresolvedTransactions,
+  listingFingerprint,
   extractJobCard,
   extractVillage,
   normalizeGovernmentStatus,
@@ -7,6 +8,15 @@ import {
   parseGovernmentAmount,
   parseGovernmentDate,
 } from "./fto-domain.ts";
+
+Deno.test("listing fingerprint ignores the per-visit detail link but detects row changes", async () => {
+  const row = ["1", "FTO-1", "MZ-02-001-028-001/1", "12", "29/08/2026", "2100"];
+  const first = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: row, listingHeaders: ["S.No"] });
+  const second = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: row, listingHeaders: ["S.No"] });
+  if (first !== second) throw new Error("Identical listings must produce the same fingerprint.");
+  const changed = await listingFingerprint({ ftoNumber: "FTO-1", listingRow: ["1", "FTO-1", "MZ-02-001-028-001/1", "13", "29/08/2026", "2100"], listingHeaders: ["S.No"] });
+  if (changed === first) throw new Error("A changed listing row must produce a new fingerprint.");
+});
 
 Deno.test("counts only undecided blank-name rows and non-terminal named rows as unresolved", () => {
   const rows = [

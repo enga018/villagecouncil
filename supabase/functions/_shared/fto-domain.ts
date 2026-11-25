@@ -35,6 +35,17 @@ export function extractJobCard(value: string): string {
   return match ? match[0].toUpperCase() : "";
 }
 
+// The detail link carries a per-visit payload, so it is excluded from the change fingerprint.
+export async function listingFingerprint(candidate: { ftoNumber: string; listingRow: string[]; listingHeaders?: string[] }): Promise<string> {
+  const source = JSON.stringify({
+    ftoNumber: candidate.ftoNumber,
+    listingRow: candidate.listingRow,
+    listingHeaders: candidate.listingHeaders ?? [],
+  });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source));
+  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+
 export function countUnresolvedTransactions(
   transactions: Array<{ normalizedStatus: string; village: string; referenceNumber: string }>,
   ftoNumber: string,

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoImportedRegister, { type FtoAutoIncrement } from "@/components/fto/fto-imported-register";
-import FtoReviewQueue from "@/components/fto/fto-review-queue";
 
 type Progress = { attempted: number; total: number; staged: number };
 type FtoDetailsResponse = {
@@ -125,7 +124,7 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions(batchIds: string[], autoFtos: string[] = []) {
+  async function applyReviewDecisions(_batchIds: string[], _autoFtos: string[] = []) {
     if ((!batchIds.length && !autoFtos.length) || activating || busy) return;
     setActivating(true);
     setError("");
@@ -146,7 +145,7 @@ export default function FtoMonitoringPage() {
         await applyAndActivate(supabase, readyBatchId);
       }
       setImportIncrement(null);
-      setNotice("Review decisions applied. Rows marked In village are now in the Council's FTO register.");
+      setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Applying review decisions failed.");
     } finally {
@@ -290,7 +289,7 @@ export default function FtoMonitoringPage() {
 
   const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
 
-  const [autoSuggestedFtos, setAutoSuggestedFtos] = useState<string[]>([]);
+  const autoSuggestedFtos: string[] = [];
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -367,7 +366,7 @@ export default function FtoMonitoringPage() {
         )}
       </div>
 
-      <FtoReviewQueue applied={applyReviewDecisions} autoCount={autoSuggestedFtos.length} onAutoFtos={setAutoSuggestedFtos} />
+
 
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">

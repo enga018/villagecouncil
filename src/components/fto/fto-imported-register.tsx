@@ -240,7 +240,9 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   <div className="min-w-0">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     <p className="mt-1 text-[10px] text-slate-500">{item.block || "Block not recorded"}{item.first_signatory ? " · " + item.first_signatory : ""}</p>
-                    <p className="mt-2 text-[11px] font-semibold">{statusSummary(item.council_fto_transactions)}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                      {statusSummary(item.council_fto_transactions)}
+                    </div>
                     <p className="mt-1 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-slate-50/60 p-3">

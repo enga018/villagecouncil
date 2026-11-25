@@ -265,14 +265,9 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
         <table className="w-full min-w-[1000px] divide-y divide-slate-200 text-xs">
           <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="w-40 px-3 py-3">Job Card</th>
-              <th className="px-3 py-3">Reference</th>
-              <th className="w-44 px-3 py-3">Date</th>
-              <th className="w-32 px-3 py-3">Amount</th>
-              <th className="w-20 px-3 py-3">Status</th>
-              <th className="w-28 px-3 py-3">FTO</th>
-              <th className="w-28 px-3 py-3">Register</th>
-              <th className="w-64 px-3 py-3">Decision</th>
+              <th className="px-3 py-3">Job Card and decisions</th>
+              <th className="px-3 py-3">Reference, FTO, date, amount and status</th>
+              <th className="px-3 py-3">Register</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -282,26 +277,36 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
               const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
               return (
                 <tr key={rowKey(item)}>
-                  <td className="whitespace-nowrap px-3 py-3 text-slate-700">{item.jobCardNumber || "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.referenceNumber || "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.date || "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(item.amount)}</td>
-                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{item.status}</td>
-                  <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{item.ftoNumber}</td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                    {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
-                      : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
-                      : <span className="text-[10px] text-slate-400">Not in register</span>}
+                  <td className="px-3 py-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="break-all font-semibold text-slate-900">{item.jobCardNumber || "—"}</span>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
+                          In village
+                        </button>
+                        <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
+                          Not in village
+                        </button>
+                        {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
+                      </div>
+                    </div>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
-                        In village
-                      </button>
-                      <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
-                        Not in village
-                      </button>
-                      {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-900">{item.ftoNumber}</span>
+                      <span className="text-xs text-slate-600">REF: {item.referenceNumber || "—"}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-3">
+                      <span className="text-[10px] text-slate-600">{item.date || "—"}</span>
+                      <span className="text-[10px] text-slate-600">{item.status}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="whitespace-nowrap text-xs font-semibold">{money(item.amount)}</span>
+                    <div className="mt-1">
+                      {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
+                        : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
+                        : <span className="text-[10px] text-slate-400">Not in register</span>}
                     </div>
                   </td>
                 </tr>

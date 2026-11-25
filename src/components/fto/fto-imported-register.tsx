@@ -271,7 +271,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                             </tbody>
                           </table>
                         </div>
-                        <div className="mt-3 hidden gap-3 rounded-xl border border-slate-200 bg-white p-2.5 sm:p-4 md:grid">
+                        <div className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-2.5 sm:p-4 md:hidden">
                           {item.council_fto_transactions.map(tx => (
                             <div key={tx.id} className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
                               <div className="flex items-start justify-between gap-2">

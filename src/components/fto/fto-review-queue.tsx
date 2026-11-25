@@ -261,59 +261,40 @@ export default function FtoReviewQueue({ applied, autoCount = 0, onAutoFtos }: {
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1000px] divide-y divide-slate-200 text-xs">
-          <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-3 py-3">Job Card and decisions</th>
-              <th className="px-3 py-3">Reference, FTO, date, amount and status</th>
-              <th className="px-3 py-3">Register</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {visible.map(item => {
-              const decision = decisions[item.key];
-              const busy = saving === item.key;
-              const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
-              return (
-                <tr key={rowKey(item)}>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-col gap-1.5">
-                      <span className="break-all font-semibold text-slate-900">{item.jobCardNumber || "—"}</span>
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
-                          In village
-                        </button>
-                        <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
-                          Not in village
-                        </button>
-                        {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-900">{item.ftoNumber}</span>
-                      <span className="text-xs text-slate-600">REF: {item.referenceNumber || "—"}</span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-3">
-                      <span className="text-[10px] text-slate-600">{item.date || "—"}</span>
-                      <span className="text-[10px] text-slate-600">{item.status}</span>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="divide-y divide-slate-100">
+          {visible.map(item => {
+            const decision = decisions[item.key];
+            const busy = saving === item.key;
+            const register = registerStatus.get(normalizeJobCard(item.jobCardNumber));
+            return (
+              <div key={rowKey(item)} className="px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="break-all text-xs font-semibold text-slate-900">{item.jobCardNumber || "—"}</p>
+                    <p className="mt-0.5 text-[10px] text-slate-500">FTO {item.ftoNumber} · REF {item.referenceNumber || "—"}</p>
+                    <p className="mt-1 text-[10px] text-slate-600">{item.date || "—"} · {item.status}</p>
+                  </div>
+                  <div className="flex flex-col items-start gap-2 md:items-end">
                     <span className="whitespace-nowrap text-xs font-semibold">{money(item.amount)}</span>
-                    <div className="mt-1">
-                      {register === "active" ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">Active in register</span>
-                        : register ? <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">In register ({register})</span>
-                        : <span className="text-[10px] text-slate-400">Not in register</span>}
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" disabled={busy} onClick={() => decide(item, "in_village")} className={decisionButtonClasses(decision === "in_village", busy)}>
+                        In village
+                      </button>
+                      <button type="button" disabled={busy} onClick={() => decide(item, "not_in_village")} className={decisionButtonClasses(decision === "not_in_village", busy)}>
+                        Not in village
+                      </button>
+                      {!decision && register === "active" && <span className="text-[10px] font-semibold text-emerald-700">Suggested</span>}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    <span className="text-[10px] text-slate-500">
+                      {register === "active" ? "Active in register" : register ? `In register (${register})` : "Not in register"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

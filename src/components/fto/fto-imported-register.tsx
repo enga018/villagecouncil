@@ -273,9 +273,8 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                     {item.council_fto_transactions.length === 0 ? (
                       <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
                     ) : (
-                      <div className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-2.5 sm:p-4">
-                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                          <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
+                      <div className="mt-3 hidden md:block overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                        <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
                             <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
                               <th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th>
                             </tr></thead>

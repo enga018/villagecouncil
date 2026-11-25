@@ -82,11 +82,12 @@ function normalizedStatusLabel(tx: Transaction) {
   return String(tx.government_status || "blank");
 }
 
-function statusBadgeClasses(transactionCount: number) {
-  if (transactionCount === 0) return "border-slate-200 bg-slate-50 text-slate-600";
-  if (transactionCount <= 50) return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (transactionCount <= 100) return "border-blue-200 bg-blue-50 text-blue-700";
-  return "border-indigo-200 bg-indigo-50 text-indigo-700";
+function statusBadgeClasses(tx: Transaction) {
+  const normalized = String(tx.normalized_status || "").toLowerCase();
+  if (normalized === "processed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (normalized === "deferred") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function statusSummary(transactions: Transaction[]) {
@@ -232,7 +233,10 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                       <div><p className="text-xs font-bold tabular-nums text-slate-800">{number(item.beneficiary_count)}</p><p>Beneficiaries</p></div>
                       <div><p className="text-xs font-bold tabular-nums text-slate-800">{money(item.wage_amount)}</p><p>Wage</p></div>
                     </div>
-                    <span className={`mt-2 inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusBadgeClasses(item.council_fto_transactions.length)}`}>{item.council_fto_transactions.length} transactions</span>
+                    {(() => {
+                      const newest = [...item.council_fto_transactions].sort((a, b) => Date.parse(b.transaction_date || "") - Date.parse(a.transaction_date || ""));
+                      return <span className={`mt-2 inline-flex w-fit rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusBadgeClasses(newest[0] || { normalized_status: "", government_status: "Blank" } as Transaction)}`}>{item.council_fto_transactions.length} transactions</span>;
+                    })()}
                   </div>
                   <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
                     aria-expanded={expanded}

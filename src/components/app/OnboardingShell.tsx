@@ -4,9 +4,6 @@ import Link from "next/link";
 
 const steps = [
   { label: "Government location", short: "Location", href: "/onboarding" },
-  { label: "Job Card register", short: "Job Cards", href: "/onboarding/job-cards" },
-  { label: "FTO discovery", short: "FTOs", href: "/onboarding/ftos" },
-  { label: "Review & activation", short: "Review", href: "/onboarding/review" },
 ];
 
 export default function OnboardingShell({
@@ -36,11 +33,11 @@ export default function OnboardingShell({
           <div className="mb-7">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-700">Workspace setup</p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Set up your Village Council</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Complete these steps to prepare your council workspace.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Select and save your official Government location to complete onboarding. You can import Job Cards and FTOs later.</p>
           </div>
 
           <nav aria-label="Onboarding steps" className="mb-7 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <ol className="grid grid-cols-4 gap-1 sm:gap-3">
+            <ol className="grid grid-cols-1 gap-1 sm:gap-3">
               {steps.map((step, index) => {
                 const complete = index < activeStep;
                 const current = index === activeStep;

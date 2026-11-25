@@ -40,7 +40,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
       const { data: council, error: councilError } = await supabase
         .from("council_tenants")
-        .select("id,name,slug,is_active,created_at,updated_at,state,district,block,village,block_url,panchayat_url,onboarding_completed_at")
+        .select("id,name,slug,is_active,created_at,updated_at,state,district,block,village,panchayat_url,onboarding_completed_at")
         .eq("id", membership.village_council_id).eq("is_active", true).maybeSingle();
       if (councilError) throw councilError;
       if (!council) { setState({ status: "no_membership" }); return; }
@@ -65,7 +65,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
-    void resolveTenant();
+    window.setTimeout(() => void resolveTenant(), 0);
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (["SIGNED_OUT", "SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
         window.setTimeout(() => void resolveTenant(), 0);

@@ -1,117 +1,131 @@
-# Village Council
+# Village Council Platform
 
-Production-grade Village Council Management Platform built with Next.js 14 and Supabase.
+A multi-Village-Council workspace for managing council records and operational workflows.
 
-## Live Site
+**Production site:** https://villagecouncil.enga.in
 
-https://villagecouncil.enga.in
+## Current technology
 
-## Architecture
+| Area | Technology |
+|---|---|
+| Application | Next.js 16 (App Router) |
+| UI | React 19, TypeScript |
+| Styling | Tailwind CSS 4 and shared CSS design tokens |
+| Authentication and data | Supabase Auth, PostgreSQL and Row Level Security |
+| Government-data processing | Supabase Edge Functions |
+| Build output | Next.js static export |
+| Hosting | Vercel |
 
-- **Framework**: Next.js 14 (App Router, Static Export)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase (Auth, Database, Storage)
-- **Deployment**: GitHub Pages via GitHub Actions
+The deployed application is a single web application. Council data is scoped to the signed-in user's active Village Council; database access is protected by Supabase policies.
 
-## Role-Based System
+## Current workspace modules
 
-| Role | Permissions |
-|------|-------------|
-| **Super Admin** | Creates survey templates, manages VCs, assigns surveys to VCs |
-| **Admin** (per VC) | Creates assignments, manages workers, reviews submissions |
-| **Worker** | Fills assigned surveys, saves drafts, submits responses |
-| **Supervisor** | Reviews all submissions in their VC (read-only) |
+| Module | Status | Route |
+|---|---|---|
+| Dashboard | Available | `/dashboard/` |
+| Job Cards | Available | `/job-cards/` |
+| FTO Monitoring | Available | `/fto-monitoring/` |
+| Register | Planned | `/register/` |
+| Contributions | Planned | `/contributions/` |
+| CO Calculation | Planned | `/co-calculation/` |
+| Payments | Planned | `/payments/` |
+| Reports | Planned | `/reports/` |
+| Settings | Planned | `/settings/` |
 
-## Dynamic Survey Builder
+The Dashboard is the workspace entry point. It presents the available modules as clickable cards, with relevant summary KPIs embedded inside each card. Fetch and import actions remain inside their respective module pages.
 
-Superadmins create surveys via a no-code UI:
-- **Field types**: text, textarea, number, select, radio, checkbox, date, image, geolocation
-- **Settings**: auto-capture GPS, allow drafts, require photos
-- **Conditional fields**: Show/hide based on other answers
-- All stored as JSONB in `survey_templates` table
+## Repository structure
 
-## Supabase Schema
+```text
+src/
+├── app/
+│   ├── (workspace)/
+│   │   ├── dashboard/          # Workspace overview and module cards
+│   │   ├── job-cards/          # Job Card workspace
+│   │   ├── fto-monitoring/     # FTO discovery, review and import UI
+│   │   └── layout.tsx          # Authenticated workspace layout
+│   ├── layout.tsx              # Root document and global stylesheet
+│   └── globals.css             # Shared design tokens and global styles
+├── components/
+│   ├── app/                    # App shell, auth gate and shared components
+│   └── fto/                    # FTO-specific UI components
+├── lib/
+│   └── supabase.ts             # Browser Supabase client
+└── types/                      # Shared TypeScript types
 
-- `village_councils` - Multi-tenant VCs
-- `public_users` - Users linked to auth.users
-- `survey_templates` - Survey definitions (fields JSONB + settings JSONB)
-- `vc_survey_access` - Which VCs can use which surveys
-- `survey_assignments` - Admin assigns surveys to workers
-- `survey_responses` - Worker submissions with data JSONB
+supabase/
+├── functions/                  # Supabase Edge Functions
+└── migrations/                 # Database migrations
 
-Row Level Security (RLS) ensures multi-tenant isolation.
+docs/
+├── architecture.md             # Current application architecture
+├── fto-monitoring.md           # FTO discovery and import behavior
+└── ui-design-system.md         # Shared visual system and component patterns
+```
 
-## Getting Started
+## Local development
 
 ### Prerequisites
 
-- Node.js 20+
-- Supabase project
+- Node.js 20 or later
+- npm
+- Access to the project's Supabase environment
 
 ### Setup
 
-1. Clone the repository
+1. Clone the repository.
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
-3. Run the Supabase schema:
-   - Go to your Supabase SQL Editor
-   - Run the contents of `supabase/schema.sql`
+3. Create a local `.env.local` file:
 
-4. Create `.env.local`:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   ```dotenv
+   NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
 
-5. Run development server:
+4. Start the development server:
+
    ```bash
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000)
+5. Open http://localhost:3000.
 
-## Deployment
+Do not commit `.env.local`, service-role keys, access tokens or other secrets. Use the project's existing Supabase migrations and deployment procedures; do not recreate production data by applying an old schema snapshot.
 
-The project deploys to GitHub Pages automatically via GitHub Actions.
+## Available scripts
 
-### Required GitHub Secrets
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the local Next.js development server |
+| `npm run build` | Run the production build and static export |
+| `npm run start` | Start the Next.js server (for environments using server output) |
+| `npm run lint` | Run ESLint |
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+The Next.js configuration currently sets `output: "export"` and `trailingSlash: true`. The static build is written to `out/`. Vercel builds and hosts the application from the repository.
 
-### Manual Build
+## Multi-council access
 
-```bash
-npm run build
-```
+The authenticated workspace uses the active membership associated with the signed-in user to resolve the Village Council context. The workspace gate checks the user's membership and council onboarding state before rendering the application shell.
 
-Output is in the `out/` directory (static export).
+Council-owned records must remain scoped to the relevant `village_council_id`. Supabase Row Level Security and appropriately scoped database operations are part of the tenant-isolation boundary. Do not rely on client-side filtering as a substitute for database authorization.
 
-## Project Structure
+## Documentation
 
-```
-src/
-├── app/
-│   ├── login/          # Login page
-│   ├── superadmin/     # Super admin dashboard
-│   ├── admin/          # Admin dashboard
-│   ├── worker/         # Worker dashboard
-│   └── supervisor/     # Supervisor dashboard
-├── components/
-│   ├── surveys/        # Survey builder and form
-│   ├── ui/             # Reusable UI components
-│   └── layout/         # Layout components
-├── lib/
-│   ├── supabase.ts     # Supabase client
-│   └── auth.ts         # Auth utilities
-└── types/
-    └── index.ts        # TypeScript types
-```
+- [Architecture](docs/architecture.md) — application structure, tenant context, backend and deployment.
+- [UI design system](docs/ui-design-system.md) — shared colors, surfaces, reusable components and future-module conventions.
+- [FTO Monitoring](docs/fto-monitoring.md) — Government portal discovery, Panchayat-based ownership, validation, retry and import activation.
 
-## Legacy Files
+## Contribution guidelines
 
-Old vanilla HTML/JS files are preserved in `_legacy/` for reference.
+- Keep the application as one Next.js app with shared layouts and components.
+- Reuse the shared design tokens and UI components before introducing module-specific visual styles.
+- Keep each module's actions and data logic inside its own route/component boundary.
+- Scope council data queries to the active council and preserve server/database authorization.
+- Treat Supabase migrations and Edge Functions as production-critical code; review their impact separately from UI changes.
+- Run `npm run build` and `npm run lint` before merging when practical.
+- Update the relevant documentation when routes, data ownership, import behavior, deployment or shared UI conventions change.

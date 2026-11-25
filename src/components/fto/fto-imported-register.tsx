@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-const FTO_PAGE_SIZE = 5;
 import { createClient } from "@/lib/supabase";
 
 type Transaction = {
@@ -45,6 +43,10 @@ type Fto = {
   council_fto_transactions: Transaction[];
 };
 
+type AutoIncrement = { newFtos: number; newTransactions: number } | null;
+
+const FTO_PAGE_SIZE = 5;
+
 function number(value: number | null | undefined) {
   return value == null ? "—" : new Intl.NumberFormat("en-IN").format(value);
 }
@@ -57,7 +59,6 @@ function money(value: number | null | undefined) {
 
 function date(value: string | null | undefined) {
   if (!value) return "—";
-  // FTO dates are stored as date-only text; avoid timezone shifts.
   const dateOnly = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (dateOnly) return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
@@ -69,11 +70,21 @@ function date(value: string | null | undefined) {
   }).format(parsed);
 }
 
+function dateTime(value: string | null | undefined) {
+  if (!value) return "Not checked";
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }).format(parsed);
+}
+
 function governmentStatusClasses(status: string) {
   const normalized = String(status || "blank").toLowerCase();
   if (normalized === "processed") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  if (normalized === "deferred") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function normalizedStatusLabel(tx: Transaction) {
@@ -85,47 +96,23 @@ function normalizedStatusLabel(tx: Transaction) {
 }
 
 function statusSummaryClasses(transactions: Transaction[]) {
-  const counts = { processed: 0, rejected: 0, deferred: 0, other: 0 };
+  const counts = { processed: 0, deferred: 0, rejected: 0, other: 0 };
   for (const tx of transactions) {
     if (tx.normalized_status === "processed" || tx.normalized_status === "rejected" || tx.normalized_status === "deferred") counts[tx.normalized_status]++;
     else counts.other++;
   }
-  return {
-    processed: counts.processed,
-    deferred: counts.deferred,
-    rejected: counts.rejected,
-    other: counts.other,
-  };
-}
-
-function statusPill(key: "processed" | "deferred" | "rejected" | "other", count: number) {
-  const base = {
-    processed: "bg-emerald-50 border-emerald-200 text-emerald-700",
-    deferred: "bg-amber-50 border-amber-200 text-amber-700",
-    rejected: "bg-rose-50 border-rose-200 text-rose-700",
-    other: "bg-slate-100 border-slate-200 text-slate-600",
-  }[key];
-  return <span key={key} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${base}`}>{key === "processed" ? "Processed" : key === "deferred" ? "Deferred" : key === "rejected" ? "Rejected" : "Other"} {number(count)}</span>;
+  return counts;
 }
 
 function statusSummary(transactions: Transaction[]) {
   const counts = statusSummaryClasses(transactions);
   const items = [
-    counts.processed > 0 && statusPill("processed", counts.processed),
-    counts.deferred > 0 && statusPill("deferred", counts.deferred),
-    counts.rejected > 0 && statusPill("rejected", counts.rejected),
-    counts.other > 0 && statusPill("other", counts.other),
-  ].filter(Boolean) as ReturnType<typeof statusPill>[];
+    counts.processed > 0 && <span key="processed" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700">Processed {number(counts.processed)}</span>,
+    counts.deferred > 0 && <span key="deferred" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700">Deferred {number(counts.deferred)}</span>,
+    counts.rejected > 0 && <span key="rejected" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700">Rejected {number(counts.rejected)}</span>,
+    counts.other > 0 && <span key="other" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-slate-200 bg-slate-100 text-slate-600">Other {number(counts.other)}</span>,
+  ].filter(Boolean) as React.ReactNode[];
   return items.length ? <div className="mt-2 flex flex-wrap items-center gap-2">{items}</div> : <div className="mt-2 text-[11px] text-slate-500">No transactions</div>;
-}
-
-function dateTime(value: string | null | undefined) {
-  if (!value) return "Not checked";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  }).format(parsed);
 }
 
 export type FtoAutoIncrement = { newFtos: number; newTransactions: number } | null;
@@ -138,6 +125,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [ftoPage, setFtoPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -147,11 +135,11 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
       const supabase = createClient();
       const [ftoResult, inspectionResult] = await Promise.all([
         supabase
-        .from("council_ftos")
-        .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
-        .eq("status", "active")
-        .order("fto_date", { ascending: false, nullsFirst: false })
-        .order("fto_number", { ascending: false }),
+          .from("council_ftos")
+          .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
+          .eq("status", "active")
+          .order("fto_date", { ascending: false, nullsFirst: false })
+          .order("fto_number", { ascending: false }),
         supabase.functions.invoke<{ inspections?: Inspection[]; error?: string }>("council-fto-inspection-register", { body: {} }),
       ]);
       if (!active) return;
@@ -177,8 +165,6 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     return () => { active = false; };
   }, []);
 
-  const [ftoPage, setFtoPage] = useState(1);
-  const [txPage, setTxPage] = useState(1);
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     if (!term) return records;
@@ -192,20 +178,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     );
   }, [records, search]);
 
+  const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
   const ftoPageCount = Math.max(1, Math.ceil(filtered.length / FTO_PAGE_SIZE));
   const visibleFtos = filtered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
-  const visibleFtoTransactions = visibleFtos.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
-  const txPageCount = Math.max(1, Math.ceil(visibleFtoTransactions / 50));
-  const txOffset = (txPage - 1) * 50;
-  const txRows = visibleFtos.flatMap(item => item.council_fto_transactions).slice(txOffset, txOffset + 50);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setFtoPage(1);
-    setTxPage(1);
   };
-
-  const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
@@ -248,33 +228,33 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         <>
           <div className="divide-y divide-slate-100">
             {visibleFtos.map(item => {
-            const expanded = selectedId === item.id;
-            return (
-              <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left sm:px-5">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
-                    {statusSummary(item.council_fto_transactions)}
-                    <p className="mt-2 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
-                  </div>
-                  <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
-                    aria-expanded={expanded}
-                    className="mt-3 w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 lg:mt-0 lg:w-auto">
-                    {expanded ? "Close" : "Details"}
-                  </button>
-                </div>
-                {expanded && (
-                  <div className="mt-4 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="text-xs font-bold text-slate-900">Transaction details</h3>
-                      <span className="text-[10px] text-slate-400">{number(item.council_fto_transactions.length)} imported</span>
+              const expanded = selectedId === item.id;
+              return (
+                <div key={item.id} className="rounded-xl border border-slate-200 bg-white px-4 py-4 text-left sm:px-5">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
+                      {statusSummary(item.council_fto_transactions)}
+                      <p className="mt-2 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                     </div>
-                    <p className="mt-1 text-[10px] text-slate-500">Last Government check: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
-                    {item.council_fto_transactions.length === 0 ? (
-                      <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
-                    ) : (
-                      <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                        <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
+                    <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
+                      aria-expanded={expanded}
+                      className="mt-3 w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 lg:mt-0 lg:w-auto">
+                      {expanded ? "Close" : "Details"}
+                    </button>
+                  </div>
+                  {expanded && (
+                    <div className="mt-4 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-xs font-bold text-slate-900">Transaction details</h3>
+                        <span className="text-[10px] text-slate-400">{number(item.council_fto_transactions.length)} imported</span>
+                      </div>
+                      <p className="mt-1 text-[10px] text-slate-500">Last Government check: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
+                      {item.council_fto_transactions.length === 0 ? (
+                        <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p>
+                      ) : (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                          <table className="min-w-[900px] divide-y divide-slate-200 text-xs">
                             <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
                               <th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th>
                             </tr></thead>
@@ -291,41 +271,42 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                             </tbody>
                           </table>
                         </div>
-                        {item.council_fto_transactions.map(tx => (
-                          <div key={tx.id} className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="min-w-0 break-all text-xs font-semibold text-slate-900">{tx.applicant_name || tx.primary_account_holder || tx.job_card_number}</p>
-                              <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
-                            </div>
-                            <p className="mt-1 text-[10px] text-slate-500 break-all">{tx.job_card_number} · Ref: {tx.reference_number}</p>
-                            <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] text-slate-600">
-                              <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span>
-                              <span>{date(tx.transaction_date)}</span>
-                            </div>
-                            {tx.rejection_reason && (
-                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
-                                <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>
-                                <p className="mt-1 text-[10px] text-rose-700">{tx.rejection_reason}</p>
+                        <div className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-2.5 sm:p-4">
+                          {item.council_fto_transactions.map(tx => (
+                            <div key={tx.id} className="border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="min-w-0 break-all text-xs font-semibold text-slate-900">{tx.applicant_name || tx.primary_account_holder || tx.job_card_number}</p>
+                                <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span>
                               </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 sm:px-5">
-          <span className="text-[11px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 5 FTOs per page</span>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => { setFtoPage(page => Math.max(1, page - 1)); setTxPage(1); }} disabled={ftoPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
-            <button type="button" onClick={() => { setFtoPage(page => Math.min(ftoPageCount, page + 1)); setTxPage(1); }} disabled={ftoPage >= ftoPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+                              <p className="mt-1 text-[10px] text-slate-500 break-all">{tx.job_card_number} · Ref: {tx.reference_number}</p>
+                              <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] text-slate-600">
+                                <span className="tabular-nums">{money(tx.amount_to_be_credited)}</span>
+                                <span>{date(tx.transaction_date)}</span>
+                              </div>
+                              {tx.rejection_reason && (
+                                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2">
+                                  <p className="text-[10px] font-semibold text-rose-800">Rejection reason</p>
+                                  <p className="mt-1 text-[10px] text-rose-700">{tx.rejection_reason}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </div>
-      </>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3 sm:px-5">
+            <span className="text-[11px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 5 FTOs per page</span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setFtoPage(page => Math.max(1, page - 1)); }} disabled={ftoPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
+              <button type="button" onClick={() => { setFtoPage(page => Math.min(ftoPageCount, page + 1)); }} disabled={ftoPage >= ftoPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+            </div>
+          </div>
+        </>
       )}
     </section>
   );

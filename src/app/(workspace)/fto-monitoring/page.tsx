@@ -124,29 +124,7 @@ export default function FtoMonitoringPage() {
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
-  async function applyReviewDecisions() {
-    if (activating || busy) return;
-    setActivating(true);
-    setError("");
-    setNotice("");
-    try {
-      const supabase = createClient();
-      const { data: batches, error: batchError } = await supabase
-        .from("council_fto_import_batches")
-        .select("id,status")
-        .in("status", ["pending", "completed"]);
-      if (batchError) throw batchError;
-      for (const batch of batches || []) {
-        await applyAndActivate(supabase, String(batch.id));
-      }
-      setImportIncrement(null);
-      setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Applying review decisions failed.");
-    } finally {
-      setActivating(false);
-    }
-  }
+
 
   async function processNumbers(numbers: string[], currentBatchId: string, token: string, supabase: ReturnType<typeof createClient>, initialNotice?: string) {
     if (!numbers.length) return;
@@ -284,7 +262,7 @@ export default function FtoMonitoringPage() {
 
   const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
 
-  const autoSuggestedFtos: string[] = [];
+
 
   return (
     <div className="mx-auto max-w-6xl space-y-7">
@@ -330,12 +308,6 @@ export default function FtoMonitoringPage() {
       </section>
 
       <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement || fetchDelta} />
-
-      {autoSuggestedFtos.length > 0 && (
-        <p className="text-[11px] font-semibold text-emerald-800">
-          {formatNumber(autoSuggestedFtos.length)} FTO(s) have a new register match. Accept all as In village below.
-        </p>
-      )}
 
       <div className="space-y-4">
         {progress && (

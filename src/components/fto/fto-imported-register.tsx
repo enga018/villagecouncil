@@ -237,7 +237,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   <div className="min-w-0 flex-1">
                     <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
                     {statusSummary(item.council_fto_transactions)}
-                    <p className="mt-2 text-[10px] text-slate-400">{date(item.fto_date)} Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
+                    <p className="mt-2 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </div>
                   <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
                     aria-expanded={expanded}

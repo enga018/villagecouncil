@@ -1,3 +1,5 @@
+<!-- Archived: this document describes the superseded Property Survey / Household Register MVP. It is retained for historical reference and is not current product guidance. -->
+
 # Project Goal
 
 Village Council is a production-grade Village Council Management System.

@@ -1,3 +1,8 @@
+-- ARCHIVED LEGACY SCHEMA
+-- This file belongs to the superseded survey-management application.
+-- DO NOT RUN against the current Village Council production database.
+-- The active database is managed through supabase/migrations/ only.
+
 -- Village Council Management Platform - New Schema
 -- Run this in Supabase SQL Editor
 

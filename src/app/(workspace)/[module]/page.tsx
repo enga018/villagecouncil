@@ -6,7 +6,6 @@ const moduleDetails: Record<string, { title: string; description: string }> = {
   register: { title: "Register", description: "Maintain and review the official registration register." },
   "fto-monitoring": { title: "FTO Monitoring", description: "Monitor FTO status using the Government First Signatory workflow." },
   contributions: { title: "Contributions", description: "Review contribution charges, payment history and outstanding balances." },
-  "co-calculation": { title: "CO Calculation", description: "Prepare and review CO calculations." },
   payments: { title: "Payments", description: "Record and review payments." },
   reports: { title: "Reports", description: "Review and export Village Council reports." },
   settings: { title: "Settings", description: "Manage the configuration of this Village Council workspace." },

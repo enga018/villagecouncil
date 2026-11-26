@@ -267,7 +267,9 @@ export default function FtoCoAction({
                       <p className="text-xs font-bold text-slate-900">{showPreview ? "All transaction preview" : "Saved calculation details"}</p>
                       <p className="text-[10px] text-slate-500">{rowsToShow.length} transactions · status shown from FTO Monitoring</p>
                     </div>
-                    <div className="overflow-x-auto">
+
+                    {/* Desktop: full transaction table */}
+                    <div className="hidden overflow-x-auto md:block">
                       <table className="min-w-[760px] w-full divide-y divide-slate-200 text-xs">
                         <thead className="bg-white text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
                           <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th><th className="px-3 py-3">CO Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
@@ -288,6 +290,41 @@ export default function FtoCoAction({
                           </tr>)}
                         </tbody>
                       </table>
+                    </div>
+
+                    {/* Mobile: readable transaction cards */}
+                    <div className="divide-y divide-slate-100 md:hidden">
+                      {showPreview ? data.rows.map(row => (
+                        <article key={row.id} className="space-y-3 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
+                              <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                            </div>
+                            <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.normalized_status)}`}>{statusLabel(row.normalized_status)}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3">
+                            <div><p className="text-[10px] text-slate-500">Credit Amount</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(row.credit_amount)}</p></div>
+                            <div><p className="text-[10px] text-slate-500">CO Amount</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
+                          </div>
+                          <p className={`text-[11px] font-semibold ${row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
+                        </article>
+                      )) : savedRows.map(row => (
+                        <article key={row.fto_transaction_id} className="space-y-3 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
+                              <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                            </div>
+                            <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3">
+                            <div><p className="text-[10px] text-slate-500">Credit Amount</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(row.credit_amount)}</p></div>
+                            <div><p className="text-[10px] text-slate-500">CO Amount</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
+                          </div>
+                          <p className={`text-[11px] font-semibold ${row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
+                        </article>
+                      ))}
                     </div>
                   </div>
 

@@ -19,7 +19,6 @@ const navigation = [
     items: [
       { href: "/fto-monitoring", label: "FTO Monitoring", mark: "FT" },
       { href: "/contributions", label: "Contributions", mark: "CN" },
-      { href: "/co-calculation", label: "CO Calculation", mark: "CO" },
       { href: "/payments", label: "Payments", mark: "PY" },
       { href: "/reports", label: "Reports", mark: "RP" },
     ],

@@ -371,7 +371,7 @@ export default function FtoCoAction({
                       <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {divisor}, multiplier {multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         <button type="button" onClick={() => setConfirm(false)} disabled={saving} className="min-h-10 rounded-xl border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-950">Back</button>
-                        <button type="button" onClick={applyCalculation} disabled={saving} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm and save"}</button>
+                        <button type="button" onClick={applyCalculation} disabled={saving || manualReviewCount > 0} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{manualReviewCount > 0 ? "Resolve missing dates first" : saving ? "Saving…" : "Confirm and save"}</button>
                       </div>
                     </div>
                   )}

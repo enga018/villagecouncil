@@ -211,7 +211,6 @@ export default function FtoMonitoringPage() {
     setNotice("");
     setImportResult(null);
     setImportIncrement(null);
-    setFetchDelta(null);
     setFailedFtos([]);
     setFailureDetails([]);
     setProgress(null);

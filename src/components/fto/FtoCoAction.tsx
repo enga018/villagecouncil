@@ -8,7 +8,7 @@ type CoRow = {
   id: string; job_card_number: string; reference_number: string; transaction_date: string | null;
   applicant_name: string | null; credit_amount: number | string; amount_to_be_credited: number | string | null;
   government_status: string; normalized_status: string; rejection_reason: string | null;
-  co_amount: number; is_exempt: boolean; manual_review?: boolean;
+  co_amount: number; is_exempt: boolean;
 };
 type LatestItem = {
   fto_transaction_id: string; job_card_number: string; applicant_name: string | null;
@@ -25,7 +25,7 @@ type PreviewData = {
   tags: CoTag[];
   suggested_tag_id: string | null;
   rows: CoRow[];
-  summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number; manual_review_count?: number };
+  summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number };
   snapshot: {
     transaction_count: number;
     latest_transaction_updated_at: string | null;
@@ -148,7 +148,7 @@ export default function FtoCoAction({
   }
 
   async function applyCalculation() {
-    if (!data || manualReviewCount > 0) return;
+    if (!data) return;
     setSaving(true);
     setError("");
     try {
@@ -187,7 +187,6 @@ export default function FtoCoAction({
     co_amount: Math.round(((Number(row.credit_amount) / divisor) * multiplier + Number.EPSILON) * 100) / 100,
   })), [data, divisor, multiplier]);
   const previewTotalCo = previewRows.reduce((sum, row) => sum + row.co_amount, 0);
-  const manualReviewCount = data?.summary.manual_review_count || data?.rows.filter(row => !row.transaction_date).length || 0;
   const formulaDivisor = showPreview ? divisor : data?.latest_calculation?.divisor;
   const formulaMultiplier = showPreview ? multiplier : data?.latest_calculation?.multiplier;
   const totalCredit = showPreview ? data?.summary.total_credit_amount : data?.latest_calculation?.total_credit_amount;
@@ -217,7 +216,6 @@ export default function FtoCoAction({
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {loading ? <div className="py-12 text-center text-sm text-slate-500">Loading FTO transactions…</div> : data ? (
                 <div className="space-y-5">
-                  {manualReviewCount > 0 && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{manualReviewCount} transaction(s) have no Transaction Date. Review these records before saving this FTO calculation.</p>}
                   {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>}
                   {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{notice}</p>}
 
@@ -327,7 +325,7 @@ export default function FtoCoAction({
                             <div><p className="text-[10px] text-slate-500">Credit Amount</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(row.credit_amount)}</p></div>
                             <div><p className="text-[10px] text-slate-500">CO Amount</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
                           </div>
-                          <p className={`text-[11px] font-semibold ${row.manual_review ? "text-rose-700" : row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.manual_review ? "Manual review · Transaction Date missing" : row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
+                          <p className={`text-[11px] font-semibold ${row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
                         </article>
                       )) : savedRows.map(row => (
                         <article key={row.fto_transaction_id} className="space-y-3 p-3">
@@ -371,7 +369,7 @@ export default function FtoCoAction({
                       <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {divisor}, multiplier {multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         <button type="button" onClick={() => setConfirm(false)} disabled={saving} className="min-h-10 rounded-xl border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-950">Back</button>
-                        <button type="button" onClick={applyCalculation} disabled={saving || manualReviewCount > 0} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{manualReviewCount > 0 ? "Resolve missing dates first" : saving ? "Saving…" : "Confirm and save"}</button>
+                        <button type="button" onClick={applyCalculation} disabled={saving} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm and save"}</button>
                       </div>
                     </div>
                   )}

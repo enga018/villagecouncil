@@ -313,7 +313,7 @@ Applied calculation history is read-only. Administrators can inspect and export 
 - After reinstatement, run FIFO again using the available unallocated payments for that Job Card.
 - A charge may be reversed and reinstated multiple times. Every cycle is retained in history.
 
-## 7. Contribution Management (later phase)
+## 7. Contribution Management (later phase; current workflow superseded by contribution-management-workflow.md)
 
 Contribution Management is implemented after CO Calculation.
 
@@ -328,7 +328,7 @@ Contribution Management is implemented after CO Calculation.
 
 There is no separate period creation step required before CO calculation. Apply Tags provide the grouping for Contribution Management.
 
-## 8. Payments and FIFO allocation (later phase)
+## 8. Payments and FIFO allocation (later phase; current workflow superseded by contribution-management-workflow.md)
 
 These rules are agreed for the later Payments phase. They are recorded now so the CO ledger and charge model do not block them.
 
@@ -340,16 +340,17 @@ These rules are agreed for the later Payments phase. They are recorded now so th
 - Exemption blocks new CO charges, not repayment of existing obligations.
 - Payments and FIFO allocation continue for existing active charges during an exemption interval.
 
-The exact payment-entry form fields and UI layout have not yet been finalized.
+Individual payment is recorded from Job Card Detail as CASH; payment date/time is automatic and is not manually entered. The detailed payment edit and bulk entry rules are in [Contribution Management Workflow](contribution-management-workflow.md).
 
 ### 8.2 FIFO priority
 
 The agreed allocation priority is:
 
-1. Oldest outstanding Apply Tag first.
-2. Oldest available payment first.
-3. Partial allocations are supported.
-4. Any unallocated payment balance remains available for future charges.
+1. Job Card-level FIFO across all Apply Tags; the administrator does not select a tag when recording a payment.
+2. Oldest eligible outstanding charge first, using a stable chronological key across charge categories to be finalized before allocator implementation.
+3. Oldest available payment first.
+4. Partial allocations are supported.
+5. Any unallocated payment balance remains available for future charges.
 
 FIFO operates within the same Job Card. Payment allocations must not exceed the remaining valid payment amount or the outstanding amount of a charge.
 
@@ -375,10 +376,11 @@ Original payments and charges remain intact. Unallocated valid payment balances 
 ### 8.5 Refunds
 
 - Refunds are separate records; never delete or overwrite the original payment.
-- Full and partial refunds are supported.
+- Full and partial refunds are supported only when the Job Card has an overpaid balance.
+- Refunds cannot exceed the available Job Card overpaid balance.
 - Each refund requires a reason and records administrator and timestamp.
+- The Refund action is hidden unless the Job Card is overpaid.
 - Multiple partial refunds are allowed.
-- Total refunds cannot exceed the refundable balance of the original payment.
 - When a refund is processed, first release the affected allocations, then record the refund, recalculate the remaining valid payment balance and run FIFO again.
 - Preserve all release and reallocation events.
 

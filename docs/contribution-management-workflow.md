@@ -1,177 +1,355 @@
 # Contribution and Payment Workflow
 
 **Project:** Village Council Platform  
-**Status:** Workflow baseline — confirmed decisions separated from open design questions  
+**Status:** Agreed workflow baseline; unresolved implementation details are listed separately  
 **Decision baseline:** 2026-11-27
 
-This document describes how Contribution Management and Payments fit together. It supersedes conflicting older wording in the Contribution and Payments sections of [Financial Workflow Requirements](financial-workflow-requirements.md). It does not authorize database or application changes by itself.
+This document records the agreed Contribution and Payment workflow. It supersedes conflicting older wording in the Contribution and Payments sections of [Financial Workflow Requirements](financial-workflow-requirements.md). It is a product/workflow specification; it does not itself authorize database or application changes.
 
-## 1. Core model
+## 1. Core financial model
 
 ### 1.1 Job Card is the financial account
 
-- The **Job Card Number** is the primary grouping key and owns the contribution balance.
-- Charges are associated with a Job Card.
-- Payments are recorded against a Job Card, not against an FTO or an Apply Tag.
-- The Job Card account brings together its outstanding Regular CO Charges and Other Charges, irrespective of which Apply Tags those charges came from.
-- A Job Card's financial history must remain available even if its operational status changes to Inactive, Deleted or Exempt.
-- Retain source traceability: every Regular CO Charge must be traceable to its source FTO, FTO transaction and CO calculation version.
+- The **Job Card Number** is the primary financial account key and owns the contribution balance.
+- Every charge and payment is associated with a Job Card.
+- A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Apply Tags of their source FTOs.
+- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose an Apply Tag when recording a payment.
+- Financial history remains available when a Job Card is Active, Inactive, Deleted or Exempt.
+- Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new CO charges; it does not prevent repayment of existing obligations.
 
-### 1.2 FTO and Apply Tag roles
+### 1.2 Two separate charge categories
+
+Keep these as distinct categories in the Job Card contribution detail:
+
+1. **Regular CO Charge** — generated from FTO transaction CO calculations.
+2. **Manual/Extra Charge** — an additional charge entered by an administrator; it is not a CO calculation result.
+
+Do not combine the two categories into one indistinguishable charge type. Both contribute to the Job Card balance and can be covered by payments. Manual/Extra Charges need their own entry and reversal history.
+
+### 1.3 FTO and Apply Tag roles
 
 - FTOs remain the source of Regular CO Charges.
-- Each FTO has one current Apply Tag. Tags are assigned/generated during the CO Calculation workflow, not created as a Contribution-period workflow.
-- An Apply Tag classifies/groups FTOs for Contribution reporting. It is not a financial account, payment destination, or separate period entity.
-- Do not create a Contribution Period entity or require a period to be opened.
-- Changing an FTO's current tag changes its reporting classification, but does not move the Job Card balance, change the charge amount, or rewrite payment/allocation history.
-- A payment is not restricted to one tag. FIFO allocation considers all eligible outstanding charges on that Job Card across all tags.
+- Each FTO has one current Apply Tag. Tags are assigned during the FTO CO Calculation workflow.
+- Apply Tags classify/group FTOs for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
+- Do not create a separate Contribution Period entity or require a period to be opened.
+- Changing an FTO's tag changes its reporting classification, but does not change the Job Card balance, charge amount or payment/allocation history.
+- A payment is not restricted to one tag. FIFO covers eligible outstanding charges on the Job Card across all tags.
 
-### 1.3 Charge categories
+## 2. Regular CO Charges and recalculation
 
-The financial account must distinguish at least:
-- **Regular CO Charge** — generated from an eligible, non-Exempt FTO transaction through CO Calculation.
-- **Other Charge** — a separate charge category that can be included in the Job Card balance and paid through the same payment/FIFO system.
+### 2.1 Source eligibility
 
-The exact creation, editing, reversal and authorization rules for Other Charges remain open; do not assume that legacy manual-charge behavior has been approved for the new application.
+- CO calculation remains an action on each FTO in FTO Monitoring.
+- Calculation snapshots include all source transactions in the FTO, regardless of current Government status, as specified in the CO calculation requirements.
+- A transaction contributes a visible Regular CO Charge only when its latest FTO Monitoring status is **Processed** and its saved permanent Exempt mark is false.
+- Deferred and Rejected transactions remain hidden from Contribution.
+- If a previously Deferred transaction becomes Processed, its saved CO amount becomes eligible without requiring another calculation.
+- A transaction with a permanent Exempt mark remains excluded, even if the Job Card exemption is later removed.
+- Charges calculated before a later exemption interval remain visible and payable.
+- Transactions first imported after an exemption interval ends may be considered through a new Preview → Apply cycle.
+- The calculation formula, exemption timing and immutable calculation-version rules remain governed by [Financial Workflow Requirements](financial-workflow-requirements.md).
 
-## 2. Regular CO Charge creation and eligibility
+### 2.2 Recalculation review and confirmation
 
-- CO calculation remains an operation on each FTO in FTO Monitoring.
-- Calculation snapshots include all source transactions in the FTO, regardless of current Government status.
-- Contribution charge visibility is dynamic: a transaction is eligible to contribute to the Job Card balance only when its latest FTO Monitoring status is **Processed** and its saved permanent Exempt mark is false.
-- Deferred and Rejected transactions do not create visible Regular CO Charges while in those states.
-- If a previously Deferred transaction becomes Processed, its already-saved CO amount becomes eligible without requiring another calculation.
-- A transaction marked Exempt remains excluded permanently, even if the Job Card's exemption is later removed.
-- Charges created before a later exemption interval remain valid and payable.
-- A transaction first imported after an exemption interval has ended can be considered through a new Preview → Apply cycle.
-- The calculation formula and immutable calculation-version rules remain governed by [Financial Workflow Requirements](financial-workflow-requirements.md).
-- A Regular CO Charge must retain the Job Card Number, FTO, source transaction, calculation version, amount, applicable Apply Tag snapshot/current grouping reference, and lifecycle/audit references needed to explain its history.
+When an administrator recalculates an FTO:
 
-## 3. Contribution Management
+1. Generate a new calculation preview.
+2. Show the existing/old calculated result as well as the proposed/new result so the administrator can review the difference.
+3. Show the affected transaction details and the relevant FTO tag information.
+4. Require explicit administrator review and confirmation before applying the new result.
+5. Retain the previous calculation version and its history; do not overwrite or hide it.
+6. After confirmation, update the active Regular CO Charge values from the confirmed calculation.
+7. Automatically release affected payment allocations and run FIFO again for the Job Card(s) affected by the recalculation.
+8. Keep payment records unchanged. Allocation releases and new allocations must remain auditable.
 
-Contribution Management is the Job Card contribution ledger, not a period-creation tool.
+This review is part of the recalculation workflow. It is not a separate general-purpose version-comparison module. Do not add a separate manual CO-charge reversal workflow where the correction is handled by the confirmed CO recalculation process.
 
-The module should provide:
-- A Job Card-centred view of contribution balances.
-- Charge details separated into Regular CO Charges and Other Charges.
-- Traceability from every Regular CO Charge to its source FTO transaction and calculation.
-- Current Apply Tag classification for reporting and filtering.
-- A clear distinction between total charges, payments received, allocations, adjustments and outstanding balance.
-- Access to the financial history for a Job Card.
+### 2.3 Tag changes
 
-Apply Tags may be used to filter or group charge records for inspection/reporting. They must not become the ownership key for balances or payments.
+- FTO tag assignment/change is reviewed and confirmed by the administrator in the CO workflow.
+- Show the current/old tag and the proposed/new tag before confirmation.
+- A tag change changes grouping/reporting only. It must not change CO amounts, Job Card balances, payment records or existing allocations.
+- Tag history remains auditable.
 
-No final decision has been made here about the exact page layout, default grouping, expansion behavior, KPI selection, or export formats.
+## 3. Contribution module navigation
 
-## 4. Payment workflow
+The Contribution module has four sections:
 
-### 4.1 Payment ownership and entry
+1. **Contributions** — Job Card contribution accounts, charges, payments and balances.
+2. **Bulk Payments** — bulk collection entry and bulk payment history.
+3. **Reports** — contribution and financial reports.
+4. **Settings** — relevant financial configuration.
+
+Record Payment, Paid in Full, Waive and Refund actions are located inside the relevant Job Card Contribution Detail. Do not require the administrator to navigate to a separate payment page and re-enter a Job Card Number when already working inside that Job Card.
+
+CO formula configuration remains in the existing Council Settings workflow.
+
+## 4. Contributions page and Job Card detail
+
+### 4.1 Job Card list
+
+- The Contributions page is Job Card-number based.
+- Show Job Card Number and Head of Household identification, with contribution balance information.
+- Search by Job Card Number or Head of Household.
+- **Outstanding** is the default list/filter view.
+- Provide access to Fully Paid and All Job Cards as additional views.
+- Selecting a Job Card opens its Contribution Detail.
+- Apply Tag can be used to filter/group source charge information, but never owns the account balance.
+- Summary figures must reconcile to the underlying Job Card accounts and ledger.
+
+### 4.2 Job Card Contribution Detail
+
+The detail page is the financial workspace for that Job Card. It must show, separately and clearly:
+- Regular CO Charges.
+- Manual/Extra Charges.
+- Payment history.
+- Allocation/unallocated payment information.
+- Waivers and refunds, where present.
+- Current outstanding or overpaid balance.
+- Relevant source and audit history.
+
+The administrator must not have to type the Job Card Number again to record a payment from this page.
+
+### 4.3 Actions and visibility
+
+**Record Payment**
+- Available from the Job Card Contribution Detail.
+- An individual payment recorded this way is treated as **CASH**. Do not show a payment-method selector in this individual entry flow.
+- The administrator enters the amount; the payment date/time is recorded automatically and is not manually entered.
+- A payment can be recorded even when the current outstanding balance is zero or negative. Excess remains as unallocated/overpaid credit on the Job Card.
+
+**Paid in Full**
+- Provide a **Paid in Full** action in Job Card Contribution Detail.
+- It records the amount needed to settle the current outstanding balance as a CASH payment.
+- The system calculates the amount; the administrator does not need to calculate or type the remaining balance manually.
+- Do not allow it to create a negative or duplicate settlement amount.
+
+**Waive**
+- A waiver can be entered for an amount less than the current outstanding amount.
+- Show the Waive action only when the Job Card has a positive outstanding balance.
+- Hide it when there is no positive outstanding balance.
+- Record the waiver as its own financial adjustment, not as a payment.
+- Exact waiver reason/approval fields and any further constraints must follow the final waiver form decision before implementation.
+
+**Refund**
+- Refund is allowed only against a Job Card's **overpaid balance**. It is not a general payment reversal.
+- Allow a full or partial refund, but never more than the available overpaid balance.
+- A reason is required.
+- Record refund date/time and administrator automatically.
+- Preserve the original payment record; record the refund separately.
+- The Refund button is **hidden by default**. Show it only when the Job Card has a positive overpaid balance. Hide it when the overpaid balance is zero or the Job Card has an outstanding/zero balance.
+- After refund, recalculate the Job Card's remaining overpaid balance and update button visibility.
+
+## 5. Individual payments and payment record editing
+
+### 5.1 Payment creation
 
 - Every payment belongs to one Job Card.
-- A payment can be recorded even when that Job Card has no current outstanding balance.
-- A payment is a separate financial record; do not collapse multiple Job Card payments into one undifferentiated batch payment.
-- A Job Card payment can cover Regular CO Charges and Other Charges across all Apply Tags.
-- Payments are allowed for Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new charges; it does not prevent repayment of existing balances.
-- Keep payment history and the original payment record when later corrections, refunds or allocation changes occur.
+- Payments may be recorded when no outstanding balance exists; excess is retained as unallocated credit for future eligible charges.
+- Payments can cover Regular CO Charges and Manual/Extra Charges across all Apply Tags.
+- Payment date/time and the creating administrator are captured automatically. The user does not manually enter the payment date.
+- Individual payments from Job Card Detail are CASH.
 
-The exact fields for an individual payment form (such as payment date, reference, receipt number, payer and notes) remain to be finalized.
+### 5.2 Editing payments
 
-### 4.2 Bulk payment entry
+- Administrators can edit **all payment records**, including individual payments and payments created through Bulk Payments.
+- Editable payment details include amount and applicable payment details such as method, receipt/reference number and remarks.
+- Every edit requires a correction reason.
+- Preserve the original values in audit history, including revised values, editing administrator and edit timestamp.
+- The original payment date/time and original creating administrator are not rewritten by an edit.
+- After an amount or other allocation-relevant edit, automatically recalculate/release/reallocate FIFO as required.
+- Editing a payment is a correction to that payment record, not a new payment or a refund.
 
-The agreed bulk-entry text format is one Job Card payment per line:
+### 5.3 No permanent deletion
+
+- Payment records cannot be permanently deleted.
+- Incorrect details are corrected through the edit workflow.
+- Money actually returned is handled through the Refund workflow, and only when the Job Card is overpaid.
+- Preserve the original payment and all correction/refund history.
+
+## 6. Bulk Payments
+
+### 6.1 Entry format
+
+Each line represents one Job Card payment. The Job Card Number and amount are separated by a comma:
 
 ```text
 JOB-CARD-NUMBER, AMOUNT
 JOB-CARD-NUMBER, AMOUNT
+JOB-CARD-NUMBER, AMOUNT
 ```
 
-Rules:
-- Each non-empty line represents one payment for one Job Card.
-- The batch has a selectable payment method: **CASH** or **BANK**.
-- Before saving, show a preview and validate each line, including Job Card identification and amount.
-- Invalid lines must be identified clearly and must not be silently accepted.
-- Saving creates separate payment records for the valid Job Card entries; the batch is an entry convenience, not a replacement for the individual payment ledger.
-- The exact policy for partial acceptance versus all-or-nothing batch submission must be finalized before implementation.
+### 6.2 Batch payment method
 
-### 4.3 FIFO allocation
+- Select one payment method for the batch: **CASH** or **BANK**.
+- The selected method applies to each payment created from that batch.
+- Individual payments are still stored as separate payment records linked to their source batch.
+- Capture batch date/time and administrator automatically.
 
-- Run FIFO automatically against the Job Card's outstanding charges across **all Apply Tags**. The administrator does not select a tag when recording a payment.
-- Do not treat an Apply Tag as a separate payment bucket or account.
-- Permit partial allocations.
-- If a payment exceeds the currently outstanding amount, retain the excess as unallocated credit on that Job Card for future eligible charges.
-- Keep the payment's unallocated balance visible and auditable.
-- FIFO must be deterministic and safe to rerun without duplicating allocation effects.
+### 6.3 Validation and confirmation
 
-The Job Card-level scope and no-tag-selection rule are confirmed. The precise chronological ordering key for charges across Regular CO Charges and Other Charges must be documented before implementing the allocator.
+Before saving, show a review/confirmation preview:
+- Parsed Job Card Number and amount for each line.
+- Valid and invalid entries.
+- Missing/invalid Job Card Numbers.
+- Missing, non-numeric, zero or negative amounts.
+- Duplicate Job Card Numbers/lines flagged for administrator review.
+- Number of valid entries and total collection amount.
+- Selected CASH/BANK method.
 
-### 4.4 Allocation corrections
+Do not silently accept invalid lines. The administrator reviews the preview before confirming the batch. Whether a batch with some invalid lines can partially save valid entries or must be corrected and resubmitted as a whole remains open.
 
-- Administrators may manually edit payment allocations.
-- Allocation changes must be audited.
-- Preserve the history of the original allocation and every subsequent adjustment; do not silently overwrite the financial trail.
-- Reallocation is an allowed workflow and must preserve traceability between payment, Job Card and charge.
+Amounts greater than a Job Card's current outstanding balance are allowed. The excess remains as unallocated/overpaid credit for that Job Card.
 
-The exact correction interface, reason requirements for each type of edit, and whether edits are represented as release/reallocate events or another append-only event model remain implementation details to finalize.
+### 6.4 Bulk Payment History
 
-## 5. Refunds
+Provide a dedicated Bulk Payment History view so administrators can find previous collection batches.
 
-Refunds and subsequent reallocation are part of the accepted workflow scope.
+The history list should support:
+- Search by batch reference.
+- Date-range filtering.
+- Display of batch reference, payment method, number of Job Cards/payments and total amount.
 
-The detailed refund policy still needs to be finalized before implementation, including:
-- Full versus partial refund behavior.
-- Required reason and supporting reference.
-- Refund limits and validation.
-- How affected allocations are released.
-- How remaining valid payment funds are recalculated and reallocated.
-- Required audit fields and whether refund records are immutable.
+Opening a batch shows:
+- Batch reference.
+- Collection date/time.
+- CASH/BANK method.
+- Administrator who recorded the batch.
+- Every Job Card Number and individual amount.
+- Batch total.
+- Payment allocation results for the individual Job Cards.
 
-Do not delete or silently overwrite the original payment when implementing refunds.
+A completed batch is not an undifferentiated payment: its individual payment records remain independently viewable and editable under the payment-editing rules above. Batch history remains available for audit.
 
-## 6. Waivers, manual charges and legacy behaviors
+PDF/Excel export and download were explicitly deferred for a later discussion and are not part of the current agreed scope.
 
-The previous system has included manual/extra contribution charges with reasons, waivers, refunds, deferred charges and voiding with audit history. These are known legacy capabilities, but their complete behavior has not yet been approved as the new application's requirements.
+## 7. FIFO allocation and reallocation
 
-Current status:
-- **Other Charges:** the new account/payment model must be able to distinguish them from Regular CO Charges. Their creation and lifecycle rules remain open.
-- **Manual/extra charge entry:** legacy behavior is known; the new entry workflow, required reason, permissions and audit requirements need confirmation.
-- **Waivers:** a waiver workflow has been discussed but is not yet confirmed. Do not implement a waiver operation or infer whether it applies to a charge, Job Card balance, or another unit.
-- **Deferred charges:** legacy behavior is known; the meaning and required state transitions in the new ledger remain open.
-- **Voiding:** legacy behavior is known; the new void/reversal distinction and permissions remain open.
-- **CO charge reversal/reinstatement:** retain the separately documented CO charge reversal and reinstatement requirements. These are not the same as deleting a charge or voiding a payment.
+- FIFO operates at **Job Card level across all Apply Tags**.
+- The administrator does not select an Apply Tag when recording a payment.
+- Partial allocations are allowed.
+- Payments are allocated to the Job Card's oldest eligible outstanding charges according to the agreed FIFO order.
+- Within the allocation process, use the oldest available payment first.
+- If payment exceeds current outstanding charges, keep the excess as unallocated credit on that Job Card.
+- Re-run allocation automatically after relevant CO recalculation confirmation, charge changes, payment edits, refunds, reversals or reinstatements.
+- Allocation changes must be auditable. Preserve Allocate, Release and Reallocate history; do not silently overwrite prior allocations.
+- The exact immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges across a Job Card remains a technical detail to finalize. Mutable Apply Tag names must not rewrite existing allocations or determine the Job Card account.
 
-## 7. Audit, atomicity and permissions
+## 8. Manual/Extra Charges and CO recalculation distinction
+
+- Manual/Extra Charges are additional charges entered by an administrator and are separate from Regular CO Charges.
+- Manual/Extra Charge reversal must be supported as a distinct adjustment with an auditable history; do not delete the original charge.
+- Regular CO Charge corrections are handled through the CO recalculation review → confirmation workflow described in section 2. Do not add a separate manual CO reversal/reinstatement interface as a substitute for recalculation.
+- The exact Manual/Extra Charge entry fields, required reason, permissions and reversal confirmation details must be finalized before implementation.
+
+## 9. Reports
+
+Provide a Reports section accessible to **all active Council administrators**. No separate reporting permission is required.
+
+The agreed reports are:
+
+1. **Outstanding Report**
+   - Job Card Number.
+   - Head of Household.
+   - Total charges.
+   - Payments received.
+   - Waivers.
+   - Outstanding balance.
+
+2. **Collection Report**
+   - Individual and bulk payments.
+   - CASH and BANK totals.
+   - Collection date.
+   - Recorded by.
+
+3. **CO Charge Report**
+   - Job Card Number.
+   - Source FTO.
+   - Apply Tag.
+   - CO charge amount.
+   - Recalculation adjustments.
+
+4. **Manual Charge Report**
+   - Job Card Number.
+   - Description.
+   - Amount.
+   - Administrator.
+   - Reversal history.
+
+5. **Waiver and Refund Report**
+   - Job Card Number.
+   - Transaction type.
+   - Amount.
+   - Reason.
+   - Administrator.
+   - Date and time.
+
+Report filters:
+- Date range.
+- Job Card Number.
+- Apply Tag, where applicable.
+- Transaction type.
+- CASH/BANK method, where applicable.
+
+Export/download formats were deferred and must be discussed separately.
+
+## 10. Responsive PC and mobile requirements
+
+Every Contribution module screen must be designed for both PC and mobile. This includes Contributions, Job Card Detail, individual payment, Paid in Full, Waive, Refund, Bulk Payment entry, Bulk Payment History and Reports.
+
+**PC**
+- Use dashboard summary cards and a readable Job Card table.
+- Keep search and filters in an efficient toolbar.
+- Use spacious Job Card detail layouts and clear transaction tables.
+- Use an appropriate dialog/panel for entry and confirmation.
+
+**Mobile**
+- Use compact summary cards and touch-friendly search/filters.
+- Display Job Cards as readable cards rather than squeezing a wide desktop table onto the screen.
+- Open Job Card Detail as a full-screen mobile view.
+- Make balances and available actions clear and easy to reach.
+- Use a large paste-friendly text area for Bulk Payment entry.
+- Make validation, confirmation, history and report tables usable on a narrow screen.
+
+Do not treat mobile as a scaled-down desktop view. Both layouts are required.
+
+## 11. Audit, permissions, security and integrity
 
 - All financial records and operations are scoped to `village_council_id`.
-- Every financial write must authenticate the caller and verify active Council membership on the backend.
-- Supabase RLS and appropriately restricted database functions must enforce tenant isolation; client-side filtering alone is insufficient.
-- The initial permission model gives every active Council member administrator-level financial permissions. Do not introduce a separate finance role unless a later decision changes this.
-- Preserve actor and timestamp information for financial changes.
-- Payment, allocation, refund, charge and adjustment history must be explainable after the event; do not erase history through destructive edits.
-- Financial operations that change multiple related records must be atomic so partial writes cannot leave balances inconsistent.
-- Re-running an operation must not duplicate payments, charges or allocation effects.
+- Every financial write authenticates the caller and verifies active Council membership on the backend.
+- Supabase RLS and appropriately restricted database functions enforce tenant isolation; client-side filtering alone is insufficient.
+- Every active Council administrator has the agreed financial and reporting permissions. Do not introduce a separate finance or reporting role.
+- Preserve actor and timestamp information for financial creation, editing, waiver, refund, reversal, allocation and recalculation.
+- Preserve old and new values for edits and corrections.
+- Do not permanently delete payment, charge or audit history.
+- Multi-record financial operations must be atomic.
+- Retried operations must not duplicate charges, payments, refunds or allocation effects.
 
-## 8. Implementation sequence
+## 12. Implementation sequence
 
-1. Complete and verify CO Calculation as the source of Regular CO Charge eligibility and traceability.
-2. Implement the Job Card-centred Contribution ledger and Regular CO Charge records.
-3. Implement Other Charges only after their creation/lifecycle rules are confirmed.
-4. Implement individual and bulk payment entry, including CASH/BANK selection and validation preview.
-5. Implement Job Card-level FIFO across all Apply Tags, unallocated credit and manual allocation corrections.
-6. Implement refunds and reallocation after the detailed refund policy is confirmed.
-7. Implement waivers, deferred charges and voiding only after their rules are explicitly confirmed.
-8. Run end-to-end financial, audit, tenant-isolation and concurrency tests.
+1. Verify the existing CO Calculation source data, version history, FTO tags and exemption behavior.
+2. Implement the Job Card-centred Regular CO Charge ledger.
+3. Implement separate Manual/Extra Charges and their audited reversal workflow.
+4. Implement the Contributions page and Job Card detail for PC and mobile.
+5. Implement individual CASH payment, Paid in Full, Waive and conditional Refund actions.
+6. Implement editable payment records, immutable original creation metadata and audit history.
+7. Implement Bulk Payments with CASH/BANK selection, line parsing, validation preview, confirmation and batch history.
+8. Implement Job Card-level FIFO, unallocated credit, manual allocation correction and automatic reallocation after relevant changes.
+9. Implement the five agreed reports for all active Council administrators.
+10. Complete end-to-end financial, audit, tenant-isolation, concurrency and responsive UI testing.
 
-## 9. Open decisions before database design is finalized
+## 13. Remaining decisions before implementation
 
-1. Exact Contribution page layout and default grouping.
-2. Exact fields for individual payment entry.
-3. Bulk payment batch policy when some lines are invalid: reject the whole batch or allow valid lines to be saved separately.
-4. Chronological FIFO ordering across Regular CO Charges and Other Charges, independent of mutable Apply Tags.
-5. Exact manual allocation edit/reallocation rules and reason requirements.
-6. Detailed refund rules, including full/partial refunds, limits and allocation handling.
-7. Whether and how to implement manual/extra charges in the new application.
-8. Whether to implement waivers; if yes, their target, amount rules, priority and audit requirements.
-9. Whether to implement deferred charges and voiding, and their state transitions.
-10. Receipt/reference numbering and export/reporting requirements.
+These details remain open and must not be silently invented:
+1. Exact fields and validation for creating a Manual/Extra Charge.
+2. Whether a reason is mandatory for every Manual/Extra Charge reversal and any additional confirmation rules.
+3. Exact waiver reason/approval fields and whether any additional restrictions apply beyond the agreed amount/button visibility rules.
+4. Exact fields for an individual payment beyond the amount and automatically captured date/time/administrator.
+5. Bulk batch behavior when some lines are invalid: reject the whole batch or allow valid lines to be saved separately.
+6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges.
+7. Exact manual allocation correction interface and reason requirements.
+8. Exact reference/receipt numbering requirements.
+9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.
+10. Export/download formats, which are deferred for later discussion.
 
-Until these questions are resolved, they must remain open rather than being filled in by assumption.
+Do not treat export/download, unconfirmed waiver details, or unresolved form fields as settled requirements.

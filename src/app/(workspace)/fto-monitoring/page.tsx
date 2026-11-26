@@ -74,7 +74,6 @@ export default function FtoMonitoringPage() {
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
-  const [fetchDelta, setFetchDelta] = useState<FtoAutoIncrement>(null);
   const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
   const discoveryCountsRef = useRef<{ newFtos: number; recheckedFtos: number }>({ newFtos: 0, recheckedFtos: 0 });
 
@@ -114,7 +113,6 @@ export default function FtoMonitoringPage() {
     const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
-    setFetchDelta(null);
     const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
     fetchBaselineRef.current = null;
     const councilId = await getActiveCouncilId(supabase);
@@ -231,7 +229,6 @@ export default function FtoMonitoringPage() {
       }
       const beforeFetch = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
       fetchBaselineRef.current = null;
-      setFetchDelta(null);
       if (!data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
@@ -309,7 +306,7 @@ export default function FtoMonitoringPage() {
         ))}
       </section>
 
-      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement || fetchDelta} />
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement} />
 
       <div className="space-y-4">
         {(error || notice) && <div className="space-y-2">{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"><span className="font-bold">Action required: </span>{error}</p>}{notice && <p role="status" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">{notice}</p>}</div>}

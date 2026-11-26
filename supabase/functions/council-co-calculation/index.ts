@@ -128,12 +128,8 @@ Deno.serve(async (req: Request) => {
         .select("id,fto_number,fto_date,current_co_tag_id,co_calculation_version,latest_co_calculation_id")
         .eq("id", ftoId).eq("village_council_id", tenantId).eq("status", "active").single();
       if (ftoError) throw ftoError;
-      const { error: seedSettingsError } = await admin.from("council_co_settings")
-        .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
-      if (seedSettingsError) throw seedSettingsError;
-      const [{ data: settings, error: settingsError }, { data: transactions, error: txError }, { data: tags, error: tagsError },
+      const [{ data: transactions, error: txError }, { data: tags, error: tagsError },
         { data: intervals, error: intervalsError }, { data: marks, error: marksError }, { data: lastTagEvent, error: lastTagError }] = await Promise.all([
-        admin.from("council_co_settings").select("divisor,multiplier,updated_at").eq("village_council_id", tenantId).single(),
         admin.from("council_fto_transactions")
           .select("id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
           .eq("village_council_id", tenantId).eq("fto_id", ftoId).order("transaction_date", { ascending: true }),
@@ -147,12 +143,30 @@ Deno.serve(async (req: Request) => {
           .eq("village_council_id", tenantId).in("action", ["assigned", "reassigned"])
           .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (settingsError) throw settingsError;
       if (txError) throw txError;
       if (tagsError) throw tagsError;
       if (intervalsError) throw intervalsError;
       if (marksError) throw marksError;
       if (lastTagError) throw lastTagError;
+
+      let latestCalculation = null, latestItems: unknown[] = [];
+      if (fto.latest_co_calculation_id) {
+        const { data: calculation, error: calcError } = await admin.from("council_fto_co_calculations")
+          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by")
+          .eq("id", fto.latest_co_calculation_id).eq("village_council_id", tenantId).single();
+        if (calcError) throw calcError;
+        latestCalculation = calculation;
+        const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
+          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at")
+          .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
+        if (itemsError) throw itemsError;
+        latestItems = items || [];
+      }
+
+      const parameters = {
+        divisor: Number(latestCalculation?.divisor ?? 300),
+        multiplier: Number(latestCalculation?.multiplier ?? 100),
+      };
 
       const invalidCredit = (transactions || []).find(tx => tx.credit_amount == null || !Number.isFinite(Number(tx.credit_amount)) || Number(tx.credit_amount) < 0);
       if (invalidCredit) return reply({ error: `Transaction ${invalidCredit.reference_number} has an invalid Credit Amount and cannot be calculated.` }, 409, origin);
@@ -170,7 +184,7 @@ Deno.serve(async (req: Request) => {
         const exemptionIntervalId = existingMark?.exemption_interval_id || interval?.id || null;
         const exempt = Boolean(existingMark || interval);
         const creditAmount = Number(tx.credit_amount);
-        const coAmount = roundMoney((creditAmount / settings.divisor) * settings.multiplier);
+        const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {
           id: tx.id, job_card_number: tx.job_card_number, reference_number: tx.reference_number,
           transaction_date: tx.transaction_date, processed_date: tx.processed_date,
@@ -195,21 +209,8 @@ Deno.serve(async (req: Request) => {
       const totalCredit = roundMoney(rows.reduce((sum, tx) => sum + Number(tx.credit_amount), 0));
       const totalCo = roundMoney(rows.reduce((sum, tx) => sum + tx.co_amount, 0));
       const exemptCount = rows.filter(tx => tx.is_exempt).length;
-      let latestCalculation = null, latestItems: unknown[] = [];
-      if (fto.latest_co_calculation_id) {
-        const { data: calculation, error: calcError } = await admin.from("council_fto_co_calculations")
-          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by")
-          .eq("id", fto.latest_co_calculation_id).eq("village_council_id", tenantId).single();
-        if (calcError) throw calcError;
-        latestCalculation = calculation;
-        const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
-          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at")
-          .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
-        if (itemsError) throw itemsError;
-        latestItems = items || [];
-      }
       return reply({
-        fto, settings, tags: tags || [], rows,
+        fto, parameters, tags: tags || [], rows,
         suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),
         summary: { transaction_count: count, total_credit_amount: totalCredit, total_co_amount: totalCo,
           exempt_count: exemptCount, chargeable_count: count - exemptCount },
@@ -227,7 +228,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "apply") {
       const ftoId = String(body.ftoId || ""), tagId = String(body.tagId || "");
-      const settingsUpdatedAt = String(body.settingsUpdatedAt || "");
+      const divisor = Number(body.divisor), multiplier = Number(body.multiplier);
       const transactionCount = Number(body.transactionCount);
       const latestTransactionUpdatedAt = body.latestTransactionUpdatedAt ? String(body.latestTransactionUpdatedAt) : null;
       const exemptionIntervalCount = Number(body.exemptionIntervalCount);
@@ -235,12 +236,13 @@ Deno.serve(async (req: Request) => {
       const exemptMarkCount = Number(body.exemptMarkCount);
       const latestExemptMarkedAt = body.latestExemptMarkedAt ? String(body.latestExemptMarkedAt) : null;
       const idempotencyKey = String(body.idempotencyKey || "");
-      if (!ftoId || !tagId || !settingsUpdatedAt || !Number.isInteger(transactionCount)
+      if (!ftoId || !tagId || !Number.isSafeInteger(divisor) || divisor <= 0
+        || !Number.isSafeInteger(multiplier) || multiplier <= 0 || !Number.isInteger(transactionCount)
         || !Number.isInteger(exemptionIntervalCount) || !Number.isInteger(exemptMarkCount) || !idempotencyKey)
         return reply({ error: "The preview is incomplete. Generate a fresh preview and try again." }, 400, origin);
       const { data, error } = await admin.rpc("apply_council_fto_co_calculation", {
         p_actor_id: actorId, p_fto_id: ftoId, p_tag_id: tagId,
-        p_expected_settings_updated_at: settingsUpdatedAt,
+        p_divisor: divisor, p_multiplier: multiplier,
         p_expected_transaction_count: transactionCount,
         p_expected_latest_transaction_updated_at: latestTransactionUpdatedAt,
         p_expected_exemption_interval_count: exemptionIntervalCount,

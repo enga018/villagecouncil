@@ -21,7 +21,7 @@ type Calculation = {
 };
 type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
-  settings: { divisor: number; multiplier: number; updated_at: string };
+  parameters: { divisor: number; multiplier: number };
   tags: CoTag[];
   suggested_tag_id: string | null;
   rows: CoRow[];
@@ -75,6 +75,8 @@ export default function FtoCoAction({
   const [showPreview, setShowPreview] = useState(initialVersion === 0);
   const [confirm, setConfirm] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState("");
+  const [divisor, setDivisor] = useState(300);
+  const [multiplier, setMultiplier] = useState(100);
   const [newTagName, setNewTagName] = useState("");
 
   const savedRows = useMemo(() => {
@@ -99,6 +101,8 @@ export default function FtoCoAction({
     }
     const result = response as PreviewData;
     setData(result);
+    setDivisor(Number(result.parameters.divisor) || 300);
+    setMultiplier(Number(result.parameters.multiplier) || 100);
     setVersion(result.fto.co_calculation_version || 0);
     setSelectedTagId(result.fto.current_co_tag_id || result.suggested_tag_id || "");
     setLoading(false);
@@ -153,7 +157,8 @@ export default function FtoCoAction({
       const { data: response, error: invokeError } = await createClient().functions.invoke("council-co-calculation", {
         body: {
           action: "apply", ftoId, tagId,
-          settingsUpdatedAt: data.settings.updated_at,
+          divisor,
+          multiplier,
           transactionCount: data.snapshot.transaction_count,
           latestTransactionUpdatedAt: data.snapshot.latest_transaction_updated_at,
           exemptionIntervalCount: data.snapshot.exemption_interval_count,
@@ -177,8 +182,13 @@ export default function FtoCoAction({
   const activeTags = data?.tags.filter(tag => !tag.is_archived) || [];
   const isRecalculation = version > 0;
   const rowsToShow = showPreview ? data?.rows || [] : savedRows;
-  const formulaDivisor = showPreview ? data?.settings.divisor : data?.latest_calculation?.divisor;
-  const formulaMultiplier = showPreview ? data?.settings.multiplier : data?.latest_calculation?.multiplier;
+  const previewRows = useMemo(() => (data?.rows || []).map(row => ({
+    ...row,
+    co_amount: Math.round(((Number(row.credit_amount) / divisor) * multiplier + Number.EPSILON) * 100) / 100,
+  })), [data, divisor, multiplier]);
+  const previewTotalCo = previewRows.reduce((sum, row) => sum + row.co_amount, 0);
+  const formulaDivisor = showPreview ? divisor : data?.latest_calculation?.divisor;
+  const formulaMultiplier = showPreview ? multiplier : data?.latest_calculation?.multiplier;
   const totalCredit = showPreview ? data?.summary.total_credit_amount : data?.latest_calculation?.total_credit_amount;
   const totalCo = showPreview ? data?.summary.total_co_amount : data?.latest_calculation?.total_co_amount;
   const exemptCount = showPreview ? data?.summary.exempt_count : data?.latest_calculation?.exempt_count;
@@ -247,7 +257,7 @@ export default function FtoCoAction({
                     {[
                       ["Transactions", data.summary.transaction_count],
                       ["Credit Amount", money(showPreview ? data.summary.total_credit_amount : totalCredit)],
-                      ["Calculated CO", money(showPreview ? data.summary.total_co_amount : totalCo)],
+                      ["Calculated CO", money(showPreview ? previewTotalCo : totalCo)],
                       ["Exempt", exemptCount ?? 0],
                     ].map(([label, value]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-white p-3">
                       <p className="text-[10px] text-slate-500">{label}</p><p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{value}</p>
@@ -258,6 +268,14 @@ export default function FtoCoAction({
                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
                       <p className="text-xs font-bold text-blue-950">{isRecalculation ? "Recalculation preview" : "Calculation preview"}</p>
                       <p className="mt-1 text-[11px] leading-5 text-blue-900">All transactions are included in the calculation, regardless of their current Government status. Exempt transactions are calculated and saved but excluded from Contribution.</p>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <label className="block text-[11px] font-semibold text-blue-950">Divisor
+                          <input type="number" min="1" step="1" inputMode="numeric" value={divisor} onChange={event => setDivisor(Math.max(1, Math.floor(Number(event.target.value) || 1)))} className="mt-1 min-h-11 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                        </label>
+                        <label className="block text-[11px] font-semibold text-blue-950">Multiplier
+                          <input type="number" min="1" step="1" inputMode="numeric" value={multiplier} onChange={event => setMultiplier(Math.max(1, Math.floor(Number(event.target.value) || 1)))} className="mt-1 min-h-11 w-full rounded-lg border border-blue-200 bg-white px-3 text-sm font-bold text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                        </label>
+                      </div>
                       <p className="mt-2 text-[11px] font-semibold text-blue-950">Formula: ROUND((Credit Amount ÷ {formulaDivisor}) × {formulaMultiplier}, 2)</p>
                     </div>
                   )}
@@ -275,7 +293,7 @@ export default function FtoCoAction({
                           <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th><th className="px-3 py-3">CO Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
-                          {showPreview ? data.rows.map(row => <tr key={row.id}>
+                          {showPreview ? previewRows.map(row => <tr key={row.id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
@@ -294,7 +312,7 @@ export default function FtoCoAction({
 
                     {/* Mobile: readable transaction cards */}
                     <div className="divide-y divide-slate-100 md:hidden">
-                      {showPreview ? data.rows.map(row => (
+                      {showPreview ? previewRows.map(row => (
                         <article key={row.id} className="space-y-3 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -344,11 +362,11 @@ export default function FtoCoAction({
                       <p className="mt-1 text-xs leading-5 text-amber-900">This saves a new immutable calculation version for all {data.summary.transaction_count} transactions. Previous versions remain unchanged. The latest version will be used by Contribution.</p>
                       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div><p className="text-[10px] text-amber-800">Credit Amount</p><p className="mt-1 text-sm font-bold text-amber-950">{money(data.summary.total_credit_amount)}</p></div>
-                        <div><p className="text-[10px] text-amber-800">Total CO</p><p className="mt-1 text-sm font-bold text-amber-950">{money(data.summary.total_co_amount)}</p></div>
+                        <div><p className="text-[10px] text-amber-800">Total CO</p><p className="mt-1 text-sm font-bold text-amber-950">{money(previewTotalCo)}</p></div>
                         <div><p className="text-[10px] text-amber-800">Exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.exempt_count}</p></div>
                         <div><p className="text-[10px] text-amber-800">Non-exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.chargeable_count}</p></div>
                       </div>
-                      <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {data.settings.divisor}, multiplier {data.settings.multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
+                      <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {divisor}, multiplier {multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         <button type="button" onClick={() => setConfirm(false)} disabled={saving} className="min-h-10 rounded-xl border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-950">Back</button>
                         <button type="button" onClick={applyCalculation} disabled={saving} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm and save"}</button>

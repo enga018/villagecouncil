@@ -27,12 +27,11 @@ The deployed application is a single web application. Council data is scoped to 
 | FTO Monitoring | Available | `/fto-monitoring/` |
 | Register | Planned | `/register/` |
 | Contributions | Planned | `/contributions/` |
-| CO Calculation | Planned | `/co-calculation/` |
 | Payments | Planned | `/payments/` |
 | Reports | Planned | `/reports/` |
-| Settings | Planned | `/settings/` |
+| Settings | Available | `/settings/` |
 
-The Dashboard is the workspace entry point. It presents the available modules as clickable cards, with relevant summary KPIs embedded inside each card. Fetch and import actions remain inside their respective module pages.
+The Dashboard is the workspace entry point. It presents the available modules as clickable cards, with relevant summary KPIs embedded inside each card. CO calculation is an operation within each imported FTO card in FTO Monitoring; it is not a separate management page. Formula settings are maintained in Settings.
 
 ## Repository structure
 
@@ -42,7 +41,8 @@ src/
 │   ├── (workspace)/
 │   │   ├── dashboard/          # Workspace overview and module cards
 │   │   ├── job-cards/          # Job Card workspace
-│   │   ├── fto-monitoring/     # FTO discovery, review and import UI
+│   │   ├── fto-monitoring/     # FTO discovery, review, import and per-FTO CO actions
+│   │   ├── settings/           # Council CO formula settings
 │   │   └── layout.tsx          # Authenticated workspace layout
 │   ├── layout.tsx              # Root document and global stylesheet
 │   └── globals.css             # Shared design tokens and global styles
@@ -119,6 +119,8 @@ Council-owned records must remain scoped to the relevant `village_council_id`. S
 - [Architecture](docs/architecture.md) — application structure, tenant context, backend and deployment.
 - [UI design system](docs/ui-design-system.md) — shared colors, surfaces, reusable components and future-module conventions.
 - [FTO Monitoring](docs/fto-monitoring.md) — Government portal discovery, Panchayat-based ownership, validation, retry and import activation.
+- [Financial Workflow Requirements](docs/financial-workflow-requirements.md) — CO calculation, FTO tags, exemptions, Contribution and payment rules.
+- [Financial Decision Log](docs/decision-log.md) — Confirmed financial workflow decisions and amendments.
 
 ## Contribution guidelines
 

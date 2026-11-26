@@ -7,10 +7,8 @@ import { MiniKpi, ModuleCard } from "@/components/app/ModuleCard";
 const plannedModules = [
   { title: "Register", description: "Official registration register tools", mark: "RG" },
   { title: "Contributions", description: "Contribution ledger and outstanding balances", mark: "CN" },
-  { title: "CO Calculation", description: "Council calculation tools", mark: "CO" },
   { title: "Payments", description: "Payment recording and tracking", mark: "PY" },
   { title: "Reports", description: "Council operational reports", mark: "RP" },
-  { title: "Settings", description: "Workspace preferences and configuration", mark: "ST" },
 ];
 
 function displayNumber(value: number | null) {
@@ -117,7 +115,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-bold tracking-tight text-slate-950">Available modules</h2>
             <p className="mt-1 text-xs text-slate-600">Tools currently available in this workspace</p>
           </div>
-          <span className="text-[11px] font-medium text-slate-500">2 of 8 modules available</span>
+          <span className="text-[11px] font-medium text-slate-500">2 of 6 modules available</span>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">

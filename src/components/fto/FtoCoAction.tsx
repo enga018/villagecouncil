@@ -21,7 +21,7 @@ type Calculation = {
 };
 type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
-  settings: { divisor: number; multiplier: number };
+  parameters: { divisor: number; multiplier: number };
   tags: CoTag[];
   suggested_tag_id: string | null;
   rows: CoRow[];
@@ -101,8 +101,8 @@ export default function FtoCoAction({
     }
     const result = response as PreviewData;
     setData(result);
-    setDivisor(Number(result.settings.divisor) || 300);
-    setMultiplier(Number(result.settings.multiplier) || 100);
+    setDivisor(Number(result.parameters.divisor) || 300);
+    setMultiplier(Number(result.parameters.multiplier) || 100);
     setVersion(result.fto.co_calculation_version || 0);
     setSelectedTagId(result.fto.current_co_tag_id || result.suggested_tag_id || "");
     setLoading(false);

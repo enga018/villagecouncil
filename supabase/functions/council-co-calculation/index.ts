@@ -66,6 +66,9 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (action === "settings") {
+      const { error: seedError } = await admin.from("council_co_settings")
+        .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
+      if (seedError) throw seedError;
       const { data, error } = await admin.from("council_co_settings")
         .select("divisor,multiplier,updated_at,updated_by")
         .eq("village_council_id", tenantId).single();
@@ -142,6 +145,9 @@ Deno.serve(async (req: Request) => {
         .select("id,fto_number,fto_date,current_co_tag_id,co_calculation_version,latest_co_calculation_id")
         .eq("id", ftoId).eq("village_council_id", tenantId).eq("status", "active").single();
       if (ftoError) throw ftoError;
+      const { error: seedSettingsError } = await admin.from("council_co_settings")
+        .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
+      if (seedSettingsError) throw seedSettingsError;
       const [{ data: settings, error: settingsError }, { data: transactions, error: txError }, { data: tags, error: tagsError },
         { data: intervals, error: intervalsError }, { data: marks, error: marksError }] = await Promise.all([
         admin.from("council_co_settings").select("divisor,multiplier,updated_at").eq("village_council_id", tenantId).single(),
@@ -160,6 +166,9 @@ Deno.serve(async (req: Request) => {
       if (tagsError) throw tagsError;
       if (intervalsError) throw intervalsError;
       if (marksError) throw marksError;
+
+      const invalidCredit = (transactions || []).find(tx => tx.credit_amount == null || !Number.isFinite(Number(tx.credit_amount)) || Number(tx.credit_amount) < 0);
+      if (invalidCredit) return reply({ error: `Transaction ${invalidCredit.reference_number} has an invalid Credit Amount and cannot be calculated.` }, 409, origin);
 
       const intervalsByCard = new Map<string, typeof intervals>();
       for (const interval of intervals || []) {

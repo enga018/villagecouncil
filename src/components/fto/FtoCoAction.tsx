@@ -297,7 +297,7 @@ export default function FtoCoAction({
                         <div><p className="text-[10px] text-amber-800">Credit Amount</p><p className="mt-1 text-sm font-bold text-amber-950">{money(data.summary.total_credit_amount)}</p></div>
                         <div><p className="text-[10px] text-amber-800">Total CO</p><p className="mt-1 text-sm font-bold text-amber-950">{money(data.summary.total_co_amount)}</p></div>
                         <div><p className="text-[10px] text-amber-800">Exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.exempt_count}</p></div>
-                        <div><p className="text-[10px] text-amber-800">Chargeable</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.chargeable_count}</p></div>
+                        <div><p className="text-[10px] text-amber-800">Non-exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.chargeable_count}</p></div>
                       </div>
                       <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {data.settings.divisor}, multiplier {data.settings.multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
                       <div className="mt-4 flex flex-wrap justify-end gap-2">

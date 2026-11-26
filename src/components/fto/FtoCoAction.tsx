@@ -23,6 +23,7 @@ type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
   settings: { divisor: number; multiplier: number; updated_at: string };
   tags: CoTag[];
+  suggested_tag_id: string | null;
   rows: CoRow[];
   summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number };
   snapshot: { transaction_count: number; latest_transaction_updated_at: string | null };
@@ -92,7 +93,7 @@ export default function FtoCoAction({
     const result = response as PreviewData;
     setData(result);
     setVersion(result.fto.co_calculation_version || 0);
-    setSelectedTagId(result.fto.current_co_tag_id || "");
+    setSelectedTagId(result.fto.current_co_tag_id || result.suggested_tag_id || "");
     setLoading(false);
   }
 

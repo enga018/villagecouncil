@@ -118,16 +118,19 @@ export default function FtoCoAction({
   }
 
   async function saveTag() {
-    if (!selectedTagId) { setError("Select an FTO tag first."); return; }
     setSaving(true);
     setError("");
-    const { data: response, error: invokeError } = await createClient().functions.invoke("council-co-calculation", {
-      body: { action: "assign_tag", ftoId, tagId: selectedTagId },
-    });
-    if (invokeError || response?.error) setError(response?.error || invokeError?.message || "Could not update the FTO tag.");
-    else {
+    try {
+      const tagId = await createTagIfNeeded();
+      if (!tagId) throw new Error("Select or create an FTO tag first.");
+      const { data: response, error: invokeError } = await createClient().functions.invoke("council-co-calculation", {
+        body: { action: "assign_tag", ftoId, tagId },
+      });
+      if (invokeError || response?.error) throw new Error(response?.error || invokeError?.message || "Could not update the FTO tag.");
       setNotice("FTO tag updated. CO amounts and calculation history were not changed.");
       await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update the FTO tag.");
     }
     setSaving(false);
   }
@@ -221,13 +224,12 @@ export default function FtoCoAction({
                         <option value="">Select an FTO tag</option>
                         {activeTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
                       </select>
-                      <button type="button" onClick={() => { setNewTagName(""); setNewTagName(" "); }} className="hidden">Create tag</button>
                       <input value={newTagName} onChange={event => setNewTagName(event.target.value)} placeholder="Or create a new tag"
                         className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-50"/>
-                      {!showPreview && <button type="button" onClick={saveTag} disabled={saving || (!selectedTagId || selectedTagId === data.fto.current_co_tag_id)}
+                      {!showPreview && <button type="button" onClick={saveTag} disabled={saving || (!newTagName.trim() && (!selectedTagId || selectedTagId === data.fto.current_co_tag_id))}
                         className="min-h-11 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Save tag</button>}
                     </div>
-                    {!showPreview && newTagName.trim() && <p className="mt-2 text-[10px] text-slate-500">A new tag will be created when you apply a recalculation. To change only the tag, create it first in the calculation preview.</p>}
+                    {!showPreview && newTagName.trim() && <p className="mt-2 text-[10px] text-slate-500">Save tag will create this tag and assign it to the FTO without recalculating CO.</p>}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

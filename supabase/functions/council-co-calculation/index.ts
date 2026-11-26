@@ -139,9 +139,9 @@ Deno.serve(async (req: Request) => {
           .eq("village_council_id", tenantId).eq("fto_id", ftoId).order("transaction_date", { ascending: true }),
         admin.from("council_co_tags").select("id,name,is_archived,created_at")
           .eq("village_council_id", tenantId).order("created_at", { ascending: false }),
-        admin.from("council_co_exemption_intervals").select("id,job_card_number,started_at,ended_at")
+        admin.from("council_co_exemption_intervals").select("id,job_card_number,started_at,ended_at,updated_at")
           .eq("village_council_id", tenantId),
-        admin.from("council_co_exempt_transactions").select("fto_transaction_id,exemption_interval_id")
+        admin.from("council_co_exempt_transactions").select("fto_transaction_id,exemption_interval_id,marked_at")
           .eq("village_council_id", tenantId),
         admin.from("council_co_tag_events").select("tag_id")
           .eq("village_council_id", tenantId).in("action", ["assigned", "reassigned"])
@@ -184,6 +184,14 @@ Deno.serve(async (req: Request) => {
       const count = rows.length;
       const latestUpdatedAt = (transactions || []).reduce((latest, tx) =>
         !latest || Date.parse(tx.updated_at) > Date.parse(latest) ? tx.updated_at : latest, null as string | null);
+      const transactionIds = new Set((transactions || []).map(tx => tx.id));
+      const jobCardNumbers = new Set((transactions || []).map(tx => tx.job_card_number));
+      const relevantIntervals = (intervals || []).filter(interval => jobCardNumbers.has(interval.job_card_number));
+      const relevantMarks = (marks || []).filter(mark => transactionIds.has(mark.fto_transaction_id));
+      const latestExemptionUpdatedAt = relevantIntervals.reduce((latest, interval) =>
+        !latest || Date.parse(interval.updated_at) > Date.parse(latest) ? interval.updated_at : latest, null as string | null);
+      const latestExemptMarkedAt = relevantMarks.reduce((latest, mark) =>
+        !latest || Date.parse(mark.marked_at) > Date.parse(latest) ? mark.marked_at : latest, null as string | null);
       const totalCredit = roundMoney(rows.reduce((sum, tx) => sum + Number(tx.credit_amount), 0));
       const totalCo = roundMoney(rows.reduce((sum, tx) => sum + tx.co_amount, 0));
       const exemptCount = rows.filter(tx => tx.is_exempt).length;
@@ -205,7 +213,14 @@ Deno.serve(async (req: Request) => {
         suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),
         summary: { transaction_count: count, total_credit_amount: totalCredit, total_co_amount: totalCo,
           exempt_count: exemptCount, chargeable_count: count - exemptCount },
-        snapshot: { transaction_count: count, latest_transaction_updated_at: latestUpdatedAt },
+        snapshot: {
+          transaction_count: count,
+          latest_transaction_updated_at: latestUpdatedAt,
+          exemption_interval_count: relevantIntervals.length,
+          latest_exemption_updated_at: latestExemptionUpdatedAt,
+          exempt_mark_count: relevantMarks.length,
+          latest_exempt_marked_at: latestExemptMarkedAt,
+        },
         latest_calculation: latestCalculation, latest_items: latestItems,
       }, 200, origin);
     }
@@ -215,14 +230,23 @@ Deno.serve(async (req: Request) => {
       const settingsUpdatedAt = String(body.settingsUpdatedAt || "");
       const transactionCount = Number(body.transactionCount);
       const latestTransactionUpdatedAt = body.latestTransactionUpdatedAt ? String(body.latestTransactionUpdatedAt) : null;
+      const exemptionIntervalCount = Number(body.exemptionIntervalCount);
+      const latestExemptionUpdatedAt = body.latestExemptionUpdatedAt ? String(body.latestExemptionUpdatedAt) : null;
+      const exemptMarkCount = Number(body.exemptMarkCount);
+      const latestExemptMarkedAt = body.latestExemptMarkedAt ? String(body.latestExemptMarkedAt) : null;
       const idempotencyKey = String(body.idempotencyKey || "");
-      if (!ftoId || !tagId || !settingsUpdatedAt || !Number.isInteger(transactionCount) || !idempotencyKey)
+      if (!ftoId || !tagId || !settingsUpdatedAt || !Number.isInteger(transactionCount)
+        || !Number.isInteger(exemptionIntervalCount) || !Number.isInteger(exemptMarkCount) || !idempotencyKey)
         return reply({ error: "The preview is incomplete. Generate a fresh preview and try again." }, 400, origin);
       const { data, error } = await admin.rpc("apply_council_fto_co_calculation", {
         p_actor_id: actorId, p_fto_id: ftoId, p_tag_id: tagId,
         p_expected_settings_updated_at: settingsUpdatedAt,
         p_expected_transaction_count: transactionCount,
         p_expected_latest_transaction_updated_at: latestTransactionUpdatedAt,
+        p_expected_exemption_interval_count: exemptionIntervalCount,
+        p_expected_latest_exemption_updated_at: latestExemptionUpdatedAt,
+        p_expected_exempt_mark_count: exemptMarkCount,
+        p_expected_latest_exempt_marked_at: latestExemptMarkedAt,
         p_idempotency_key: idempotencyKey,
       });
       if (error) throw error;

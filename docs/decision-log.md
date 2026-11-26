@@ -160,3 +160,35 @@ These are not product decisions and must not be silently filled in:
 2. **Payment-entry form:** Exact required/optional fields and UI layout remain unconfirmed.
 3. **Exemption management navigation:** The exemption business rules are agreed, but the separate entry point has not been specified. Do not add controls to the Job Cards list or Contribution page.
 4. **Archiving a tag with current FTO assignments:** Historical associations must survive. Confirm whether current assignments must be moved before archive or whether an assigned tag can be archived directly.
+
+
+## 2026-11-27 — Job Card-centred Contribution and Payment model
+
+The following decisions were confirmed in the latest workflow review and are now recorded as the current model:
+
+1. **Job Card financial account:** Job Card Number is the primary financial account/grouping key. Charges are sourced from FTOs and remain traceable to the source FTO transaction and calculation version.
+2. **Apply Tag role:** Tags classify/group FTOs. They are assigned/generated during CO Calculation, not created as a Contribution-period workflow. Tags are not financial accounts or payment destinations.
+3. **No Contribution Period entity:** Do not introduce a separate Contribution Period or require period creation/opening.
+4. **Payment ownership:** Payments are recorded against a Job Card and can cover Regular CO Charges and Other Charges across all Apply Tags. The user does not select a tag when recording a payment.
+5. **Payment with no outstanding balance:** A payment may be recorded even when there is no current outstanding charge. Any excess remains as unallocated credit on that Job Card for future eligible charges.
+6. **Bulk payment format:** One Job Card payment per line, using `JOB-CARD-NUMBER, AMOUNT`. The batch payment method is selected as CASH or BANK. Preview and validation are required before saving; each line creates a separate payment record.
+7. **FIFO scope:** Automatic FIFO operates at Job Card level across all Apply Tags. Partial allocations are supported. The exact chronological key across Regular CO Charges and Other Charges remains open.
+8. **Allocation edits:** Manual allocation edits are allowed and all changes must be audited. Reallocation is supported and must preserve the financial trail.
+9. **Refunds:** Refunds and reallocation are within the accepted workflow scope. Detailed refund rules remain to be finalized before implementation.
+
+### Not yet approved for the new application
+
+The previous system's manual/extra charges, waivers, deferred charges and voiding are known legacy capabilities. Their existence does not by itself approve identical workflows in the new application. Other Charges must be represented in the account/payment model, but creation rules are open. A waiver workflow has been discussed but not confirmed. Do not implement these operations until their rules are explicitly agreed.
+
+### Open implementation details
+
+- Individual payment form fields.
+- Bulk batch behavior when some lines fail validation.
+- FIFO chronological ordering across charge categories, independent of mutable tags.
+- Exact manual allocation correction semantics and reason requirements.
+- Refund validation, full/partial behavior, limits, audit fields and allocation release/reallocation sequence.
+- Other Charge creation, editing, reversal and permissions.
+- Whether to implement waivers, deferred charges and voiding, and their precise behavior.
+- Contribution page layout and reporting/export requirements.
+
+These decisions are documented in [Contribution and Payment Workflow](contribution-management-workflow.md).

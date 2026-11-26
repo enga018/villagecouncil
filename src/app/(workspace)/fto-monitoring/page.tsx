@@ -233,9 +233,19 @@ export default function FtoMonitoringPage() {
       }
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
       if (!numbers.length) throw new Error("The Government listing returned no eligible FTO numbers.");
+      const councilId = await getActiveCouncilId(supabase);
+      const { data: previouslyImported, error: previousLookupError } = await supabase
+        .from("council_ftos")
+        .select("fto_number")
+        .eq("village_council_id", councilId)
+        .eq("status", "active")
+        .in("fto_number", numbers);
+      if (previousLookupError) throw previousLookupError;
+      const previouslyImportedNumbers = new Set((previouslyImported || []).map(row => String(row.fto_number).trim().toUpperCase()));
+      const recheckedFtos = numbers.filter(number => previouslyImportedNumbers.has(number.toUpperCase())).length;
       discoveryCountsRef.current = {
-        newFtos: Number(data.listing.newFtoCount || 0),
-        recheckedFtos: Number(data.listing.existingFtoRecheckedCount || 0),
+        newFtos: numbers.length - recheckedFtos,
+        recheckedFtos,
       };
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);

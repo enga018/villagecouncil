@@ -128,12 +128,8 @@ Deno.serve(async (req: Request) => {
         .select("id,fto_number,fto_date,current_co_tag_id,co_calculation_version,latest_co_calculation_id")
         .eq("id", ftoId).eq("village_council_id", tenantId).eq("status", "active").single();
       if (ftoError) throw ftoError;
-      const { error: seedSettingsError } = await admin.from("council_co_settings")
-        .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
-      if (seedSettingsError) throw seedSettingsError;
-      const [{ data: settings, error: settingsError }, { data: transactions, error: txError }, { data: tags, error: tagsError },
+      const [{ data: transactions, error: txError }, { data: tags, error: tagsError },
         { data: intervals, error: intervalsError }, { data: marks, error: marksError }, { data: lastTagEvent, error: lastTagError }] = await Promise.all([
-        admin.from("council_co_settings").select("divisor,multiplier,updated_at").eq("village_council_id", tenantId).single(),
         admin.from("council_fto_transactions")
           .select("id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
           .eq("village_council_id", tenantId).eq("fto_id", ftoId).order("transaction_date", { ascending: true }),
@@ -147,12 +143,17 @@ Deno.serve(async (req: Request) => {
           .eq("village_council_id", tenantId).in("action", ["assigned", "reassigned"])
           .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
-      if (settingsError) throw settingsError;
       if (txError) throw txError;
       if (tagsError) throw tagsError;
       if (intervalsError) throw intervalsError;
       if (marksError) throw marksError;
       if (lastTagError) throw lastTagError;
+
+      const settings = {
+        divisor: Number(latestCalculation?.divisor ?? 300),
+        multiplier: Number(latestCalculation?.multiplier ?? 100),
+        updated_at: null,
+      };
 
       const invalidCredit = (transactions || []).find(tx => tx.credit_amount == null || !Number.isFinite(Number(tx.credit_amount)) || Number(tx.credit_amount) < 0);
       if (invalidCredit) return reply({ error: `Transaction ${invalidCredit.reference_number} has an invalid Credit Amount and cannot be calculated.` }, 409, origin);
@@ -227,7 +228,7 @@ Deno.serve(async (req: Request) => {
 
     if (action === "apply") {
       const ftoId = String(body.ftoId || ""), tagId = String(body.tagId || "");
-      const settingsUpdatedAt = String(body.settingsUpdatedAt || "");
+      const divisor = Number(body.divisor), multiplier = Number(body.multiplier);
       const transactionCount = Number(body.transactionCount);
       const latestTransactionUpdatedAt = body.latestTransactionUpdatedAt ? String(body.latestTransactionUpdatedAt) : null;
       const exemptionIntervalCount = Number(body.exemptionIntervalCount);
@@ -235,12 +236,13 @@ Deno.serve(async (req: Request) => {
       const exemptMarkCount = Number(body.exemptMarkCount);
       const latestExemptMarkedAt = body.latestExemptMarkedAt ? String(body.latestExemptMarkedAt) : null;
       const idempotencyKey = String(body.idempotencyKey || "");
-      if (!ftoId || !tagId || !settingsUpdatedAt || !Number.isInteger(transactionCount)
+      if (!ftoId || !tagId || !Number.isSafeInteger(divisor) || divisor <= 0
+        || !Number.isSafeInteger(multiplier) || multiplier <= 0 || !Number.isInteger(transactionCount)
         || !Number.isInteger(exemptionIntervalCount) || !Number.isInteger(exemptMarkCount) || !idempotencyKey)
         return reply({ error: "The preview is incomplete. Generate a fresh preview and try again." }, 400, origin);
       const { data, error } = await admin.rpc("apply_council_fto_co_calculation", {
         p_actor_id: actorId, p_fto_id: ftoId, p_tag_id: tagId,
-        p_expected_settings_updated_at: settingsUpdatedAt,
+        p_divisor: divisor, p_multiplier: multiplier,
         p_expected_transaction_count: transactionCount,
         p_expected_latest_transaction_updated_at: latestTransactionUpdatedAt,
         p_expected_exemption_interval_count: exemptionIntervalCount,

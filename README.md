@@ -120,7 +120,7 @@ Council-owned records must remain scoped to the relevant `village_council_id`. S
 - [UI design system](docs/ui-design-system.md) — shared colors, surfaces, reusable components and future-module conventions.
 - [FTO Monitoring](docs/fto-monitoring.md) — Government portal discovery, Panchayat-based ownership, validation, retry and import activation.
 - [Financial Workflow Requirements](docs/financial-workflow-requirements.md) — CO calculation foundation and original detailed rules.
-- [Contribution and Payment Workflow](docs/contribution-management-workflow.md) — current Job Card-centred account, Contribution, payment, FIFO and open decisions.
+- [Contribution Management Workflow](docs/contribution-management-workflow.md) — complete Job Card-centred Contribution, payment, bulk collection, FIFO, reports and responsive UI decisions.
 - [Financial Decision Log](docs/decision-log.md) — Confirmed financial workflow decisions and amendments.
 
 ## Contribution guidelines

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import FtoCoAction from "@/components/fto/FtoCoAction";
 
 type Transaction = {
   id: string;
@@ -40,6 +41,9 @@ type Fto = {
   first_imported_at: string;
   last_seen_in_import_at: string | null;
   updated_at: string;
+  current_co_tag_id: string | null;
+  latest_co_calculation_id: string | null;
+  co_calculation_version: number;
   council_fto_transactions: Transaction[];
 };
 
@@ -136,7 +140,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
       const [ftoResult, inspectionResult] = await Promise.all([
         supabase
           .from("council_ftos")
-          .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
+          .select("id,fto_number,fto_date,fto_status,block,first_signatory,beneficiary_count,wage_amount,first_imported_at,last_seen_in_import_at,updated_at,current_co_tag_id,latest_co_calculation_id,co_calculation_version,council_fto_transactions(id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason)")
           .eq("status", "active")
           .order("fto_date", { ascending: false, nullsFirst: false })
           .order("fto_number", { ascending: false }),
@@ -237,11 +241,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                       {statusSummary(item.council_fto_transactions)}
                       <p className="mt-2 text-[10px] text-slate-400">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                     </div>
-                    <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
-                      aria-expanded={expanded}
-                      className="mt-3 w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 lg:mt-0 lg:w-auto">
-                      {expanded ? "Close" : "Details"}
-                    </button>
+                    <div className="mt-3 flex w-full flex-col gap-2 sm:flex-row lg:mt-0 lg:w-auto">
+                      <FtoCoAction ftoId={item.id} ftoNumber={item.fto_number} initialVersion={item.co_calculation_version || 0} />
+                      <button type="button" onClick={() => setSelectedId(expanded ? "" : item.id)}
+                        aria-expanded={expanded}
+                        className="w-full justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-blue-700 shadow-sm transition hover:border-blue-400 hover:bg-blue-50 sm:min-h-10 sm:w-auto">
+                        {expanded ? "Close" : "Details"}
+                      </button>
+                    </div>
                   </div>
                   {expanded && (
                     <div className="mt-4 border-t border-slate-100 bg-slate-50/70 px-4 py-4 sm:px-5">

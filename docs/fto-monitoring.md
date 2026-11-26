@@ -141,6 +141,21 @@ Not implemented yet:
 
 A future scheduled workflow must reuse the same validation, Council ownership, inspection, and idempotent activation rules. It must also ensure that FTO processing does not start if the prerequisite Job Card import fails.
 
+## CO calculation inside the Imported FTO register
+
+CO calculation is an operational action on each imported FTO card. It is not a separate workspace page.
+
+- A not-yet-calculated FTO card offers **Calculate CO**; after a successful calculation it offers **View CO**.
+- The View CO workflow displays the latest saved formula divisor and multiplier and allows a new calculation version to be created through **Recalculate CO**.
+- Preview includes every transaction in the FTO, regardless of its current Processed, Deferred or Rejected Government status. The latest status is shown read-only for context.
+- Government status is owned only by `council_fto_transactions`; it is not copied into CO calculation headers or calculation items.
+- Every confirmed calculation is an immutable version with its own divisor, multiplier, FTO tag snapshot and transaction-level CO amounts.
+- Exempt transactions are still calculated and saved. Their permanent exemption mark prevents them from appearing in Contribution.
+- Contribution is a separate module. Its future visibility query must join the latest Government status from FTO Monitoring and show only Processed, non-Exempt transactions.
+- An FTO's current tag can be reassigned later without recalculating CO or changing the historical tag snapshot.
+
+The Council-wide formula is configured in Settings. Defaults are divisor 300 and multiplier 100. Formula changes require a reason and are retained in the settings audit history.
+
 ## Related implementation
 
 - `supabase/functions/council-fto-source/index.ts` — Government navigation, listing discovery, and refetch eligibility.
@@ -148,7 +163,10 @@ A future scheduled workflow must reuse the same validation, Council ownership, i
 - `supabase/functions/_shared/fto-domain.ts` — Shared rules: day-first date parsing, listing fingerprint, unresolved counting, Panchayat normalization.
 - `src/app/(workspace)/fto-monitoring/page.tsx` — Fetch, retry, apply decisions, and the import summary.
 - `src/components/fto/fto-review-queue.tsx` — Manual review table and register suggestions.
-- `src/components/fto/fto-imported-register.tsx` — Imported FTO register and per-FTO status counts.
+- `src/components/fto/fto-imported-register.tsx` — Imported FTO register, per-FTO status counts and CO actions.
+- `src/components/fto/FtoCoAction.tsx` — Per-FTO CO preview, calculation, recalculation and tag assignment UI.
+- `supabase/functions/council-co-calculation/index.ts` — Authenticated CO settings, preview, apply and tag operations.
+- `supabase/migrations/20261126070801_create_council_co_calculation_foundation.sql` — CO settings, tags, exemptions and versioned calculation records.
 - `supabase/migrations/20261123130000_create_shared_fto_navigation.sql` — Shared navigation cache.
 - `supabase/migrations/20261123140000_create_council_fto_transactions.sql` — Council FTO import data.
 - `supabase/migrations/20261123142000_use_fto_panchayat_for_ownership.sql` — Panchayat-based import ownership.

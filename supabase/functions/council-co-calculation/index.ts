@@ -149,6 +149,20 @@ Deno.serve(async (req: Request) => {
       if (marksError) throw marksError;
       if (lastTagError) throw lastTagError;
 
+      let latestCalculation = null, latestItems: unknown[] = [];
+      if (fto.latest_co_calculation_id) {
+        const { data: calculation, error: calcError } = await admin.from("council_fto_co_calculations")
+          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by")
+          .eq("id", fto.latest_co_calculation_id).eq("village_council_id", tenantId).single();
+        if (calcError) throw calcError;
+        latestCalculation = calculation;
+        const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
+          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at")
+          .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
+        if (itemsError) throw itemsError;
+        latestItems = items || [];
+      }
+
       const settings = {
         divisor: Number(latestCalculation?.divisor ?? 300),
         multiplier: Number(latestCalculation?.multiplier ?? 100),
@@ -196,19 +210,6 @@ Deno.serve(async (req: Request) => {
       const totalCredit = roundMoney(rows.reduce((sum, tx) => sum + Number(tx.credit_amount), 0));
       const totalCo = roundMoney(rows.reduce((sum, tx) => sum + tx.co_amount, 0));
       const exemptCount = rows.filter(tx => tx.is_exempt).length;
-      let latestCalculation = null, latestItems: unknown[] = [];
-      if (fto.latest_co_calculation_id) {
-        const { data: calculation, error: calcError } = await admin.from("council_fto_co_calculations")
-          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by")
-          .eq("id", fto.latest_co_calculation_id).eq("village_council_id", tenantId).single();
-        if (calcError) throw calcError;
-        latestCalculation = calculation;
-        const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
-          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at")
-          .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
-        if (itemsError) throw itemsError;
-        latestItems = items || [];
-      }
       return reply({
         fto, settings, tags: tags || [], rows,
         suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),

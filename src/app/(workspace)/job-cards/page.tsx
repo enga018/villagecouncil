@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -367,52 +367,133 @@ export default function JobCardsPage() {
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
           ) : (
-            <div className="space-y-2">
-              {visibleCards.map(card => {
-                const people = applicantsByCard.get(card.id) || [];
-                const activePeople = people.filter(person => person.status === "active").length;
-                const isExpanded = expanded.includes(card.id);
-                return (
-                  <article key={card.id} className={`overflow-hidden rounded-xl border transition-colors ${isExpanded ? "border-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-slate-300"}`}>
-                    <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full flex-col items-stretch gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4 md:flex-row md:items-center md:justify-between md:gap-4">
-                      <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-none">
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <strong className="break-all text-[13px] font-bold tracking-tight text-slate-950 sm:text-sm">{card.job_card_number}</strong>
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
+            <>
+              {/* Desktop/tablet: FTO-style register table */}
+              <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white lg:block">
+                <table className="min-w-[850px] w-full divide-y divide-slate-200 text-xs">
+                  <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="w-12 px-3 py-3"></th>
+                      <th className="px-3 py-3">Job Card No.</th>
+                      <th className="px-3 py-3">Head of Household</th>
+                      <th className="px-3 py-3">Applicants</th>
+                      <th className="px-3 py-3">Active Applicants</th>
+                      <th className="px-3 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {visibleCards.map(card => {
+                      const people = applicantsByCard.get(card.id) || [];
+                      const activePeople = people.filter(person => person.status === "active").length;
+                      const isExpanded = expanded.includes(card.id);
+                      return (
+                        <Fragment key={card.id}>
+                          <tr className={isExpanded ? "bg-blue-50/40" : "hover:bg-slate-50/70"}>
+                            <td className="px-3 py-3">
+                              <button type="button"
+                                onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])}
+                                aria-label={isExpanded ? "Hide applicants" : "Show applicants"}
+                                aria-expanded={isExpanded}
+                                className={`flex h-7 w-7 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400 hover:border-blue-300 hover:text-blue-700"}`}>
+                                ⌄
+                              </button>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-3 font-bold text-slate-900">{card.job_card_number}</td>
+                            <td className="px-3 py-3 font-medium text-slate-700">{card.head_of_household}</td>
+                            <td className="px-3 py-3 tabular-nums text-slate-600">{people.length}</td>
+                            <td className="px-3 py-3 tabular-nums text-slate-600">{activePeople}</td>
+                            <td className="px-3 py-3">
+                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize ${card.status === "active" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-slate-200 bg-slate-50 text-slate-600"}`}>{card.status}</span>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={6} className="bg-slate-50/70 px-5 py-4">
+                                <div className="mb-3 flex items-center justify-between">
+                                  <h3 className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-500">Applicants</h3>
+                                  <span className="text-[10px] text-slate-400">{people.length} total</span>
+                                </div>
+                                {people.length ? (
+                                  <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                                    <table className="w-full divide-y divide-slate-200 text-xs">
+                                      <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                        <tr><th className="px-3 py-2.5">Applicant</th><th className="px-3 py-2.5">Applicant No.</th><th className="px-3 py-2.5">Gender / Age</th><th className="px-3 py-2.5">Caste</th><th className="px-3 py-2.5">Father / Husband</th><th className="px-3 py-2.5">Official ID</th><th className="px-3 py-2.5">Status</th></tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {people.map(person => (
+                                          <tr key={person.id}>
+                                            <td className="px-3 py-2.5 font-semibold text-slate-900">{person.applicant_name}</td>
+                                            <td className="px-3 py-2.5 text-slate-600">{person.applicant_number}</td>
+                                            <td className="px-3 py-2.5 text-slate-600">{[person.gender, person.age ? person.age + " years" : null].filter(Boolean).join(" · ") || "—"}</td>
+                                            <td className="px-3 py-2.5 text-slate-600">{person.caste || "—"}</td>
+                                            <td className="px-3 py-2.5 text-slate-600">{person.father_husband_name || "—"}</td>
+                                            <td className="px-3 py-2.5 font-mono text-[10px] text-slate-500">{person.official_unique_id || "—"}</td>
+                                            <td className="px-3 py-2.5"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span></td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : <p className="rounded-lg border border-slate-200 bg-white p-4 text-center text-xs text-slate-500">No applicants linked to this Job Card.</p>}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                    {visibleCards.length === 0 && <tr><td colSpan={6} className="px-4 py-14 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></td></tr>}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile: preserve the existing expandable-card experience */}
+              <div className="space-y-2 lg:hidden">
+                {visibleCards.map(card => {
+                  const people = applicantsByCard.get(card.id) || [];
+                  const activePeople = people.filter(person => person.status === "active").length;
+                  const isExpanded = expanded.includes(card.id);
+                  return (
+                    <article key={card.id} className={`overflow-hidden rounded-xl border transition-colors ${isExpanded ? "border-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-slate-300"}`}>
+                      <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full flex-col items-stretch gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4 md:flex-row md:items-center md:justify-between md:gap-4">
+                        <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-none">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <strong className="break-all text-[13px] font-bold tracking-tight text-slate-950 sm:text-sm">{card.job_card_number}</strong>
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
+                            </span>
+                            <span className="mt-1 block truncate text-xs font-medium text-slate-600 sm:text-[13px]">{card.head_of_household}</span>
+                            <span className="mt-1 block text-[10px] text-slate-400 md:hidden">{people.length} applicants · {activePeople} active</span>
                           </span>
-                          <span className="mt-1 block truncate text-xs font-medium text-slate-600 sm:text-[13px]">{card.head_of_household}</span>
-                          <span className="mt-1 block text-[10px] text-slate-400 md:hidden">{people.length} applicants · {activePeople} active</span>
                         </span>
-                      </span>
-                      <span className="flex w-full shrink-0 items-center justify-between gap-3 md:w-auto md:justify-end">
-                        <span className="hidden text-[11px] font-medium text-slate-500 md:block">{people.length} applicants · {activePeople} active</span>
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400"}`} aria-hidden="true">⌄</span>
-                      </span>
-                    </button>
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 bg-white px-3 py-2 sm:px-4">
-                        <div className="mb-2 flex items-center justify-between py-1"><p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-400">Applicants</p><span className="text-[10px] text-slate-400">{people.length} total</span></div>
-                        {people.map(person => (
-                          <div key={person.id} className="flex flex-col gap-2 border-t border-slate-100 py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 sm:text-sm">{person.applicant_name}</p>
-                              <p className="mt-1 text-[10px] leading-5 text-slate-500 sm:text-xs">Applicant No. {person.applicant_number}{person.gender ? ` · ${person.gender}` : ""}{person.age ? ` · ${person.age} years` : ""}{person.caste ? ` · ${person.caste}` : ""}</p>
-                              {person.father_husband_name && <p className="text-[10px] text-slate-500 sm:text-xs">Father / Husband: {person.father_husband_name}</p>}
-                              {person.official_unique_id && <p className="mt-1 break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                        <span className="flex w-full shrink-0 items-center justify-between gap-3 md:w-auto md:justify-end">
+                          <span className="hidden text-[11px] font-medium text-slate-500 md:block">{people.length} applicants · {activePeople} active</span>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400"}`} aria-hidden="true">⌄</span>
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 bg-white px-3 py-2 sm:px-4">
+                          <div className="mb-2 flex items-center justify-between py-1"><p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-400">Applicants</p><span className="text-[10px] text-slate-400">{people.length} total</span></div>
+                          {people.map(person => (
+                            <div key={person.id} className="flex flex-col gap-2 border-t border-slate-100 py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-900 sm:text-sm">{person.applicant_name}</p>
+                                <p className="mt-1 text-[10px] leading-5 text-slate-500 sm:text-xs">Applicant No. {person.applicant_number}{person.gender ? ` · ${person.gender}` : ""}{person.age ? ` · ${person.age} years` : ""}{person.caste ? ` · ${person.caste}` : ""}</p>
+                                {person.father_husband_name && <p className="text-[10px] text-slate-500 sm:text-xs">Father / Husband: {person.father_husband_name}</p>}
+                                {person.official_unique_id && <p className="mt-1 break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                              </div>
+                              <span className={`self-start rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide sm:self-center ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
                             </div>
-                            <span className={`self-start rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide sm:self-center ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
-                          </div>
-                        ))}
-                        {people.length === 0 && <p className="py-6 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-              {visibleCards.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 px-4 py-14 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
-            </div>
+                          ))}
+                          {people.length === 0 && <p className="py-6 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+                {visibleCards.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 px-4 py-14 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
+              </div>
+            </>
           )}
           {!loading && pageCount > 1 && (
             <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">

@@ -170,7 +170,6 @@ export default function FtoCoAction({
   const totalCredit = showPreview ? data?.summary.total_credit_amount : data?.latest_calculation?.total_credit_amount;
   const totalCo = showPreview ? data?.summary.total_co_amount : data?.latest_calculation?.total_co_amount;
   const exemptCount = showPreview ? data?.summary.exempt_count : data?.latest_calculation?.exempt_count;
-  const chargeableCount = showPreview ? data?.summary.chargeable_count : data?.latest_calculation?.chargeable_count;
 
   return (
     <>
@@ -219,7 +218,7 @@ export default function FtoCoAction({
                       <div><p className="text-xs font-bold text-slate-900">FTO tag</p><p className="mt-1 text-[10px] text-slate-500">One tag applies to the entire FTO. You can change it later.</p></div>
                     </div>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                      <select value={selectedTagId} onChange={event => setSelectedTagId(event.target.value)}
+                      <select value={selectedTagId} onChange={event => { setSelectedTagId(event.target.value); setNewTagName(""); }}
                         className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50">
                         <option value="">Select an FTO tag</option>
                         {activeTags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
@@ -267,13 +266,13 @@ export default function FtoCoAction({
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
                             <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.normalized_status)}`}>{statusLabel(row.normalized_status)}</span></td>
-                            <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Chargeable</span>}</td>
+                            <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Non-exempt</span>}</td>
                           </tr>) : savedRows.map(row => <tr key={row.fto_transaction_id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
                             <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span></td>
-                            <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Chargeable</span>}</td>
+                            <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Non-exempt</span>}</td>
                           </tr>)}
                         </tbody>
                       </table>

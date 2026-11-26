@@ -182,9 +182,24 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     );
   }, [records, search]);
 
+  const sortedFiltered = useMemo(() => [...filtered].sort((a, b) => {
+    const aChecked = inspections[a.fto_number]?.last_inspected_at;
+    const bChecked = inspections[b.fto_number]?.last_inspected_at;
+    if (aChecked && bChecked) {
+      const difference = new Date(bChecked).getTime() - new Date(aChecked).getTime();
+      if (difference !== 0) return difference;
+    } else if (aChecked) return -1;
+    else if (bChecked) return 1;
+
+    const aDate = a.fto_date ? new Date(a.fto_date).getTime() : 0;
+    const bDate = b.fto_date ? new Date(b.fto_date).getTime() : 0;
+    if (aDate !== bDate) return bDate - aDate;
+    return b.fto_number.localeCompare(a.fto_number);
+  }), [filtered, inspections]);
+
   const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
-  const ftoPageCount = Math.max(1, Math.ceil(filtered.length / FTO_PAGE_SIZE));
-  const visibleFtos = filtered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
+  const ftoPageCount = Math.max(1, Math.ceil(sortedFiltered.length / FTO_PAGE_SIZE));
+  const visibleFtos = sortedFiltered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);

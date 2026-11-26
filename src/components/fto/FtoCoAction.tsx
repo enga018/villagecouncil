@@ -26,7 +26,14 @@ type PreviewData = {
   suggested_tag_id: string | null;
   rows: CoRow[];
   summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number };
-  snapshot: { transaction_count: number; latest_transaction_updated_at: string | null };
+  snapshot: {
+    transaction_count: number;
+    latest_transaction_updated_at: string | null;
+    exemption_interval_count: number;
+    latest_exemption_updated_at: string | null;
+    exempt_mark_count: number;
+    latest_exempt_marked_at: string | null;
+  };
   latest_calculation: Calculation | null;
   latest_items: LatestItem[];
 };
@@ -149,6 +156,10 @@ export default function FtoCoAction({
           settingsUpdatedAt: data.settings.updated_at,
           transactionCount: data.snapshot.transaction_count,
           latestTransactionUpdatedAt: data.snapshot.latest_transaction_updated_at,
+          exemptionIntervalCount: data.snapshot.exemption_interval_count,
+          latestExemptionUpdatedAt: data.snapshot.latest_exemption_updated_at,
+          exemptMarkCount: data.snapshot.exempt_mark_count,
+          latestExemptMarkedAt: data.snapshot.latest_exempt_marked_at,
           idempotencyKey: crypto.randomUUID(),
         },
       });

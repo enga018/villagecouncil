@@ -157,7 +157,7 @@ Deno.serve(async (req: Request) => {
         if (calcError) throw calcError;
         latestCalculation = calculation;
         const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
-          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at")
+          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at,transaction_date")
           .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
         if (itemsError) throw itemsError;
         latestItems = items || [];

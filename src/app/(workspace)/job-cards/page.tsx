@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import WageTransactions from "@/components/job-cards/WageTransactions";
 
 type StatusFilter = "all" | "active" | "inactive";
 type JobCard = {
@@ -24,6 +25,7 @@ type Applicant = {
 };
 
 export default function JobCardsPage() {
+  const [councilId, setCouncilId] = useState<string | null>(null);
   const [jobCards, setJobCards] = useState<JobCard[]>([]);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [query, setQuery] = useState("");
@@ -89,6 +91,7 @@ export default function JobCardsPage() {
         }
 
         if (active) {
+          setCouncilId(councilId);
           setJobCards(cards);
           setApplicants(people);
         }
@@ -194,6 +197,7 @@ export default function JobCardsPage() {
       if (!activation?.success) throw new Error("The Job Card refetch did not complete successfully.");
 
       const councilId = membership.village_council_id;
+      setCouncilId(councilId);
       const cards: JobCard[] = [];
       for (let offset = 0; ; offset += 1000) {
         const { data: rows, error } = await supabase
@@ -451,6 +455,7 @@ export default function JobCardsPage() {
                           </>
                         )}
                         {people.length === 0 && <p className="py-6 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
+                        {councilId && <WageTransactions councilId={councilId} jobCardNumber={card.job_card_number} />}
                       </div>
                     )}
                   </article>

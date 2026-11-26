@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createClient } from "@/lib/supabase";
 
 type Settings = { divisor: number; multiplier: number; updated_at: string; updated_by: string | null };
@@ -49,7 +49,7 @@ export default function SettingsPage() {
 
   useEffect(() => { void load(); }, []);
 
-  async function save(event: React.FormEvent<HTMLFormElement>) {
+  async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setNotice("");

@@ -119,6 +119,8 @@ Council-owned records must remain scoped to the relevant `village_council_id`. S
 - [Architecture](docs/architecture.md) — application structure, tenant context, backend and deployment.
 - [UI design system](docs/ui-design-system.md) — shared colors, surfaces, reusable components and future-module conventions.
 - [FTO Monitoring](docs/fto-monitoring.md) — Government portal discovery, Panchayat-based ownership, validation, retry and import activation.
+- [Financial Workflow Requirements](docs/financial-workflow-requirements.md) — CO calculation, FTO tags, exemptions, Contribution and payment rules.
+- [Financial Decision Log](docs/decision-log.md) — Confirmed financial workflow decisions and amendments.
 
 ## Contribution guidelines
 

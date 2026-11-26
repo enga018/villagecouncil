@@ -21,7 +21,7 @@ type Calculation = {
 };
 type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
-  settings: { divisor: number; multiplier: number; updated_at: string };
+  settings: { divisor: number; multiplier: number };
   tags: CoTag[];
   suggested_tag_id: string | null;
   rows: CoRow[];

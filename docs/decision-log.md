@@ -156,7 +156,7 @@ All financial data and writes must be Council-scoped and backend-authorized, wit
 
 These are not product decisions and must not be silently filled in:
 
-1. **FIFO ordering across charge categories:** FIFO runs at Job Card level across all Apply Tags. Define the immutable chronological key for ordering Regular CO Charges and Other Charges while preserving existing allocations.
+1. **FIFO ordering across charge categories:** FIFO runs at Job Card level across all Apply Tags. Define the immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges while preserving existing allocations.
 2. **Payment-entry form:** Exact required/optional fields and UI layout remain unconfirmed.
 3. **Exemption management navigation:** The exemption business rules are agreed, but the separate entry point has not been specified. Do not add controls to the Job Cards list or Contribution page.
 4. **Archiving a tag with current FTO assignments:** Historical associations must survive. Confirm whether current assignments must be moved before archive or whether an assigned tag can be archived directly.
@@ -192,3 +192,27 @@ The previous system's manual/extra charges, waivers, deferred charges and voidin
 - Contribution page layout and reporting/export requirements.
 
 These decisions are documented in [Contribution and Payment Workflow](contribution-management-workflow.md).
+
+## 2026-11-27 — Complete Contribution, Payment and UI decisions
+
+The following decisions supplement and supersede conflicting older Contribution/Payment wording above and in the older FIN entries:
+
+1. **Job Card financial account:** Contribution is Job Card Number based. Job Card Detail is the place to view charges, payments and balances; a payment entered there does not ask the administrator to re-enter the Job Card Number.
+2. **Two charge categories:** Keep Regular CO Charges and Manual/Extra Charges separate. Regular CO Charges come from CO calculation; Manual/Extra Charges are additional administrator-entered charges.
+3. **CO recalculation review:** Show the old calculation result and proposed new result together for administrator review and confirmation. Preserve old versions. After confirmation, automatically release affected allocations and rerun FIFO. Do not create a separate manual CO reversal interface in place of recalculation.
+4. **Tag changes:** Show old/current and proposed tag values for review and confirmation. Tag changes only affect grouping; they do not alter charge values, Job Card balances or payment history.
+5. **Contribution navigation:** Four sections: Contributions, Bulk Payments, Reports and Settings. Record Payment, Paid in Full, Waive and conditional Refund actions are inside Job Card Detail.
+6. **Default list:** Contributions opens with Outstanding as the default view. Fully Paid and All are additional views. Search supports Job Card Number and Head of Household.
+7. **Individual payment:** Entered from Job Card Detail; it is treated as CASH. Payment date/time is automatic and is not manually entered. Paid in Full calculates the amount needed to settle the outstanding balance.
+8. **Waive:** Partial waiver amounts less than the current outstanding amount are allowed. Show Waive only when outstanding is positive; hide it when no positive outstanding remains. Waiver is an adjustment, not a payment.
+9. **Refund:** Refunds are allowed only against Job Card overpaid balances, not as a general payment reversal. Full and partial refunds are allowed up to the available overpaid balance. A reason is required. Record actor/time automatically. Hide Refund by default and show it only while overpaid balance is positive.
+10. **Payment editing:** All payment records, including individual and bulk-entered payments, can be edited. Require a correction reason. Preserve original and revised values, editor and edit time. Do not rewrite original payment date/time or original creator. Recalculate FIFO when an edit affects allocations.
+11. **No payment deletion:** Payment records are never permanently deleted. Corrections use editing; actual returned money uses the overpayment-only Refund workflow.
+12. **Bulk payment:** One Job Card per line, format `JOB-CARD-NUMBER, AMOUNT`. Select CASH or BANK once for the batch. Validate and preview before confirmation. Each line creates its own payment record.
+13. **Bulk history:** Keep batch reference, date/time, method, administrator, Job Card entries, individual amounts, totals and allocation results. Individual payments remain editable. PDF/Excel export was deferred for later discussion.
+14. **FIFO:** Allocation is Job Card based across all Apply Tags. No tag selection at payment entry. Partial allocations are supported; excess remains as unallocated credit. Automatic reallocation follows relevant charge/payment/refund changes.
+15. **Reports:** Five reports are agreed: Outstanding, Collection, CO Charge, Manual Charge, and Waiver and Refund. All active Council administrators can access them; no separate reporting permission.
+16. **Responsive design:** Every Contribution screen must have both PC and mobile layouts. Job Card lists use tables on PC and readable cards on mobile; detail and data-entry workflows must be touch-friendly.
+17. **Export scope:** Export/download was explicitly deferred and is not part of the current agreed implementation scope.
+
+The detailed workflow is in [Contribution Management Workflow](contribution-management-workflow.md).

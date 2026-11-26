@@ -394,17 +394,62 @@ export default function JobCardsPage() {
                     {isExpanded && (
                       <div className="border-t border-slate-100 bg-white px-3 py-2 sm:px-4">
                         <div className="mb-2 flex items-center justify-between py-1"><p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-400">Applicants</p><span className="text-[10px] text-slate-400">{people.length} total</span></div>
-                        {people.map(person => (
-                          <div key={person.id} className="flex flex-col gap-2 border-t border-slate-100 py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold text-slate-900 sm:text-sm">{person.applicant_name}</p>
-                              <p className="mt-1 text-[10px] leading-5 text-slate-500 sm:text-xs">Applicant No. {person.applicant_number}{person.gender ? ` · ${person.gender}` : ""}{person.age ? ` · ${person.age} years` : ""}{person.caste ? ` · ${person.caste}` : ""}</p>
-                              {person.father_husband_name && <p className="text-[10px] text-slate-500 sm:text-xs">Father / Husband: {person.father_husband_name}</p>}
-                              {person.official_unique_id && <p className="mt-1 break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                        {people.length > 0 && (
+                          <>
+                            <div className="hidden overflow-x-auto md:block">
+                              <table className="w-full table-auto text-left">
+                                <thead>
+                                  <tr className="border-y border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                    <th className="whitespace-nowrap px-3 py-3">Applicant name</th>
+                                    <th className="whitespace-nowrap px-3 py-3">Applicant No.</th>
+                                    <th className="whitespace-nowrap px-3 py-3">Gender</th>
+                                    <th className="whitespace-nowrap px-3 py-3">Age</th>
+                                    <th className="whitespace-nowrap px-3 py-3">Caste</th>
+                                    <th className="px-3 py-3">Father / Husband</th>
+                                    <th className="px-3 py-3">Official ID</th>
+                                    <th className="px-3 py-3">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {people.map(person => (
+                                    <tr key={person.id} className="text-xs text-slate-700">
+                                      <td className="px-3 py-3 font-semibold text-slate-900">{person.applicant_name}</td>
+                                      <td className="whitespace-nowrap px-3 py-3 tabular-nums">{person.applicant_number}</td>
+                                      <td className="px-3 py-3">{person.gender || "—"}</td>
+                                      <td className="px-3 py-3">{person.age ? `${person.age} years` : "—"}</td>
+                                      <td className="px-3 py-3">{person.caste || "—"}</td>
+                                      <td className="px-3 py-3">{person.father_husband_name || "—"}</td>
+                                      <td className="max-w-[180px] break-all px-3 py-3 font-mono text-[10px] text-slate-500">{person.official_unique_id || "—"}</td>
+                                      <td className="px-3 py-3">
+                                        <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
                             </div>
-                            <span className={`self-start rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide sm:self-center ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
-                          </div>
-                        ))}
+                            <div className="divide-y divide-slate-100 md:hidden">
+                              {people.map(person => (
+                                <div key={person.id} className="space-y-2 py-3 first:pt-2">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-semibold text-slate-900">{person.applicant_name}</p>
+                                      <p className="mt-1 text-[10px] text-slate-500">Applicant No. {person.applicant_number}</p>
+                                    </div>
+                                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
+                                    <div><span className="text-slate-400">Gender</span><p className="mt-0.5 text-slate-700">{person.gender || "—"}</p></div>
+                                    <div><span className="text-slate-400">Age</span><p className="mt-0.5 text-slate-700">{person.age ? `${person.age} years` : "—"}</p></div>
+                                    <div><span className="text-slate-400">Caste</span><p className="mt-0.5 text-slate-700">{person.caste || "—"}</p></div>
+                                    <div><span className="text-slate-400">Father / Husband</span><p className="mt-0.5 text-slate-700">{person.father_husband_name || "—"}</p></div>
+                                  </div>
+                                  {person.official_unique_id && <p className="break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                         {people.length === 0 && <p className="py-6 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
                       </div>
                     )}

@@ -59,8 +59,9 @@ Available workspace modules:
 - `/dashboard/`
 - `/job-cards/`
 - `/fto-monitoring/`
+- `/settings/`
 
-The navigation and dashboard also identify future module areas such as Register, Contributions, CO Calculation, Payments, Reports and Settings. A navigation entry or Coming soon card does not by itself mean the module's business workflow is implemented.
+The navigation and dashboard also identify future module areas such as Register, Contributions, Payments and Reports. CO calculation is an operation inside the Imported FTO register, not a separate module page. Settings provides Council-wide CO formula configuration.
 
 ## 3. Authentication and council context
 

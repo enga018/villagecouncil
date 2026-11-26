@@ -7,7 +7,6 @@ import { MiniKpi, ModuleCard } from "@/components/app/ModuleCard";
 const plannedModules = [
   { title: "Register", description: "Official registration register tools", mark: "RG" },
   { title: "Contributions", description: "Contribution ledger and outstanding balances", mark: "CN" },
-  { title: "CO Calculation", description: "Council calculation tools", mark: "CO" },
   { title: "Payments", description: "Payment recording and tracking", mark: "PY" },
   { title: "Reports", description: "Council operational reports", mark: "RP" },
   { title: "Settings", description: "Workspace preferences and configuration", mark: "ST" },

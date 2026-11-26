@@ -104,37 +104,20 @@ Deno.serve(async (req: Request) => {
     if (action === "create_tag") {
       const name = String(body.name || "").trim();
       if (!name || name.length > 60) return reply({ error: "Tag name must be between 1 and 60 characters." }, 400, origin);
-      const { data: tag, error } = await admin.from("council_co_tags")
-        .insert({ village_council_id: tenantId, name, created_by: actorId })
-        .select("id,name,is_archived,created_at").single();
-      if (error) {
-        if (error.code === "23505") return reply({ error: "A tag with this name already exists in this Council." }, 409, origin);
-        throw error;
-      }
-      const { error: eventError } = await admin.from("council_co_tag_events").insert({
-        village_council_id: tenantId, tag_id: tag.id, action: "created", new_name: tag.name, actor_id: actorId,
+      const { data: tag, error } = await admin.rpc("create_council_co_tag", {
+        p_actor_id: actorId, p_name: name,
       });
-      if (eventError) throw eventError;
+      if (error) throw error;
       return reply({ tag }, 201, origin);
     }
 
     if (action === "rename_tag") {
       const tagId = String(body.tagId || ""), name = String(body.name || "").trim();
       if (!tagId || !name || name.length > 60) return reply({ error: "A valid tag and name are required." }, 400, origin);
-      const { data: current, error: readError } = await admin.from("council_co_tags")
-        .select("id,name").eq("id", tagId).eq("village_council_id", tenantId).single();
-      if (readError) throw readError;
-      const { data: tag, error } = await admin.from("council_co_tags").update({ name, updated_at: new Date().toISOString() })
-        .eq("id", tagId).eq("village_council_id", tenantId).select("id,name").single();
-      if (error) {
-        if (error.code === "23505") return reply({ error: "A tag with this name already exists in this Council." }, 409, origin);
-        throw error;
-      }
-      const { error: eventError } = await admin.from("council_co_tag_events").insert({
-        village_council_id: tenantId, tag_id: tag.id, action: "renamed",
-        previous_name: current.name, new_name: tag.name, actor_id: actorId,
+      const { data: tag, error } = await admin.rpc("rename_council_co_tag", {
+        p_actor_id: actorId, p_tag_id: tagId, p_name: name,
       });
-      if (eventError) throw eventError;
+      if (error) throw error;
       return reply({ tag }, 200, origin);
     }
 
@@ -248,23 +231,11 @@ Deno.serve(async (req: Request) => {
 
     if (action === "assign_tag") {
       const ftoId = String(body.ftoId || ""), tagId = String(body.tagId || "");
-      const { data: fto, error: ftoError } = await admin.from("council_ftos")
-        .select("id,current_co_tag_id").eq("id", ftoId).eq("village_council_id", tenantId).eq("status", "active").single();
-      if (ftoError) throw ftoError;
-      const { data: tag, error: tagError } = await admin.from("council_co_tags")
-        .select("id,name").eq("id", tagId).eq("village_council_id", tenantId).eq("is_archived", false).single();
-      if (tagError) throw tagError;
-      if (fto.current_co_tag_id !== tag.id) {
-        const { error: updateError } = await admin.from("council_ftos").update({ current_co_tag_id: tag.id, updated_at: new Date().toISOString() })
-          .eq("id", ftoId).eq("village_council_id", tenantId);
-        if (updateError) throw updateError;
-        const { error: eventError } = await admin.from("council_co_tag_events").insert({
-          village_council_id: tenantId, fto_id: ftoId, tag_id: tag.id, previous_tag_id: fto.current_co_tag_id,
-          action: fto.current_co_tag_id ? "reassigned" : "assigned", actor_id: actorId,
-        });
-        if (eventError) throw eventError;
-      }
-      return reply({ success: true, tag }, 200, origin);
+      const { data: result, error } = await admin.rpc("set_council_fto_tag", {
+        p_actor_id: actorId, p_fto_id: ftoId, p_tag_id: tagId,
+      });
+      if (error) throw error;
+      return reply({ success: true, result }, 200, origin);
     }
 
     return reply({ error: "Unsupported CO calculation action." }, 400, origin);

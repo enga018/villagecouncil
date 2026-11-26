@@ -163,10 +163,9 @@ Deno.serve(async (req: Request) => {
         latestItems = items || [];
       }
 
-      const settings = {
+      const parameters = {
         divisor: Number(latestCalculation?.divisor ?? 300),
         multiplier: Number(latestCalculation?.multiplier ?? 100),
-        updated_at: null,
       };
 
       const invalidCredit = (transactions || []).find(tx => tx.credit_amount == null || !Number.isFinite(Number(tx.credit_amount)) || Number(tx.credit_amount) < 0);
@@ -185,7 +184,7 @@ Deno.serve(async (req: Request) => {
         const exemptionIntervalId = existingMark?.exemption_interval_id || interval?.id || null;
         const exempt = Boolean(existingMark || interval);
         const creditAmount = Number(tx.credit_amount);
-        const coAmount = roundMoney((creditAmount / settings.divisor) * settings.multiplier);
+        const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {
           id: tx.id, job_card_number: tx.job_card_number, reference_number: tx.reference_number,
           transaction_date: tx.transaction_date, processed_date: tx.processed_date,
@@ -211,7 +210,7 @@ Deno.serve(async (req: Request) => {
       const totalCo = roundMoney(rows.reduce((sum, tx) => sum + tx.co_amount, 0));
       const exemptCount = rows.filter(tx => tx.is_exempt).length;
       return reply({
-        fto, settings, tags: tags || [], rows,
+        fto, parameters, tags: tags || [], rows,
         suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),
         summary: { transaction_count: count, total_credit_amount: totalCredit, total_co_amount: totalCo,
           exempt_count: exemptCount, chargeable_count: count - exemptCount },

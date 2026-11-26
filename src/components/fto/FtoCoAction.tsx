@@ -8,7 +8,7 @@ type CoRow = {
   id: string; job_card_number: string; reference_number: string; transaction_date: string | null;
   applicant_name: string | null; credit_amount: number | string; amount_to_be_credited: number | string | null;
   government_status: string; normalized_status: string; rejection_reason: string | null;
-  co_amount: number; is_exempt: boolean;
+  co_amount: number; is_exempt: boolean; manual_review?: boolean;
 };
 type LatestItem = {
   fto_transaction_id: string; job_card_number: string; applicant_name: string | null;
@@ -25,7 +25,7 @@ type PreviewData = {
   tags: CoTag[];
   suggested_tag_id: string | null;
   rows: CoRow[];
-  summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number };
+  summary: { transaction_count: number; total_credit_amount: number; total_co_amount: number; exempt_count: number; chargeable_count: number; manual_review_count?: number };
   snapshot: {
     transaction_count: number;
     latest_transaction_updated_at: string | null;
@@ -148,7 +148,7 @@ export default function FtoCoAction({
   }
 
   async function applyCalculation() {
-    if (!data) return;
+    if (!data || manualReviewCount > 0) return;
     setSaving(true);
     setError("");
     try {
@@ -187,6 +187,7 @@ export default function FtoCoAction({
     co_amount: Math.round(((Number(row.credit_amount) / divisor) * multiplier + Number.EPSILON) * 100) / 100,
   })), [data, divisor, multiplier]);
   const previewTotalCo = previewRows.reduce((sum, row) => sum + row.co_amount, 0);
+  const manualReviewCount = data?.summary.manual_review_count || data?.rows.filter(row => !row.transaction_date).length || 0;
   const formulaDivisor = showPreview ? divisor : data?.latest_calculation?.divisor;
   const formulaMultiplier = showPreview ? multiplier : data?.latest_calculation?.multiplier;
   const totalCredit = showPreview ? data?.summary.total_credit_amount : data?.latest_calculation?.total_credit_amount;
@@ -216,6 +217,7 @@ export default function FtoCoAction({
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {loading ? <div className="py-12 text-center text-sm text-slate-500">Loading FTO transactions…</div> : data ? (
                 <div className="space-y-5">
+                  {manualReviewCount > 0 && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{manualReviewCount} transaction(s) have no Transaction Date. Review these records before saving this FTO calculation.</p>}
                   {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>}
                   {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{notice}</p>}
 

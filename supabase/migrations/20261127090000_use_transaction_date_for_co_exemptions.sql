@@ -1,5 +1,7 @@
 begin;
 
+alter table public.council_fto_co_calculation_items add column transaction_date date;
+
 drop function public.apply_council_fto_co_calculation(uuid,uuid,uuid,timestamptz,integer,timestamptz,integer,timestamptz,integer,timestamptz,uuid);
 
 create function public.apply_council_fto_co_calculation(

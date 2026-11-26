@@ -60,7 +60,7 @@ The following decisions were confirmed after the original financial requirements
 | FIN-028 | Reinstatement | Explicit reinstatement requires a reason and current Processed eligibility; restore original charge. |
 | FIN-029 | Reversal cycles | A charge can be reversed/reinstated multiple times with complete history. |
 | FIN-030 | Payment availability | Payments can be recorded with no outstanding balance and for Active, Inactive, Deleted or Exempt Job Cards. |
-| FIN-031 | FIFO | Oldest outstanding tag first, oldest payment first, partial allocations, retain unallocated balance. |
+| FIN-031 | FIFO | Job Card-level FIFO across all Apply Tags without tag selection; partial allocations; excess remains unallocated. Chronological ordering across charge categories remains open. |
 | FIN-032 | Allocation history | Record Allocate, Release and Reallocate events; do not overwrite allocation history. |
 | FIN-033 | Refunds | Full/partial refunds; mandatory reason; original payment retained; release allocations then rerun FIFO. |
 | FIN-034 | Permissions | Every active Council membership has administrator-level financial permissions in this phase; no finance role. |
@@ -156,7 +156,7 @@ All financial data and writes must be Council-scoped and backend-authorized, wit
 
 These are not product decisions and must not be silently filled in:
 
-1. **FIFO ordering with mutable tags:** FIFO uses oldest outstanding tag first, but tags can be renamed, reassigned and merged. Define an immutable chronological key for FIFO runs while preserving existing allocations.
+1. **FIFO ordering across charge categories:** FIFO runs at Job Card level across all Apply Tags. Define the immutable chronological key for ordering Regular CO Charges and Other Charges while preserving existing allocations.
 2. **Payment-entry form:** Exact required/optional fields and UI layout remain unconfirmed.
 3. **Exemption management navigation:** The exemption business rules are agreed, but the separate entry point has not been specified. Do not add controls to the Job Cards list or Contribution page.
 4. **Archiving a tag with current FTO assignments:** Historical associations must survive. Confirm whether current assignments must be moved before archive or whether an assigned tag can be archived directly.

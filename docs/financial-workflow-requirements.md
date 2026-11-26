@@ -2,9 +2,9 @@
 
 **Project:** Village Council Platform  
 **Status:** Agreed product requirements; implementation not yet started  
-**Decision baseline:** 2026-11-26
+**Decision baseline:** 2026-11-27
 
-This document is the product source of truth for the financial workflows discussed and agreed for the Village Council Platform. It records both the initial CO Calculation scope and the downstream Contribution Management and Payments rules so that implementation can be phased without losing decisions.
+This document records the CO Calculation foundation and its original detailed rules. For the current Job Card-centred Contribution and Payment workflow, use [Contribution and Payment Workflow](contribution-and-payment-workflow.md), which supersedes conflicting older wording in sections 7 and 8.
 
 If a future product decision changes a rule, update this document and record the change in [Decision Log](decision-log.md). Do not silently reinterpret an earlier decision.
 
@@ -74,7 +74,7 @@ Rules:
 Exemptions are temporary intervals on a Job Card, but the effect on an FTO transaction is determined by the transaction's immutable first-import time.
 
 - During calculation, check the Job Card's exemption history for each FTO transaction.
-- Use the transaction's immutable \`first_imported_at\` timestamp to determine whether it was first imported during an exemption interval. Do not use a mutable \`updated_at\` or later re-import timestamp for this decision.
+- Use the transaction-date rule implemented by the current CO calculation workflow to determine whether the transaction falls within an exemption interval. Do not substitute a mutable re-import timestamp.
 - A transaction first imported **during** an exemption interval is marked **Exempt** in the CO ledger/eligibility record and must not generate a payable CO charge.
 - That Exempt mark is permanent for that transaction. Removing the Job Card from the active exemption list does not clear the historical mark or make that transaction chargeable later.
 - A transaction first imported **before** an exemption interval is not made exempt merely because the Job Card is later exempted. Existing charges remain valid and visible.

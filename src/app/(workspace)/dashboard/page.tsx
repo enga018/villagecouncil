@@ -116,7 +116,7 @@ export default function DashboardPage() {
             <h2 className="text-lg font-bold tracking-tight text-slate-950">Available modules</h2>
             <p className="mt-1 text-xs text-slate-600">Tools currently available in this workspace</p>
           </div>
-          <span className="text-[11px] font-medium text-slate-500">2 of 8 modules available</span>
+          <span className="text-[11px] font-medium text-slate-500">2 of 7 modules available</span>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">

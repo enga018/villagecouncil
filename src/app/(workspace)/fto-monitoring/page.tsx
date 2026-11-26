@@ -109,7 +109,7 @@ export default function FtoMonitoringPage() {
   }, [importResult]);
 
   async function applyAndActivate(supabase: ReturnType<typeof createClient>, currentBatchId: string) {
-    const { data: autoIncluded, error: suggestionError } = await supabase.rpc("apply_register_fto_review_suggestions", { p_batch_id: currentBatchId });
+    const { error: suggestionError } = await supabase.rpc("apply_register_fto_review_suggestions", { p_batch_id: currentBatchId });
     if (suggestionError) throw suggestionError;
     const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
     if (activationError) throw activationError;
@@ -192,16 +192,6 @@ export default function FtoMonitoringPage() {
         lastBatchComplete = batch?.status === "pending";
       }
       if (!failedList.length && lastBatchComplete) {
-        const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
-        fetchBaselineRef.current = null;
-        const councilId = await getActiveCouncilId(supabase);
-        const [nextFtosResult, nextTransactionsResult] = await Promise.all([
-          supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
-          supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
-        ]);
-        const nextFtos = nextFtosResult.count ?? 0, nextTransactions = nextTransactionsResult.count ?? 0;
-        const delta = { newFtos: Math.max(0, nextFtos - baseline.ftos), newTransactions: Math.max(0, nextTransactions - baseline.transactions) };
-        setFetchDelta(delta.newFtos > 0 || delta.newTransactions > 0 ? delta : null);
         await applyAndActivate(supabase, currentBatchId);
         setNotice("");
       } else if (!failedList.length) {

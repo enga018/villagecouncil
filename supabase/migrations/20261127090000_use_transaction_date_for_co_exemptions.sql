@@ -66,11 +66,6 @@ begin
     raise exception 'FTO transaction data changed after preview. Generate a new preview.';
   end if;
   if v_transaction_count = 0 then raise exception 'This FTO has no imported transactions to calculate.'; end if;
-  if exists (
-    select 1 from public.council_fto_transactions t
-    where t.village_council_id = v_tenant_id and t.fto_id = p_fto_id and t.transaction_date is null
-  ) then raise exception 'One or more transactions have no Transaction Date. Review them manually before calculating CO.'; end if;
-
   select count(*)::integer, max(e.updated_at)
   into v_exemption_interval_count, v_latest_exemption_updated_at
   from public.council_co_exemption_intervals e

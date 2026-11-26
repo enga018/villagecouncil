@@ -149,7 +149,7 @@ Deno.serve(async (req: Request) => {
         .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
       if (seedSettingsError) throw seedSettingsError;
       const [{ data: settings, error: settingsError }, { data: transactions, error: txError }, { data: tags, error: tagsError },
-        { data: intervals, error: intervalsError }, { data: marks, error: marksError }] = await Promise.all([
+        { data: intervals, error: intervalsError }, { data: marks, error: marksError }, { data: lastTagEvent, error: lastTagError }] = await Promise.all([
         admin.from("council_co_settings").select("divisor,multiplier,updated_at").eq("village_council_id", tenantId).single(),
         admin.from("council_fto_transactions")
           .select("id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
@@ -160,12 +160,16 @@ Deno.serve(async (req: Request) => {
           .eq("village_council_id", tenantId),
         admin.from("council_co_exempt_transactions").select("fto_transaction_id,exemption_interval_id")
           .eq("village_council_id", tenantId),
+        admin.from("council_co_tag_events").select("tag_id")
+          .eq("village_council_id", tenantId).in("action", ["assigned", "reassigned"])
+          .order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (settingsError) throw settingsError;
       if (txError) throw txError;
       if (tagsError) throw tagsError;
       if (intervalsError) throw intervalsError;
       if (marksError) throw marksError;
+      if (lastTagError) throw lastTagError;
 
       const invalidCredit = (transactions || []).find(tx => tx.credit_amount == null || !Number.isFinite(Number(tx.credit_amount)) || Number(tx.credit_amount) < 0);
       if (invalidCredit) return reply({ error: `Transaction ${invalidCredit.reference_number} has an invalid Credit Amount and cannot be calculated.` }, 409, origin);
@@ -215,6 +219,7 @@ Deno.serve(async (req: Request) => {
       }
       return reply({
         fto, settings, tags: tags || [], rows,
+        suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),
         summary: { transaction_count: count, total_credit_amount: totalCredit, total_co_amount: totalCo,
           exempt_count: exemptCount, chargeable_count: count - exemptCount },
         snapshot: { transaction_count: count, latest_transaction_updated_at: latestUpdatedAt },

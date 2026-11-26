@@ -327,7 +327,7 @@ export default function FtoCoAction({
                             <div><p className="text-[10px] text-slate-500">Credit Amount</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(row.credit_amount)}</p></div>
                             <div><p className="text-[10px] text-slate-500">CO Amount</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
                           </div>
-                          <p className={`text-[11px] font-semibold ${row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
+                          <p className={`text-[11px] font-semibold ${row.manual_review ? "text-rose-700" : row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.manual_review ? "Manual review · Transaction Date missing" : row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
                         </article>
                       )) : savedRows.map(row => (
                         <article key={row.fto_transaction_id} className="space-y-3 p-3">

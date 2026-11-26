@@ -19,14 +19,13 @@ type FtoSourceResponse = {
   message?: string;
   batchId?: string;
   councilLocation?: { block?: string };
-  listing?: { manifestToken?: string; ftoNumbers?: string[]; alreadyImportedCount?: number };
+  listing?: { manifestToken?: string; ftoNumbers?: string[]; alreadyImportedCount?: number; newFtoCount?: number; existingFtoRecheckedCount?: number };
 };
 type ImportResult = {
-  ftos: number;
-  transactions: number;
-  excluded: number;
+  newFtos: number;
+  recheckedFtos: number;
+  newTransactions: number;
   pendingReview: number;
-  autoIncluded: number;
 };
 
 type FtoCountBaseline = { ftos: number; transactions: number };
@@ -75,8 +74,8 @@ export default function FtoMonitoringPage() {
   const [summary, setSummary] = useState<{ ftos: number | null; transactions: number | null }>({ ftos: null, transactions: null });
   const [statusTotals, setStatusTotals] = useState<{ processed: number | null; deferred: number | null; rejected: number | null }>({ processed: null, deferred: null, rejected: null });
   const [importIncrement, setImportIncrement] = useState<FtoAutoIncrement>(null);
-  const [fetchDelta, setFetchDelta] = useState<FtoAutoIncrement>(null);
   const fetchBaselineRef = useRef<FtoCountBaseline | null>(null);
+  const discoveryCountsRef = useRef<{ newFtos: number; recheckedFtos: number }>({ newFtos: 0, recheckedFtos: 0 });
 
   useEffect(() => {
     let active = true;
@@ -109,18 +108,28 @@ export default function FtoMonitoringPage() {
   }, [importResult]);
 
   async function applyAndActivate(supabase: ReturnType<typeof createClient>, currentBatchId: string) {
-    const { data: autoIncluded, error: suggestionError } = await supabase.rpc("apply_register_fto_review_suggestions", { p_batch_id: currentBatchId });
+    const { error: suggestionError } = await supabase.rpc("apply_register_fto_review_suggestions", { p_batch_id: currentBatchId });
     if (suggestionError) throw suggestionError;
     const { data, error: activationError } = await supabase.rpc("activate_council_fto_import", { p_batch_id: currentBatchId });
     if (activationError) throw activationError;
     if (!data) throw new Error("The FTO import did not return a confirmation.");
-    setFetchDelta(null);
     const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
     fetchBaselineRef.current = null;
-    const ftos = Number(data.importedFtos || 0), transactions = Number(data.importedTransactions || 0);
-    const newFtos = Math.max(0, ftos - baseline.ftos);
-    const newTransactions = Math.max(0, transactions - baseline.transactions);
-    setImportResult({ ftos, transactions, excluded: Number(data.excludedOutOfVillageFtos || 0), pendingReview: Number(data.pendingReviewTransactions || 0), autoIncluded: Number(autoIncluded || 0) });
+    const councilId = await getActiveCouncilId(supabase);
+    const [ftoCountResult, transactionCountResult] = await Promise.all([
+      supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
+      supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+    ]);
+    if (ftoCountResult.error) throw ftoCountResult.error;
+    if (transactionCountResult.error) throw transactionCountResult.error;
+    const newTransactions = Math.max(0, (transactionCountResult.count ?? 0) - baseline.transactions);
+    const newFtos = discoveryCountsRef.current.newFtos;
+    setImportResult({
+      newFtos,
+      recheckedFtos: discoveryCountsRef.current.recheckedFtos,
+      newTransactions,
+      pendingReview: Number(data.pendingReviewTransactions || 0),
+    });
     setImportIncrement(newFtos > 0 || newTransactions > 0 ? { newFtos, newTransactions } : null);
   }
 
@@ -181,18 +190,8 @@ export default function FtoMonitoringPage() {
         lastBatchComplete = batch?.status === "pending";
       }
       if (!failedList.length && lastBatchComplete) {
-        const baseline = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
-        fetchBaselineRef.current = null;
-        const councilId = await getActiveCouncilId(supabase);
-        const [nextFtosResult, nextTransactionsResult] = await Promise.all([
-          supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
-          supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
-        ]);
-        const nextFtos = nextFtosResult.count ?? 0, nextTransactions = nextTransactionsResult.count ?? 0;
-        const delta = { newFtos: Math.max(0, nextFtos - baseline.ftos), newTransactions: Math.max(0, nextTransactions - baseline.transactions) };
-        setFetchDelta(delta.newFtos > 0 || delta.newTransactions > 0 ? delta : null);
         await applyAndActivate(supabase, currentBatchId);
-        setNotice("Import complete. Active register Job Cards were included automatically; rows that still need a decision are listed for manual review.");
+        setNotice("");
       } else if (!failedList.length) {
         setFailedFtos(numbers);
         setNotice("The batch is not complete yet. Retry this set; FTOs already staged will be skipped automatically.");
@@ -212,7 +211,6 @@ export default function FtoMonitoringPage() {
     setNotice("");
     setImportResult(null);
     setImportIncrement(null);
-    setFetchDelta(null);
     setFailedFtos([]);
     setFailureDetails([]);
     setProgress(null);
@@ -230,12 +228,15 @@ export default function FtoMonitoringPage() {
       }
       const beforeFetch = fetchBaselineRef.current ?? { ftos: summary.ftos ?? 0, transactions: summary.transactions ?? 0 };
       fetchBaselineRef.current = null;
-      setFetchDelta(null);
       if (!data?.batchId || !data?.listing?.manifestToken || !Array.isArray(data?.listing?.ftoNumbers)) {
         throw new Error("The Government FTO listing did not return a valid processing batch.");
       }
       const numbers = data.listing.ftoNumbers.map((value: unknown) => String(value || "").trim()).filter(Boolean);
       if (!numbers.length) throw new Error("The Government listing returned no eligible FTO numbers.");
+      discoveryCountsRef.current = {
+        newFtos: Number(data.listing.newFtoCount || 0),
+        recheckedFtos: Number(data.listing.existingFtoRecheckedCount || 0),
+      };
       setBatchId(data.batchId);
       setManifestToken(data.listing.manifestToken);
       setProgress({ attempted: 0, total: numbers.length, staged: 0 });
@@ -259,9 +260,6 @@ export default function FtoMonitoringPage() {
     setProgress({ attempted: 0, total: retryList.length, staged: progress?.staged || 0 });
     await processNumbers(retryList, batchId, manifestToken, supabase);
   }
-
-  const percent = progress?.total ? Math.min(100, Math.round((progress.attempted / progress.total) * 100)) : 0;
-
 
 
   return (
@@ -307,17 +305,9 @@ export default function FtoMonitoringPage() {
         ))}
       </section>
 
-      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement || fetchDelta} />
+      <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement} />
 
       <div className="space-y-4">
-        {progress && (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 sm:px-6">
-            <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-700">FTO detail processing</p><p className="text-xs tabular-nums text-slate-500">{formatNumber(progress.attempted)} / {formatNumber(progress.total)} attempted</p></div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: percent + "%" }}/></div>
-            <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-slate-400"><span>{percent}% processed</span><span>{formatNumber(progress.staged)} staged FTO results</span></div>
-          </div>
-        )}
-
         {(error || notice) && <div className="space-y-2">{error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800"><span className="font-bold">Action required: </span>{error}</p>}{notice && <p role="status" className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">{notice}</p>}</div>}
 
         {failedFtos.length > 0 && (
@@ -338,11 +328,11 @@ export default function FtoMonitoringPage() {
       {importResult && (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 sm:p-6">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-800">✓</span><div><p className="text-sm font-bold text-emerald-950">FTO import completed</p><p className="mt-0.5 text-xs text-emerald-800">The Village Council import returned successfully.</p></div></div>
-          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-5">
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.ftos)}</p><p className="text-[11px] text-emerald-800">Total FTOs in register</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.transactions)}</p><p className="text-[11px] text-emerald-800">Total transactions in register</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.excluded)}</p><p className="text-[11px] text-emerald-800">Out-of-village FTOs excluded</p></div>
-            <div><p className="text-2xl font-bold tabular-nums text-amber-800">{formatNumber(importResult.pendingReview)}</p><p className="text-[11px] text-emerald-800">Review rows still undecided</p></div>
+          <div className="mt-5 grid gap-4 border-t border-emerald-200 pt-4 sm:grid-cols-2">
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.newFtos)}</p><p className="text-[11px] text-emerald-800">New FTOs discovered</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.recheckedFtos)}</p><p className="text-[11px] text-emerald-800">Existing FTOs rechecked</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-emerald-950">{formatNumber(importResult.newTransactions)}</p><p className="text-[11px] text-emerald-800">Transactions newly imported</p></div>
+            <div><p className="text-2xl font-bold tabular-nums text-amber-800">{formatNumber(importResult.pendingReview)}</p><p className="text-[11px] text-emerald-800">Rows requiring manual review</p></div>
           </div>
         </section>
       )}

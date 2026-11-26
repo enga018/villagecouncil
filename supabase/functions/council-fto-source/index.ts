@@ -704,6 +704,8 @@ async function main(req: Request, origin: string | null) {
       alreadyInspectedCompletedCount: skippedCompleted.length,
       alreadyInspectedNoMatchCount: skippedNoMatch.length,
       alreadyImportedCount: skippedCompleted.length + skippedNoMatch.length,
+      newFtoCount: eligibleCandidates.filter(item => !inspectionByNumber.has(item.ftoNumber.toUpperCase())).length,
+      existingFtoRecheckedCount: eligibleCandidates.filter(item => inspectionByNumber.has(item.ftoNumber.toUpperCase())).length,
       forceRefresh,
       ftoCount: eligibleCandidates.length,
       uniqueFtoCount: eligibleCandidates.length,

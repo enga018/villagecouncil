@@ -182,8 +182,7 @@ Deno.serve(async (req: Request) => {
         const interval = isExempt(tx.transaction_date, intervalsByCard.get(tx.job_card_number) || []);
         const existingMark = markMap.get(tx.id);
         const exemptionIntervalId = existingMark?.exemption_interval_id || interval?.id || null;
-        const manualReview = !tx.transaction_date;
-        const exempt = !manualReview && Boolean(existingMark || interval);
+        const exempt = Boolean(existingMark || interval);
         const creditAmount = Number(tx.credit_amount);
         const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {
@@ -193,7 +192,7 @@ Deno.serve(async (req: Request) => {
           amount_to_be_credited: tx.amount_to_be_credited, credit_amount: tx.credit_amount,
           government_status: tx.government_status, normalized_status: tx.normalized_status,
           rejection_reason: tx.rejection_reason, first_imported_at: tx.first_imported_at,
-          co_amount: coAmount, is_exempt: exempt, manual_review: manualReview, exemption_interval_id: exemptionIntervalId,
+          co_amount: coAmount, is_exempt: exempt, exemption_interval_id: exemptionIntervalId,
         };
       });
       const count = rows.length;
@@ -210,12 +209,11 @@ Deno.serve(async (req: Request) => {
       const totalCredit = roundMoney(rows.reduce((sum, tx) => sum + Number(tx.credit_amount), 0));
       const totalCo = roundMoney(rows.reduce((sum, tx) => sum + tx.co_amount, 0));
       const exemptCount = rows.filter(tx => tx.is_exempt).length;
-      const manualReviewCount = rows.filter(tx => tx.manual_review).length;
       return reply({
         fto, parameters, tags: tags || [], rows,
         suggested_tag_id: (fto.current_co_tag_id || lastTagEvent?.tag_id || (tags || []).find(tag => !tag.is_archived)?.id || null),
         summary: { transaction_count: count, total_credit_amount: totalCredit, total_co_amount: totalCo,
-          exempt_count: exemptCount, chargeable_count: count - exemptCount - manualReviewCount, manual_review_count: manualReviewCount },
+          exempt_count: exemptCount, chargeable_count: count - exemptCount },
         snapshot: {
           transaction_count: count,
           latest_transaction_updated_at: latestUpdatedAt,

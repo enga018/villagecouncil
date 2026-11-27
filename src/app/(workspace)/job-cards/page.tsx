@@ -30,7 +30,7 @@ export default function JobCardsPage() {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("active");
-  const [expanded, setExpanded] = useState<string[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
@@ -249,7 +249,7 @@ export default function JobCardsPage() {
       setJobCards(cards);
       setApplicants(people);
       setPage(1);
-      setExpanded([]);
+      setSelectedCardId("");
       setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
     } catch (err) {
       setFetchError(err instanceof Error ? err.message : "Unable to refetch the Job Card register.");
@@ -341,10 +341,11 @@ export default function JobCardsPage() {
         })}
       </section>
 
+
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
         <div className="border-b border-slate-100 p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div><h2 className="text-base font-bold tracking-tight text-slate-950">Household register</h2><p className="mt-1 text-xs text-slate-500">Search by Job Card number, head of household or applicant</p></div>
+            <div><h2 className="text-base font-bold tracking-tight text-slate-950">Household register</h2><p className="mt-1 text-xs text-slate-500">Select a Job Card to review its applicants and wage transactions</p></div>
             <span className="text-[11px] font-medium text-slate-400">{jobCards.length.toLocaleString("en-IN")} records loaded</span>
           </div>
           <div className="mt-4 flex flex-col gap-3 md:flex-row">
@@ -367,113 +368,80 @@ export default function JobCardsPage() {
           </div>
         </div>
 
-        <div className="p-3 sm:p-4">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
-          ) : (
-            <div className="space-y-2">
-              {visibleCards.map(card => {
-                const people = applicantsByCard.get(card.id) || [];
-                const activePeople = people.filter(person => person.status === "active").length;
-                const isExpanded = expanded.includes(card.id);
-                return (
-                  <article key={card.id} className={`overflow-hidden rounded-xl border transition-colors ${isExpanded ? "border-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-slate-300"}`}>
-                    <button type="button" onClick={() => setExpanded(current => isExpanded ? current.filter(id => id !== card.id) : [...current, card.id])} aria-expanded={isExpanded} className="flex min-h-[76px] w-full flex-col items-stretch gap-3 px-3 py-3.5 text-left transition hover:bg-slate-50/80 sm:px-4 md:flex-row md:items-center md:justify-between md:gap-4">
-                      <span className="flex min-w-0 items-center gap-3 sm:gap-4 md:flex-none">
-                        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>JC</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <strong className="break-all text-[13px] font-bold tracking-tight text-slate-950 sm:text-sm">{card.job_card_number}</strong>
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
-                          </span>
-                          <span className="mt-1 block truncate text-xs font-medium text-slate-600 sm:text-[13px]">{card.head_of_household}</span>
-                          <span className="mt-1 block text-[10px] text-slate-400 md:hidden">{people.length} applicants · {activePeople} active</span>
-                        </span>
-                      </span>
-                      <span className="flex w-full shrink-0 items-center justify-between gap-3 md:w-auto md:justify-end">
-                        <span className="hidden text-[11px] font-medium text-slate-500 md:block">{people.length} applicants · {activePeople} active</span>
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-base transition ${isExpanded ? "rotate-180 border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-400"}`} aria-hidden="true">⌄</span>
-                      </span>
-                    </button>
-                    {isExpanded && (
-                      <div className="border-t border-slate-100 bg-white px-3 py-2 sm:px-4">
-                        <div className="mb-2 flex items-center justify-between py-1"><p className="text-[10px] font-bold uppercase tracking-[.13em] text-slate-400">Applicants</p><span className="text-[10px] text-slate-400">{people.length} total</span></div>
-                        {people.length > 0 && (
-                          <>
-                            <div className="hidden overflow-x-auto md:block">
-                              <table className="w-full table-auto text-left">
-                                <thead>
-                                  <tr className="border-y border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                                    <th className="whitespace-nowrap px-3 py-3">Applicant name</th>
-                                    <th className="whitespace-nowrap px-3 py-3">Applicant No.</th>
-                                    <th className="whitespace-nowrap px-3 py-3">Gender</th>
-                                    <th className="whitespace-nowrap px-3 py-3">Age</th>
-                                    <th className="whitespace-nowrap px-3 py-3">Caste</th>
-                                    <th className="px-3 py-3">Father / Husband</th>
-                                    <th className="px-3 py-3">Official ID</th>
-                                    <th className="px-3 py-3">Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {people.map(person => (
-                                    <tr key={person.id} className="text-xs text-slate-700">
-                                      <td className="px-3 py-3 font-semibold text-slate-900">{person.applicant_name}</td>
-                                      <td className="whitespace-nowrap px-3 py-3 tabular-nums">{person.applicant_number}</td>
-                                      <td className="px-3 py-3">{person.gender || "—"}</td>
-                                      <td className="px-3 py-3">{person.age ? `${person.age} years` : "—"}</td>
-                                      <td className="px-3 py-3">{person.caste || "—"}</td>
-                                      <td className="px-3 py-3">{person.father_husband_name || "—"}</td>
-                                      <td className="max-w-[180px] break-all px-3 py-3 font-mono text-[10px] text-slate-500">{person.official_unique_id || "—"}</td>
-                                      <td className="px-3 py-3">
-                                        <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                            <div className="divide-y divide-slate-100 md:hidden">
-                              {people.map(person => (
-                                <div key={person.id} className="space-y-2 py-3 first:pt-2">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-semibold text-slate-900">{person.applicant_name}</p>
-                                      <p className="mt-1 text-[10px] text-slate-500">Applicant No. {person.applicant_number}</p>
-                                    </div>
-                                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
-                                    <div><span className="text-slate-400">Gender</span><p className="mt-0.5 text-slate-700">{person.gender || "—"}</p></div>
-                                    <div><span className="text-slate-400">Age</span><p className="mt-0.5 text-slate-700">{person.age ? `${person.age} years` : "—"}</p></div>
-                                    <div><span className="text-slate-400">Caste</span><p className="mt-0.5 text-slate-700">{person.caste || "—"}</p></div>
-                                    <div><span className="text-slate-400">Father / Husband</span><p className="mt-0.5 text-slate-700">{person.father_husband_name || "—"}</p></div>
-                                  </div>
-                                  {person.official_unique_id && <p className="break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
-                        {people.length === 0 && <p className="py-6 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
-                        {councilId && <WageTransactions councilId={councilId} jobCardNumber={card.job_card_number} />}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
+        ) : (
+          <div className="grid min-h-[520px] grid-cols-1 md:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.5fr)]">
+            <div className={`${selectedCardId ? "hidden md:block" : "block"} border-r-0 md:border-r md:border-slate-100`}>
+              <div className="divide-y divide-slate-100">
+                {visibleCards.map(card => {
+                  const people = applicantsByCard.get(card.id) || [];
+                  const activePeople = people.filter(person => person.status === "active").length;
+                  const selected = selectedCardId === card.id;
+                  return (
+                    <button key={card.id} type="button" onClick={() => setSelectedCardId(card.id)} aria-pressed={selected}
+                      className={`block min-h-[88px] w-full px-4 py-4 text-left transition hover:bg-slate-50 ${selected ? "bg-blue-50/70 md:border-l-4 md:border-l-blue-600" : "border-l-4 border-l-transparent"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-all text-[13px] font-bold text-slate-950">{card.job_card_number}</p>
+                          <p className="mt-1 truncate text-xs font-medium text-slate-600">{card.head_of_household}</p>
+                          <p className="mt-2 text-[10px] text-slate-400">{people.length} applicants · {activePeople} active</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
                       </div>
-                    )}
-                  </article>
-                );
-              })}
-              {visibleCards.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 px-4 py-14 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
-            </div>
-          )}
-          {!loading && pageCount > 1 && (
-            <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[11px] text-slate-400">Page {page} of {pageCount} · 20 records per page</p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1} className="min-h-9 flex-1 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none">Previous</button>
-                <button type="button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount} className="min-h-9 flex-1 rounded-lg border border-slate-200 px-4 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none">Next</button>
+                    </button>
+                  );
+                })}
+                {visibleCards.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
               </div>
+              {pageCount > 1 && <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-3">
+                <span className="text-[10px] text-slate-400">Page {page} of {pageCount}</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold disabled:opacity-40">Previous</button>
+                  <button type="button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold disabled:opacity-40">Next</button>
+                </div>
+              </div>}
             </div>
-          )}
-        </div>
+
+            <div className={`${selectedCardId ? "block" : "hidden md:block"} min-w-0 p-4 sm:p-5`}>
+              {(() => {
+                const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
+                if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-400">Household and applicant details will appear here.</p></div></div>;
+                const people = applicantsByCard.get(card.id) || [];
+                return <div>
+                  <div className="mb-5 flex items-start gap-3">
+                    <button type="button" onClick={() => setSelectedCardId("")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 md:hidden">← Back</button>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-[.13em] text-blue-700">Selected Job Card</p>
+                      <h3 className="mt-1 break-all text-lg font-bold text-slate-950">{card.job_card_number}</h3>
+                      <p className="mt-1 text-sm text-slate-600">{card.head_of_household}</p>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
+                  </div>
+                  <div className="mb-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Total applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.length}</p></div>
+                    <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Active applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.filter(person => person.status === "active").length}</p></div>
+                  </div>
+                  <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Applicants</h4><span className="text-[10px] text-slate-400">{people.length} total</span></div>
+                  {people.length > 0 ? <>
+                    <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+                      <table className="w-full min-w-[700px] text-left">
+                        <thead><tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Applicant No.</th><th className="px-3 py-3">Gender / Age</th><th className="px-3 py-3">Caste</th><th className="px-3 py-3">Father / Husband</th><th className="px-3 py-3">Official ID</th><th className="px-3 py-3">Status</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">{people.map(person => <tr key={person.id} className="text-xs text-slate-700"><td className="px-3 py-3 font-semibold text-slate-900">{person.applicant_name}</td><td className="px-3 py-3">{person.applicant_number}</td><td className="px-3 py-3">{person.gender || "—"} / {person.age || "—"}</td><td className="px-3 py-3">{person.caste || "—"}</td><td className="px-3 py-3">{person.father_husband_name || "—"}</td><td className="max-w-[140px] break-all px-3 py-3 font-mono text-[10px]">{person.official_unique_id || "—"}</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span></td></tr>)}</tbody>
+                      </table>
+                    </div>
+                    <div className="divide-y divide-slate-100 md:hidden">{people.map(person => <article key={person.id} className="py-3 first:pt-1">
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">{person.applicant_name}</p><p className="mt-1 text-[10px] text-slate-500">Applicant No. {person.applicant_number}</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span></div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><div><span className="text-slate-400">Gender / Age</span><p>{person.gender || "—"} / {person.age || "—"}</p></div><div><span className="text-slate-400">Caste</span><p>{person.caste || "—"}</p></div><div><span className="text-slate-400">Father / Husband</span><p>{person.father_husband_name || "—"}</p></div></div>
+                      {person.official_unique_id && <p className="mt-2 break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                    </article>)}</div>
+                  </> : <p className="rounded-xl bg-slate-50 p-5 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
+                  {councilId && <WageTransactions councilId={councilId} jobCardNumber={card.job_card_number} />}
+                </div>;
+              })()}
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

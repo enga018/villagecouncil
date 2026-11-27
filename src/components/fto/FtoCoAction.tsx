@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 
 type CoTag = { id: string; name: string; is_archived: boolean };
@@ -63,10 +63,10 @@ function date(value: string | null | undefined) {
 }
 
 export default function FtoCoAction({
-  ftoId, ftoNumber, initialVersion,
-}: { ftoId: string; ftoNumber: string; initialVersion: number }) {
+  ftoId, ftoNumber, initialVersion, embedded = false,
+}: { ftoId: string; ftoNumber: string; initialVersion: number; embedded?: boolean }) {
   const [version, setVersion] = useState(initialVersion);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
   const [data, setData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,24 +91,35 @@ export default function FtoCoAction({
     });
   }, [data]);
 
-  async function load() {
-    setLoading(true);
-    setError("");
+  async function fetchPreview(): Promise<PreviewData> {
     const { data: response, error: invokeError } = await createClient().functions.invoke("council-co-calculation", {
       body: { action: "preview", ftoId },
     });
     if (invokeError || response?.error) {
-      setError(response?.error || invokeError?.message || "Could not load CO calculation details.");
-      setLoading(false);
-      return;
+      throw new Error(response?.error || invokeError?.message || "Could not load CO calculation details.");
     }
-    const result = response as PreviewData;
+    return response as PreviewData;
+  }
+
+  function applyPreview(result: PreviewData) {
     setData(result);
     setDivisor(Number(result.parameters.divisor) || 300);
     setMultiplier(Number(result.parameters.multiplier) || 100);
     setVersion(result.fto.co_calculation_version || 0);
     setSelectedTagId(result.fto.current_co_tag_id || result.suggested_tag_id || "");
-    setLoading(false);
+  }
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await fetchPreview();
+      applyPreview(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load CO calculation details.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function openDialog() {
@@ -119,6 +130,32 @@ export default function FtoCoAction({
     setShowPreview(version === 0);
     await load();
   }
+
+  useEffect(() => {
+    if (!embedded) return;
+    let active = true;
+
+    async function loadEmbeddedPreview() {
+      try {
+        const result = await fetchPreview();
+        if (active) {
+          applyPreview(result);
+          setError("");
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Could not load CO calculation details.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadEmbeddedPreview();
+    return () => { active = false; };
+  // The embedded panel is mounted per selected FTO; load its calculation once.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedded, ftoId]);
 
   async function createTagIfNeeded() {
     if (!newTagName.trim()) return selectedTagId;
@@ -204,25 +241,25 @@ export default function FtoCoAction({
 
   return (
     <>
-      <button type="button" onClick={openDialog}
+      {!embedded && <button type="button" onClick={openDialog}
         className="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-blue-700 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-800 lg:w-auto">
         {version > 0 ? "View CO" : "Calculate CO"}
-      </button>
+      </button>}
 
       {open && (
-        <div className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="co-dialog-title"
-            className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+        <div className={embedded ? "w-full" : "fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"} role={embedded ? undefined : "presentation"}>
+          <section role="dialog" aria-modal={embedded ? "false" : "true"} aria-labelledby="co-dialog-title"
+            className={embedded ? "flex w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white" : "flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl"}>
             <header className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-4 sm:px-6">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-blue-700">FTO CO calculation</p>
                 <h2 id="co-dialog-title" className="mt-1 break-all text-base font-bold text-slate-950">{ftoNumber}</h2>
                 <p className="mt-1 text-xs text-slate-500">{version > 0 ? `Calculation version ${version}` : "Not calculated yet"}</p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close CO calculation" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Close</button>
+              {!embedded && <button type="button" onClick={() => setOpen(false)} aria-label="Close CO calculation" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Close</button>}
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className={embedded ? "p-3 sm:p-4" : "flex-1 overflow-y-auto p-4 sm:p-6"}>
               {loading ? <div className="py-12 text-center text-sm text-slate-500">Loading FTO transactions…</div> : data ? (
                 <div className="space-y-5">
                   {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p>}

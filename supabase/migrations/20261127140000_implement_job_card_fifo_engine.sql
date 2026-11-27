@@ -23,6 +23,7 @@ declare
   v_payment record;
   v_allocation_id uuid;
   v_previous_auto_amount numeric(14,2);
+  v_existing_allocation boolean;
   v_amount numeric(14,2);
   v_allocated_total numeric(14,2) := 0;
   v_released_total numeric(14,2) := 0;
@@ -101,6 +102,9 @@ begin
   if v_fixed_charge_conflict then
     raise exception 'Fixed historical allocations exceed a charge amount. The financial change cannot be applied.';
   end if;
+
+  drop table if exists pg_temp.fifo_work_charges;
+  drop table if exists pg_temp.fifo_work_payments;
 
   create temporary table fifo_work_charges (
     charge_id uuid primary key,
@@ -216,7 +220,8 @@ begin
         and a.allocation_type = 'fifo_auto'
       for update;
 
-      if found then
+      v_existing_allocation := found;
+      if v_existing_allocation then
         update public.council_payment_allocations
         set allocated_amount = v_amount, updated_at = now()
         where id = v_allocation_id;
@@ -229,6 +234,7 @@ begin
           v_amount, 'fifo_auto'
         ) returning id into v_allocation_id;
         v_previous_auto_amount := 0;
+        v_existing_allocation := false;
       end if;
 
       insert into public.council_allocation_events (
@@ -237,7 +243,7 @@ begin
       ) values (
         p_village_council_id, v_run_id, v_allocation_id, v_payment.payment_id, v_charge.charge_id,
         p_job_card_number,
-        case when v_previous_auto_amount > 0 then 'reallocated' else 'allocated' end,
+        case when v_existing_allocation then 'reallocated' else 'allocated' end,
         v_amount, 'fifo_auto',
         coalesce(p_reason, 'Automatic FIFO allocation'), v_actor
       );

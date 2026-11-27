@@ -431,3 +431,39 @@ Do not treat export/download, unconfirmed waiver details, or unresolved form fie
 ## 14. Job Card-specific action pages — confirmed 2026-11-27
 
 The five single-Job-Card financial actions are separate dedicated pages launched from Job Card Contribution Detail: Record Payment, Paid in Full, Waive, Refund and Add Manual/Extra Charge. Do not implement these as modals or inline forms. Carry the selected Job Card context into each page without asking the administrator to re-enter its number. After a successful save, navigate back to that Job Card's Contribution Detail. Record Payment remains available at any balance; Paid in Full and Waive appear only for positive outstanding; Refund appears only for positive overpaid credit; Add Manual/Extra Charge is a Job Card-level action. Single payments use CASH, with amount required and receipt/reference and remarks optional; timestamp and actor are automatic. Paid in Full calculates the current outstanding amount. Waive requires a positive amount not exceeding outstanding and a non-empty reason; one active Council administrator records and approves it. Refund requires selecting a payment belonging to the Job Card, a reason, and an amount within both Job Card overpaid credit and that payment's remaining refundable capacity. Manual/Extra Charge requires description, amount and Tag. Batch Operations remains available separately for bulk payments and bulk Manual/Extra Charges across multiple Job Cards; it is not the destination for these single-entry actions.
+
+
+## 7. Job Card exemptions and exemption list
+
+### 7.1 Purpose and scope
+
+- Exemption is an explicit, administrator-managed status on an individual Job Card. It is not inferred automatically from the Job Card number, area/code, MIS status, missing ledger history or any other attribute.
+- Exemptions are temporary and repeatable. A Job Card may have multiple exemption intervals over time; removing an exemption ends the current interval and does not erase its history.
+- A Job Card exemption blocks the creation of new eligible Regular CO Charges during its effective interval. It does not cancel, waive or invalidate charges that were created before the interval.
+- Exempt Job Cards remain in FTO monitoring and retain their FTO history, imported transactions, historical ledger, payments and allocations. Exemption does not remove source history.
+- Exemption is Job Card-level, while the permanent exemption decision for an individual imported transaction is retained with that transaction/ledger record. Both levels must be respected when determining Contribution eligibility.
+
+### 7.2 Effective dates and transaction eligibility
+
+- Each Job Card exemption interval has an effective start date. The start date is configurable per Job Card; the accepted default for initial setup is **1 July 2026**.
+- Future imported transactions must automatically be evaluated against the stored exemption interval for that Job Card. Do not require administrators to mark each future transaction manually.
+- Transactions first imported while the Job Card is exempt receive a permanent Exempt mark and remain ineligible for Regular CO Charges even if the Job Card exemption is later removed.
+- Transactions imported before the exemption interval remain eligible according to their saved calculation/status and any charges already created remain valid and payable.
+- Removing an exemption ends the current interval. It does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions imported after the exemption ends.
+- Transactions that become eligible after removal may be charged through that new calculation cycle. Transactions first imported during the exemption interval remain permanently excluded.
+- Exemption does not block recording payments against the Job Card. Existing outstanding charges remain payable, and payments continue to allocate through the normal Job Card-level FIFO process, including for Inactive or Deleted Job Cards.
+
+### 7.3 Add/remove controls and audit history
+
+- Adding an exemption requires a non-empty reason. Removing an exemption also requires a non-empty reason.
+- Record the administrator, action (add or remove), reason and timestamp automatically for every change.
+- Preserve every exemption interval and every add/remove event permanently in audit history. Never overwrite or delete a previous interval when a Job Card is exempted again.
+- Exemption management is administrator-only.
+- The initial exemption data setup is to import the **20 already identified active exemptions**. This is a bootstrap requirement; it does not mean the management UI has been implemented.
+
+### 7.4 Exemption list UI — deferred details
+
+- A dedicated exemption list/management capability is required so administrators can review current exemptions and manage additions/removals.
+- The exemption-list UI and add/remove management were explicitly deferred while the initial 20 active exemptions are imported.
+- The exact navigation entry point, list columns, filters, search behavior and add/remove screen design remain open. Do not invent or implement these UI details until they are agreed.
+- When designed, the list must make the per-Job-Card effective start date and current exemption state reviewable, while preserving access to the permanent interval/audit history.

@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(42);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -33,6 +33,17 @@ select ok(to_regprocedure('public.refund_council_job_card_payment(uuid,uuid,nume
 select ok(to_regprocedure('public.record_council_job_card_waiver(uuid,text,numeric,text,uuid)') is not null, 'waiver RPC exists');
 select ok(to_regprocedure('public.preview_council_bulk_payment_batch(uuid,text)') is not null, 'bulk payment preview RPC exists');
 select ok(to_regprocedure('public.record_council_bulk_payment_batch(uuid,text,jsonb,uuid)') is not null, 'all-or-nothing bulk payment confirmation RPC exists');
+
+-- Shared Batch Operations metadata and Manual/Extra Charge batch support.
+select ok(to_regclass('public.council_manual_charge_batches') is not null, 'manual charge batch table exists');
+select ok((select relrowsecurity from pg_class where oid = 'public.council_manual_charge_batches'::regclass), 'manual charge batches have RLS enabled');
+select ok(exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_payment_batches' and column_name='tag_id'), 'payment batches store their selected Tag');
+select ok(exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_payments' and column_name='tag_id'), 'individual payments retain their batch Tag');
+select ok(exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_contribution_charges' and column_name='tag_id'), 'manual charges store their selected Tag');
+select ok(to_regprocedure('public.preview_council_bulk_payment_batch(uuid,uuid,text)') is not null, 'tag-aware payment preview RPC exists');
+select ok(to_regprocedure('public.preview_council_bulk_manual_charge_batch(uuid,uuid,text)') is not null, 'manual charge preview RPC exists');
+select ok(to_regprocedure('public.record_council_bulk_manual_charge_batch(uuid,uuid,jsonb,uuid)') is not null, 'all-or-nothing manual charge batch confirmation RPC exists');
+select ok(to_regprocedure('public.record_council_bulk_payment_batch(uuid,text,uuid,jsonb,uuid)') is not null, 'tag-aware payment batch confirmation RPC exists');
 
 -- Tenant boundaries and immutable history are enforced in the database.
 select ok((select relrowsecurity from pg_class where oid = 'public.council_contribution_charges'::regclass), 'charge ledger has RLS enabled');

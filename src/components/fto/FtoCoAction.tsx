@@ -91,24 +91,35 @@ export default function FtoCoAction({
     });
   }, [data]);
 
-  async function load() {
-    setLoading(true);
-    setError("");
+  async function fetchPreview(): Promise<PreviewData> {
     const { data: response, error: invokeError } = await createClient().functions.invoke("council-co-calculation", {
       body: { action: "preview", ftoId },
     });
     if (invokeError || response?.error) {
-      setError(response?.error || invokeError?.message || "Could not load CO calculation details.");
-      setLoading(false);
-      return;
+      throw new Error(response?.error || invokeError?.message || "Could not load CO calculation details.");
     }
-    const result = response as PreviewData;
+    return response as PreviewData;
+  }
+
+  function applyPreview(result: PreviewData) {
     setData(result);
     setDivisor(Number(result.parameters.divisor) || 300);
     setMultiplier(Number(result.parameters.multiplier) || 100);
     setVersion(result.fto.co_calculation_version || 0);
     setSelectedTagId(result.fto.current_co_tag_id || result.suggested_tag_id || "");
-    setLoading(false);
+  }
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await fetchPreview();
+      applyPreview(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load CO calculation details.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function openDialog() {
@@ -121,7 +132,27 @@ export default function FtoCoAction({
   }
 
   useEffect(() => {
-    if (embedded) void load();
+    if (!embedded) return;
+    let active = true;
+
+    async function loadEmbeddedPreview() {
+      try {
+        const result = await fetchPreview();
+        if (active) {
+          applyPreview(result);
+          setError("");
+        }
+      } catch (err) {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Could not load CO calculation details.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadEmbeddedPreview();
+    return () => { active = false; };
   // The embedded panel is mounted per selected FTO; load its calculation once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embedded, ftoId]);

@@ -149,7 +149,7 @@ begin
   insert into pg_temp.fifo_work_payments (payment_id, remaining, paid_at, tie_breaker)
   select
     p.id,
-    greatest(0, p.amount - coalesce(refunds.amount, 0) - coalesce(fixed.amount, 0)),
+    greatest(0, p.amount - coalesce(fixed.amount, 0)),
     p.paid_at,
     p.id
   from public.council_payments p
@@ -160,12 +160,6 @@ begin
       and a.payment_id = p.id
       and a.allocation_type = 'historical_fifo_reviewed'
   ) fixed on true
-  left join lateral (
-    select sum(r.amount) as amount
-    from public.council_payment_refunds r
-    where r.village_council_id = p.village_council_id
-      and r.payment_id = p.id
-  ) refunds on true
   where p.village_council_id = p_village_council_id
     and p.job_card_number = p_job_card_number
     and p.amount > 0;

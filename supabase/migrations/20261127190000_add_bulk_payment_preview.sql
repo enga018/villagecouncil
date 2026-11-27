@@ -39,7 +39,7 @@ begin
     select
       ordinality::integer as line_number,
       btrim(line_text) as original_line
-    from regexp_split_to_table(p_pasted_lines, E'\\r?\\n') with ordinality as t(line_text, ordinality)
+    from regexp_split_to_table(p_pasted_lines, E'\\\\r?\\\\n') with ordinality as t(line_text, ordinality)
     where length(btrim(line_text)) > 0
   ),
   parsed as (
@@ -47,21 +47,23 @@ begin
       r.line_number,
       r.original_line,
       case
-        when r.original_line ~ '^\s*[^,]+\s*,\s*[0-9]+([.][0-9]{1,2})?\s*$'
+        when length(r.original_line) - length(replace(r.original_line, ',', '')) = 1
         then btrim(split_part(r.original_line, ',', 1))
         else null
       end as job_card_number,
       case
-        when r.original_line ~ '^\s*[^,]+\s*,\s*[0-9]+([.][0-9]{1,2})?\s*$'
-        then btrim(split_part(r.original_line, ',', 2))::numeric(14,2)
+        when length(r.original_line) - length(replace(r.original_line, ',', '')) = 1
+        then btrim(split_part(r.original_line, ',', 2))
         else null
-      end as amount
+      end as amount_text
     from raw_lines r
   ),
   evaluated as (
     select
       p.*,
-      count(*) filter (where p.job_card_number is not null)
+      case when p.amount_text ~ '^[0-9]+([.][0-9]{1,2})?$'
+        then p.amount_text::numeric(14,2) else null end as amount,
+      count(*) filter (where p.job_card_number is not null and p.job_card_number <> '')
         over (partition by p.job_card_number) as duplicate_count,
       exists (
         select 1
@@ -76,8 +78,10 @@ begin
       e.*,
       case
         when e.job_card_number is null then 'invalid_format'
+        when e.job_card_number = '' then 'missing_job_card'
         when e.duplicate_count > 1 then 'duplicate_job_card'
         when not e.job_card_exists then 'job_card_not_found'
+        when e.amount_text is null or e.amount_text = '' then 'missing_amount'
         when e.amount is null or e.amount <= 0 then 'invalid_amount'
         else 'valid'
       end as status
@@ -100,6 +104,8 @@ begin
             when 'invalid_format' then 'Use JOB-CARD-NUMBER, AMOUNT.'
             when 'duplicate_job_card' then 'This Job Card appears more than once in the pasted batch.'
             when 'job_card_not_found' then 'Job Card was not found in this Village Council.'
+            when 'missing_job_card' then 'Enter a Job Card Number before the comma.'
+            when 'missing_amount' then 'Enter an amount after the comma.'
             when 'invalid_amount' then 'Amount must be a positive number with no more than two decimal places.'
             else null
           end

@@ -60,7 +60,7 @@ export default function BatchOperationsPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagId, setTagId] = useState("");
-  const [method, setMethod] = useState<"cash" | "bank">("cash");
+  const [description, setDescription] = useState("");
   const [pasted, setPasted] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -137,8 +137,12 @@ export default function BatchOperationsPage() {
   }
 
   async function runPreview() {
-    if (!councilId || (operation === "manual_charge" && !tagId) || !pasted.trim()) {
-      setError(operation === "manual_charge" ? "Choose a Tag and paste at least one line." : "Paste at least one line.");
+    if (!councilId || (operation === "manual_charge" && (!tagId || !description.trim())) || !pasted.trim()) {
+      setError(operation === "manual_charge" ? "Choose a Tag, enter a description, and paste at least one line." : "Paste at least one line.");
+      return;
+    }
+    if (operation === "manual_charge" && description.includes(",")) {
+      setError("The shared description cannot contain a comma.");
       return;
     }
     setPreviewing(true);
@@ -148,9 +152,15 @@ export default function BatchOperationsPage() {
       const rpc = operation === "payment"
         ? "preview_council_bulk_payment_batch"
         : "preview_council_bulk_manual_charge_batch";
+      const manualLines = operation === "manual_charge"
+        ? pasted.split(/\r?\n/).map(line => {
+            const parts = line.split(",");
+            return parts.length === 2 ? `${parts[0].trim()}, ${description.trim()}, ${parts[1].trim()}` : `${line}, ${description.trim()}`;
+          }).join("\n")
+        : pasted;
       const args = operation === "payment"
         ? { p_village_council_id: councilId, p_pasted_lines: pasted }
-        : { p_village_council_id: councilId, p_tag_id: tagId, p_pasted_lines: pasted };
+        : { p_village_council_id: councilId, p_tag_id: tagId, p_pasted_lines: manualLines };
       const { data, error: rpcError } = await supabase.rpc(rpc, args);
       if (rpcError) throw rpcError;
       setPreview(data as Preview);
@@ -183,7 +193,7 @@ export default function BatchOperationsPage() {
       const args = operation === "payment"
         ? {
             p_village_council_id: councilId,
-            p_payment_method: method,
+            p_payment_method: "bank",
             p_lines: lines,
             p_idempotency_key: requestKey,
           }
@@ -199,6 +209,7 @@ export default function BatchOperationsPage() {
       setLastFifo(Array.isArray(result.fifo) ? result.fifo : []);
       setNotice(`Batch ${result.batch_reference || "recorded"} saved: ${result.line_count || lines.length} record(s), ${money(result.total_amount ?? preview.valid_total)}.${result.duplicate_request ? " This was an idempotent retry; no duplicate records were created." : ""}`);
       setPasted("");
+      setDescription("");
       setPreview(null);
       setIdempotencyKey("");
       try {
@@ -355,24 +366,20 @@ export default function BatchOperationsPage() {
           )}
         </div>
 
-        {operation === "payment" && (
-          <fieldset className="mt-5">
-            <legend className="mb-2 text-xs font-semibold text-slate-700">Payment method</legend>
-            <div className="flex gap-2">
-              {(["cash", "bank"] as const).map(value => (
-                <button type="button" key={value} onClick={() => { setMethod(value); resetPreview(); }}
-                  className={`min-h-10 rounded-xl border px-5 text-xs font-semibold uppercase ${method === value ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}>
-                  {value}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+        {operation === "manual_charge" && (
+          <label className="mt-5 block">
+            <span className="mb-2 block text-xs font-semibold text-slate-700">Description</span>
+            <input value={description} onChange={event => { setDescription(event.target.value); resetPreview(); }}
+              placeholder="e.g. Registration correction" maxLength={200}
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
+            <span className="mt-1 block text-[10px] text-slate-500">This description will apply to every charge in the batch.</span>
+          </label>
         )}
 
         <div className="mt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label htmlFor="batch-lines" className="text-xs font-semibold text-slate-700">Paste records</label>
-            <span className="text-[10px] text-slate-500">{operation === "payment" ? "JOB-CARD-NUMBER, AMOUNT" : "JOB-CARD-NUMBER, DESCRIPTION, AMOUNT"}</span>
+            <span className="text-[10px] text-slate-500">{operation === "payment" ? "JOB-CARD-NUMBER, AMOUNT · BANK" : "JOB-CARD-NUMBER, AMOUNT"}</span>
           </div>
           <textarea id="batch-lines" value={pasted} onChange={event => { setPasted(event.target.value); resetPreview(); }}
             rows={8} spellCheck={false}
@@ -382,11 +389,11 @@ export default function BatchOperationsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || (operation === "manual_charge" && !tagId) || !pasted.trim()}
+          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || (operation === "manual_charge" && (!tagId || !description.trim())) || !pasted.trim()}
             className="min-h-11 rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
             {previewing ? "Validating…" : "Preview batch"}
           </button>
-          <button type="button" onClick={() => { setPasted(""); resetPreview(); setError(""); }}
+          <button type="button" onClick={() => { setPasted(""); setDescription(""); resetPreview(); setError(""); }}
             className="min-h-11 rounded-xl border border-slate-200 px-5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Clear</button>
         </div>
       </section>
@@ -394,7 +401,7 @@ export default function BatchOperationsPage() {
       {preview && (
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">{operation === "payment" ? `Payment method: ${method.toUpperCase()}` : `Tag: ${selectedTag}`}</p></div>
+            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">{operation === "payment" ? "Payment method: BANK" : `Tag: ${selectedTag} · ${description}`}</p></div>
             <div className="text-right"><p className="text-xl font-bold tabular-nums text-slate-950">{money(preview.valid_total)}</p><p className="text-[10px] text-slate-500">Valid line total</p></div>
           </div>
           <div className="grid grid-cols-3 gap-2">

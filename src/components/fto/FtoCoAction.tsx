@@ -186,7 +186,7 @@ export default function FtoCoAction({
 
   const activeTags = data?.tags.filter(tag => !tag.is_archived) || [];
   const isRecalculation = version > 0;
-  const currentTagName = data?.tags.find(tag => tag.id === data.fto.current_co_tag_id)?.name || "Unassigned";
+  const currentTagName = data?.tags.find(tag => tag.id === data?.fto.current_co_tag_id)?.name || "Unassigned";
   const proposedTagName = newTagName.trim() || data?.tags.find(tag => tag.id === selectedTagId)?.name || "Select a tag";
   const tagChangePending = Boolean(newTagName.trim() || (selectedTagId && selectedTagId !== data?.fto.current_co_tag_id));
   const rowsToShow = showPreview ? data?.rows || [] : savedRows;
@@ -399,7 +399,7 @@ export default function FtoCoAction({
 
                   {showPreview && !confirm && (
                     <div className="flex flex-wrap justify-between gap-2">
-                      {isRecalculation && <button type="button" onClick={() => setShowPreview(false)} className="min-h-10 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancel preview</button>}
+                      {isRecalculation && <button type="button" onClick={() => { setShowPreview(false); setConfirmTagChange(false); }} className="min-h-10 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-50">Cancel preview</button>}
                       <button type="button" onClick={() => setConfirm(true)} disabled={!selectedTagId && !newTagName.trim()}
                         className="ml-auto min-h-10 rounded-xl bg-slate-950 px-5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40">
                         Review and confirm
@@ -427,7 +427,7 @@ export default function FtoCoAction({
 
                   {!showPreview && version > 0 && (
                     <div className="flex justify-end">
-                      <button type="button" onClick={() => { setShowPreview(true); setConfirm(false); setError(""); setNotice(""); }}
+                      <button type="button" onClick={() => { setShowPreview(true); setConfirm(false); setConfirmTagChange(false); setError(""); setNotice(""); }}
                         className="min-h-10 rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800">Recalculate CO</button>
                     </div>
                   )}

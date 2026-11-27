@@ -448,6 +448,7 @@ export default function BatchOperationsPage() {
                 <span className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</span><span className="text-[10px] font-semibold text-blue-700">{detailLoading === item.id ? "Loading…" : expandedBatch === item.id ? "Hide details ↑" : "View details ↓"}</span></span>
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+                {item.kind === "manual_charge" && <div className="border-b border-slate-200 bg-slate-50 px-3 py-3 sm:px-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tag</p><p className="mt-1 text-sm font-semibold text-slate-900">{tags.find(tag => tag.id === item.tag_id)?.name || "—"}</p></div>}
                 {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
                   : <>
                     <div className="divide-y divide-slate-100 sm:hidden">

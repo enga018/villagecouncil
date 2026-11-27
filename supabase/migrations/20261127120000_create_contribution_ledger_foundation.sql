@@ -253,11 +253,7 @@ create or replace function public.prevent_financial_history_mutation()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
-begin
-  raise exception 'Financial history records cannot be updated or deleted.';
-end;
-$;
+as $history_guard$\nbegin\n  raise exception 'Financial history records cannot be updated or deleted.';\nend;\n$history_guard$;
 
 create trigger council_charge_revisions_immutable
 before update or delete on public.council_contribution_charge_revisions

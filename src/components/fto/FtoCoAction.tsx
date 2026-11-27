@@ -74,10 +74,13 @@ export default function FtoCoAction({
   const [notice, setNotice] = useState("");
   const [showPreview, setShowPreview] = useState(initialVersion === 0);
   const [confirm, setConfirm] = useState(false);
+  const [confirmTagChange, setConfirmTagChange] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState("");
   const [divisor, setDivisor] = useState(300);
   const [multiplier, setMultiplier] = useState(100);
   const [newTagName, setNewTagName] = useState("");
+
+  const previousItemsById = useMemo(() => new Map((data?.latest_items || []).map(item => [item.fto_transaction_id, item])), [data]);
 
   const savedRows = useMemo(() => {
     if (!data) return [];
@@ -111,6 +114,7 @@ export default function FtoCoAction({
   async function openDialog() {
     setOpen(true);
     setConfirm(false);
+    setConfirmTagChange(false);
     setNotice("");
     setShowPreview(version === 0);
     await load();
@@ -140,6 +144,7 @@ export default function FtoCoAction({
       });
       if (invokeError || response?.error) throw new Error(response?.error || invokeError?.message || "Could not update the FTO tag.");
       setNotice("FTO tag updated. CO amounts and calculation history were not changed.");
+      setConfirmTagChange(false);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update the FTO tag.");
@@ -181,11 +186,15 @@ export default function FtoCoAction({
 
   const activeTags = data?.tags.filter(tag => !tag.is_archived) || [];
   const isRecalculation = version > 0;
+  const currentTagName = data?.tags.find(tag => tag.id === data.fto.current_co_tag_id)?.name || "Unassigned";
+  const proposedTagName = newTagName.trim() || data?.tags.find(tag => tag.id === selectedTagId)?.name || "Select a tag";
+  const tagChangePending = Boolean(newTagName.trim() || (selectedTagId && selectedTagId !== data?.fto.current_co_tag_id));
   const rowsToShow = showPreview ? data?.rows || [] : savedRows;
   const previewRows = useMemo(() => (data?.rows || []).map(row => ({
     ...row,
     co_amount: Math.round(((Number(row.credit_amount) / divisor) * multiplier + Number.EPSILON) * 100) / 100,
-  })), [data, divisor, multiplier]);
+    previous_co_amount: previousItemsById.get(row.id)?.co_amount ?? null,
+  })), [data, divisor, multiplier, previousItemsById]);
   const previewTotalCo = previewRows.reduce((sum, row) => sum + row.co_amount, 0);
   const formulaDivisor = showPreview ? divisor : data?.latest_calculation?.divisor;
   const formulaMultiplier = showPreview ? multiplier : data?.latest_calculation?.multiplier;
@@ -247,11 +256,26 @@ export default function FtoCoAction({
                       </select>
                       <input value={newTagName} onChange={event => setNewTagName(event.target.value)} placeholder="Or create a new tag"
                         className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-50"/>
-                      {!showPreview && <button type="button" onClick={saveTag} disabled={saving || (!newTagName.trim() && (!selectedTagId || selectedTagId === data.fto.current_co_tag_id))}
+                      {!showPreview && <button type="button" onClick={() => setConfirmTagChange(true)} disabled={saving || !tagChangePending}
                         className="min-h-11 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Save tag</button>}
                     </div>
-                    {!showPreview && newTagName.trim() && <p className="mt-2 text-[10px] text-slate-500">Save tag will create this tag and assign it to the FTO without recalculating CO.</p>}
+                    {!showPreview && newTagName.trim() && <p className="mt-2 text-[10px] text-slate-500">A new tag will be created only after you confirm the change.</p>}
                   </div>
+
+                  {!showPreview && confirmTagChange && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-bold text-amber-950">Review FTO tag change</p>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div><p className="text-[10px] text-amber-800">Current tag</p><p className="mt-1 break-words text-sm font-bold text-amber-950">{currentTagName}</p></div>
+                        <div><p className="text-[10px] text-amber-800">Proposed tag</p><p className="mt-1 break-words text-sm font-bold text-amber-950">{proposedTagName}</p></div>
+                      </div>
+                      <p className="mt-2 text-[11px] leading-5 text-amber-900">This changes the FTO grouping only. CO amounts and saved calculation history will remain unchanged.</p>
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button type="button" onClick={() => setConfirmTagChange(false)} disabled={saving} className="min-h-10 rounded-xl border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-950">Cancel</button>
+                        <button type="button" onClick={saveTag} disabled={saving} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm tag change"}</button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {[
@@ -263,6 +287,27 @@ export default function FtoCoAction({
                       <p className="text-[10px] text-slate-500">{label}</p><p className="mt-1 text-sm font-bold tabular-nums text-slate-900">{value}</p>
                     </div>)}
                   </div>
+
+                  {showPreview && isRecalculation && data.latest_calculation && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-4">
+                      <p className="text-xs font-bold text-slate-900">Previous calculation vs proposed calculation</p>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Saved · Version {data.latest_calculation.version}</p>
+                          <p className="mt-2 text-lg font-bold tabular-nums text-slate-950">{money(data.latest_calculation.total_co_amount)}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">Divisor {data.latest_calculation.divisor} · Multiplier {data.latest_calculation.multiplier}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">Tag: {currentTagName}</p>
+                        </div>
+                        <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-800">Proposed · Version {data.latest_calculation.version + 1}</p>
+                          <p className="mt-2 text-lg font-bold tabular-nums text-blue-950">{money(previewTotalCo)}</p>
+                          <p className="mt-1 text-[10px] text-blue-800">Divisor {divisor} · Multiplier {multiplier}</p>
+                          <p className="mt-1 text-[10px] text-blue-800">Tag: {proposedTagName}</p>
+                        </div>
+                      </div>
+                      <p className="mt-3 text-xs font-semibold text-slate-900">Total CO difference: {money(Math.round((previewTotalCo - Number(data.latest_calculation.total_co_amount)) * 100) / 100)}</p>
+                    </div>
+                  )}
 
                   {showPreview && (
                     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
@@ -290,13 +335,17 @@ export default function FtoCoAction({
                     <div className="hidden overflow-x-auto md:block">
                       <table className="min-w-[760px] w-full divide-y divide-slate-200 text-xs">
                         <thead className="bg-white text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
-                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th><th className="px-3 py-3">CO Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
+                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
                           {showPreview ? previewRows.map(row => <tr key={row.id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
-                            <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
+                            {isRecalculation ? <>
+                              <td className="px-3 py-3 tabular-nums text-slate-600">{row.previous_co_amount == null ? "New" : money(row.previous_co_amount)}</td>
+                              <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
+                              <td className="px-3 py-3 tabular-nums font-semibold text-slate-700">{row.previous_co_amount == null ? "—" : money(Math.round((Number(row.co_amount) - Number(row.previous_co_amount)) * 100) / 100)}</td>
+                            </> : <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>}
                             <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.normalized_status)}`}>{statusLabel(row.normalized_status)}</span></td>
                             <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Non-exempt</span>}</td>
                           </tr>) : savedRows.map(row => <tr key={row.fto_transaction_id}>
@@ -323,7 +372,9 @@ export default function FtoCoAction({
                           </div>
                           <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3">
                             <div><p className="text-[10px] text-slate-500">Credit Amount</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(row.credit_amount)}</p></div>
-                            <div><p className="text-[10px] text-slate-500">CO Amount</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
+                            {isRecalculation && <div><p className="text-[10px] text-slate-500">Previous CO</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{row.previous_co_amount == null ? "New" : money(row.previous_co_amount)}</p></div>}
+                            <div><p className="text-[10px] text-slate-500">{isRecalculation ? "Proposed CO" : "CO Amount"}</p><p className="mt-1 text-xs font-bold tabular-nums text-slate-950">{money(row.co_amount)}</p></div>
+                            {isRecalculation && row.previous_co_amount != null && <div><p className="text-[10px] text-slate-500">Difference</p><p className="mt-1 text-xs font-semibold tabular-nums text-slate-800">{money(Math.round((Number(row.co_amount) - Number(row.previous_co_amount)) * 100) / 100)}</p></div>}
                           </div>
                           <p className={`text-[11px] font-semibold ${row.is_exempt ? "text-amber-700" : "text-emerald-700"}`}>{row.is_exempt ? "Exempt from Contribution" : "Non-exempt · Contribution applicable"}</p>
                         </article>
@@ -366,7 +417,7 @@ export default function FtoCoAction({
                         <div><p className="text-[10px] text-amber-800">Exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.exempt_count}</p></div>
                         <div><p className="text-[10px] text-amber-800">Non-exempt</p><p className="mt-1 text-sm font-bold text-amber-950">{data.summary.chargeable_count}</p></div>
                       </div>
-                      <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {divisor}, multiplier {multiplier}. Tag: {activeTags.find(tag => tag.id === selectedTagId)?.name || newTagName.trim()}.</p>
+                      <p className="mt-3 text-[10px] text-amber-900">Formula: divisor {divisor}, multiplier {multiplier}. Current tag: {currentTagName}. Proposed tag: {proposedTagName}.</p>
                       <div className="mt-4 flex flex-wrap justify-end gap-2">
                         <button type="button" onClick={() => setConfirm(false)} disabled={saving} className="min-h-10 rounded-xl border border-amber-300 bg-white px-4 text-xs font-semibold text-amber-950">Back</button>
                         <button type="button" onClick={applyCalculation} disabled={saving} className="min-h-10 rounded-xl bg-amber-900 px-4 text-xs font-semibold text-white disabled:opacity-50">{saving ? "Saving…" : "Confirm and save"}</button>

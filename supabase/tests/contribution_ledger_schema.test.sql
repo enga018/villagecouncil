@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(45);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -76,6 +76,18 @@ select ok(not has_table_privilege('authenticated', 'public.council_payments', 'I
 select ok(not has_table_privilege('authenticated', 'public.council_payment_allocations', 'UPDATE'), 'authenticated role cannot edit allocations directly');
 select ok(not has_function_privilege('authenticated', 'public.sync_council_regular_co_charge(uuid,uuid,text,uuid)', 'EXECUTE'), 'authenticated role cannot call internal CO sync helper');
 select ok(not has_function_privilege('authenticated', 'public.create_council_manual_charge(uuid,text,text,numeric,uuid)', 'EXECUTE'), 'authenticated role must use the shared batch flow for manual charges');
+
+
+-- Regular CO FIFO chronology follows Government Processed Date, with the
+-- transaction date retained only as a fallback for legacy rows.
+select ok(
+  position('tx.processed_date::timestamp' in pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)) > 0,
+  'FIFO uses FTO Processed Date for the current regular CO charge'
+);
+select ok(
+  position('older_tx.processed_date::timestamp' in pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)) > 0,
+  'FIFO prior-charge comparison also uses FTO Processed Date'
+);
 
 select * from finish();
 rollback;

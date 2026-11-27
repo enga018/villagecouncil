@@ -228,9 +228,9 @@ begin
   select t.job_card_number, c.created_by
   into v_job_card_number, v_actor_id
   from public.council_fto_transactions t
-  join public.council_ftos f
+  left join public.council_ftos f
     on f.id = t.fto_id and f.village_council_id = t.village_council_id
-  join public.council_fto_co_calculations c
+  left join public.council_fto_co_calculations c
     on c.id = f.latest_co_calculation_id and c.village_council_id = f.village_council_id
   where t.id = new.fto_transaction_id and t.village_council_id = new.village_council_id;
 

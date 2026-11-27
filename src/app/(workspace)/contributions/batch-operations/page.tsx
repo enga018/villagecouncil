@@ -22,7 +22,7 @@ type Preview = {
   valid_total: number;
   lines: PreviewLine[];
 };
-type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean };
+type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; unallocated_amount?: number };\ntype FifoResult = { success: boolean; job_card_number: string; released_amount: number; allocated_amount: number; allocation_count: number };
 type HistoryItem = {
   id: string;
   batch_reference: string;
@@ -57,7 +57,7 @@ export default function BatchOperationsPage() {
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState("");\n  const [lastFifo, setLastFifo] = useState<FifoResult[]>([]);
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [expandedBatch, setExpandedBatch] = useState("");
   const [batchDetails, setBatchDetails] = useState<Record<string, BatchDetail[]>>({});
@@ -260,7 +260,7 @@ export default function BatchOperationsPage() {
       </header>
 
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</p>}
-      {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>}
+      {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"><p>{notice}</p>{lastFifo.length > 0 && <div className="mt-3 border-t border-emerald-200 pt-3"><p className="text-xs font-bold">FIFO allocation results</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{lastFifo.map(row => <div key={row.job_card_number} className="rounded-lg bg-white/70 px-3 py-2 text-xs"><p className="font-semibold">{row.job_card_number}</p><p className="mt-1 text-emerald-800">Allocated {money(row.allocated_amount)} · {row.allocation_count} allocation(s)</p>{row.released_amount > 0 && <p className="text-slate-600">Previous automatic allocation released: {money(row.released_amount)}</p>}</div>)}</div></div>}</div>}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
         <div className="grid gap-4 md:grid-cols-2">
@@ -370,7 +370,7 @@ export default function BatchOperationsPage() {
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
                 {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
-                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">Amount</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
+                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-right">Allocated</th><th className="px-3 py-2 text-right">{item.kind === "payment" ? "Unallocated credit" : "Outstanding"}</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td><td className="px-3 py-2 text-right tabular-nums">{money(line.allocated_amount || 0)}</td><td className="px-3 py-2 text-right tabular-nums">{money(line.unallocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
               </div>}
             </div>)}
           </div>}

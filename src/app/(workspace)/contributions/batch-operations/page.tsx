@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type Operation = "payment" | "manual_charge";
@@ -45,8 +44,7 @@ function errorMessage(error: unknown) {
 }
 
 export default function BatchOperationsPage() {
-  const searchParams = useSearchParams();
-  const [operation, setOperation] = useState<Operation>(searchParams.get("operation") === "manual_charge" ? "manual_charge" : "payment");
+  const [operation, setOperation] = useState<Operation>("payment");
   const [councilId, setCouncilId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagId, setTagId] = useState("");
@@ -81,6 +79,11 @@ export default function BatchOperationsPage() {
     combined.sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
     setHistory(combined.slice(0, 30));
   }
+
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("operation");
+    if (requested === "manual_charge") setOperation("manual_charge");
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -237,7 +240,7 @@ export default function BatchOperationsPage() {
             <legend className="mb-2 text-xs font-semibold text-slate-700">Payment method</legend>
             <div className="flex gap-2">
               {(["cash", "bank"] as const).map(value => (
-                <button type="button" key={value} onClick={() => setMethod(value)}
+                <button type="button" key={value} onClick={() => { setMethod(value); resetPreview(); }}
                   className={`min-h-10 rounded-xl border px-5 text-xs font-semibold uppercase ${method === value ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}>
                   {value}
                 </button>

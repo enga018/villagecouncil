@@ -38,7 +38,8 @@ begin
 
   if p_trigger_type not in (
     'payment_created', 'payment_corrected', 'charge_created', 'charge_corrected',
-    'charge_reversed', 'charge_reinstated', 'co_recalculation', 'waiver', 'refund',
+    'charge_reversed', 'charge_reinstated', 'co_recalculation', 'government_status',
+    'permanent_exempt_mark', 'waiver', 'refund',
     'historical_import', 'manual_reconciliation'
   ) then
     raise exception 'Unsupported FIFO trigger type.';

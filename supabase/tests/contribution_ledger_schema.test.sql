@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(43);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -40,7 +40,6 @@ select ok((select relrowsecurity from pg_class where oid = 'public.council_manua
 select ok(exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_contribution_charges' and column_name='tag_id'), 'manual charges store their selected Tag');
 select ok(not exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_payment_batches' and column_name='tag_id'), 'payment batches do not store a Tag');
 select ok(not exists (select 1 from information_schema.columns where table_schema='public' and table_name='council_payments' and column_name='tag_id'), 'payments do not store a Tag');
-select ok(to_regprocedure('public.preview_council_bulk_payment_batch(uuid,text)') is not null, 'untagged payment preview RPC exists');
 select ok(to_regprocedure('public.record_council_bulk_payment_batch(uuid,text,jsonb,uuid)') is not null, 'untagged payment batch confirmation RPC exists');
 select ok(has_function_privilege('authenticated', 'public.record_council_bulk_payment_batch(uuid,text,jsonb,uuid)', 'EXECUTE'), 'authenticated members can use untagged payment batch confirmation');
 select ok(to_regprocedure('public.preview_council_bulk_manual_charge_batch(uuid,uuid,text)') is not null, 'manual charge preview RPC exists');

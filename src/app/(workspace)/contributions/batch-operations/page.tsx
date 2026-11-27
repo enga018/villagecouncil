@@ -457,7 +457,6 @@ export default function BatchOperationsPage() {
                           {item.kind === "payment" && <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold uppercase text-blue-700">{line.payment_method || item.payment_method || "BANK"}</span>}
                           {item.kind === "manual_charge" && line.is_active === false && <span className="shrink-0 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">Reversed</span>}
                         </div>
-                        {item.kind === "manual_charge" && <p className="text-xs text-slate-600">{line.description || "—"}</p>}
                         <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-slate-50 p-3">
                           <div><p className="text-[10px] text-slate-500">{item.kind === "payment" ? "Paid" : "Current amount"}</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(line.amount)}</p></div>
                           {item.kind === "payment" && <div><p className="text-[10px] text-slate-500">Refunded</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(line.refunded_amount || 0)}</p></div>}
@@ -468,8 +467,8 @@ export default function BatchOperationsPage() {
                     </div>
                     <div className="hidden overflow-x-auto sm:block">
                       <table className="w-full min-w-[560px] text-left text-xs">
-                        <thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-3">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-3">Description</th>}<th className="px-3 py-3 text-right">{item.kind === "payment" ? "Paid" : "Current amount"}</th>{item.kind === "payment" && <><th className="px-3 py-3 text-right">Refunded</th><th className="px-3 py-3 text-right">Net payment</th></>}<th className="px-3 py-3 text-right">Currently allocated</th>{item.kind === "payment" && <th className="px-3 py-3">Method</th>}</tr></thead>
-                        <tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-3 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-3 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-3 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <><td className="px-3 py-3 text-right tabular-nums">{money(line.refunded_amount || 0)}</td><td className="px-3 py-3 text-right tabular-nums">{money(Number(line.amount) - (line.refunded_amount || 0))}</td></>}<td className="px-3 py-3 text-right tabular-nums">{money(line.allocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-3 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody>
+                        <thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-3">Job Card</th><th className="px-3 py-3 text-right">{item.kind === "payment" ? "Paid Amount" : "Charge Amount"}</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-3 font-semibold">{line.job_card_number}{item.kind === "manual_charge" && line.is_active === false ? " · Reversed" : ""}</td><td className="px-3 py-3 text-right tabular-nums">{money(line.amount)}</td></tr>)}</tbody>
                       </table>
                     </div>
                   </>}

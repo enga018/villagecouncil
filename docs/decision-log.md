@@ -137,7 +137,7 @@ Reinstatement is explicit, requires a reason, and is allowed only if the source 
 Payments can be recorded even with no current outstanding charges. The unallocated balance remains available for future charges. Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards; this does not make those Job Cards eligible for new charges.
 
 FIFO priority:
-1. Oldest outstanding Tag first.
+1. Oldest eligible outstanding charge first across the Job Card, regardless of Tag.
 2. Oldest available payment first.
 3. Partial allocations.
 4. Unallocated balances remain available.
@@ -228,7 +228,7 @@ These decisions were confirmed during the payment-ledger architecture review and
 5. **Allocation persistence:** Maintain current allocation state separately from append-only allocation events. Record each allocation, release and reallocation with actor, timestamp, amount, context and associated FIFO run. Maintain a FIFO run record for each allocation operation, including trigger, affected Job Card and outcome. Calculate balances from current allocation state, not by summing historical events.
 6. **Regular CO FIFO chronology:** Use Government `transaction_date`; if absent, use immutable `first_imported_at`; use stable FTO transaction ID as the final tie-breaker.
 7. **Manual/Extra Charge FIFO chronology:** Use immutable original `created_at`, then immutable charge ID as tie-breaker. Editing a charge never changes its FIFO position; reversing and recreating it creates a new position.
-8. **Manual/Extra Charges:** Entry fields are Job Card Number, description and amount; creator and timestamp are automatic. No Tag selector. Corrections require a reason and retain old/new values. Reversal requires a reason and confirmation. Never delete the original charge.
+8. **Manual/Extra Charges:** Entry fields are Job Card Number, description and amount; the administrator selects a Tag for the batch, which is stored on each charge. Creator and timestamp are automatic. Corrections require a reason and retain old/new values. Reversal requires a reason and confirmation. Never delete the original charge.
 9. **Regular CO charge identity and history:** Each Regular CO Charge has a stable identity linked to its FTO transaction. Confirmed recalculation creates an immutable revision rather than a duplicate charge. A zero-value or ineligible charge becomes inactive, not deleted; later eligibility reactivates the same identity with a new revision.
 10. **Charge/waiver changes and FIFO:** Relevant charge changes, confirmed CO recalculations, waivers, payment corrections, refunds, reversals and reinstatements trigger FIFO for affected Job Cards. Release only automatic allocations as required; preserve fixed historical reviewed allocations.
 11. **FTO Government status finality:** Processed and Rejected are terminal transaction statuses. Deferred may transition to Processed or Rejected. A refreshed Government import must not overwrite an existing final status with a different status; enforce this in the database and keep associated status fields consistent.
@@ -258,3 +258,10 @@ The following implementation decisions resolve earlier open statements in this d
 4. **Financial treatment:** A waiver is an immutable adjustment, not a payment. It reduces Job Card outstanding balance and does not create payment credit. The FIFO engine accounts for waived outstanding before allocating payments.
 5. **Integrity:** Waiver creation is tenant-scoped, membership-validated, idempotent and atomic with the FIFO recalculation. Waiver history cannot be updated or deleted.
 6. **No production authorization:** The waiver migration is feature-branch code only. It does not authorize applying migrations to Supabase production, merging the branch or deploying the app.
+
+
+## 2026-11-27 — Tag selection by financial operation
+
+1. **Manual/Extra Charges:** The administrator must select a Tag for the charge batch. Store that Tag on the batch and each Manual/Extra Charge for classification and reporting.
+2. **Payments:** Do not show or store a Tag on payment batches or individual payments. The administrator selects only the payment method, CASH or BANK.
+3. **FIFO:** Payment allocation remains Job Card-level across all eligible charges and all Tags. The selected payment method does not affect allocation priority.

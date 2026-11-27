@@ -30,7 +30,7 @@ Do not combine the two categories into one indistinguishable charge type. Both c
 
 - FTOs remain the source of Regular CO Charges.
 - Each FTO has one current Tag. Tags are assigned during the FTO CO Calculation workflow.
-- Tags classify/group FTOs and financial transactions for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
+- Tags classify/group FTOs and Manual/Extra Charges for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
 - Do not create a separate Contribution Period entity or require a period to be opened.
 - Changing an FTO's tag changes its reporting classification, but does not change the Job Card balance, charge amount or payment/allocation history.
 - A payment is not restricted to one tag. FIFO covers eligible outstanding charges on the Job Card across all tags.

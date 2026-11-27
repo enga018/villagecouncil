@@ -51,7 +51,7 @@ alter table public.council_contribution_charges
   references public.council_manual_charge_batches(id, village_council_id) on delete restrict,
   add constraint council_contribution_charges_manual_batch_shape_check
   check (
-    (charge_type = 'manual_extra' and manual_charge_batch_id is not null and tag_id is not null)
+    (charge_type = 'manual_extra')
     or
     (charge_type = 'regular_co' and manual_charge_batch_id is null)
   );
@@ -333,10 +333,6 @@ begin
   return v_result;
 end;
 $preview_manual_batch$;
-
-create table public.council_manual_charge_batches_placeholder (
-  id uuid primary key
-);
 
 -- Atomic Manual/Extra Charge batch confirmation.
 create or replace function public.record_council_bulk_manual_charge_batch(

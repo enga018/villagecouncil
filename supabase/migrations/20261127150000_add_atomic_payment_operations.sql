@@ -141,7 +141,9 @@ begin
 
   if found then
     if v_existing.job_card_number <> p_job_card_number
-       or v_existing.payment_method <> 'cash' then
+       or v_existing.payment_method <> 'cash'
+       or v_existing.receipt_reference is distinct from nullif(btrim(p_receipt_reference), '')
+       or v_existing.remarks is distinct from nullif(btrim(p_remarks), '') then
       raise exception 'This idempotency key was already used for a different payment request.';
     end if;
     return jsonb_build_object('success', true, 'duplicate_request', true, 'payment_id', v_existing.id);

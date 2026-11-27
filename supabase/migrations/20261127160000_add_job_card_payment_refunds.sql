@@ -238,10 +238,24 @@ begin
   for v_charge in
     select a.id, a.payment_id, a.charge_id, a.allocated_amount
     from public.council_payment_allocations a
+    join public.council_contribution_charges ch
+      on ch.id = a.charge_id and ch.village_council_id = a.village_council_id
+    left join public.council_fto_transactions tx
+      on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
+    join public.council_payments p
+      on p.id = a.payment_id and p.village_council_id = a.village_council_id
     where a.village_council_id = p_village_council_id
       and a.job_card_number = p_job_card_number
       and a.allocation_type = 'fifo_auto' and a.allocated_amount > 0
-    for update
+    order by
+      case when ch.charge_type = 'regular_co'
+        then coalesce(tx.transaction_date::timestamp at time zone 'UTC', tx.first_imported_at)
+        else ch.original_created_at end desc,
+      case when ch.charge_type = 'regular_co' then tx.id else ch.id end desc,
+      p.paid_at desc,
+      p.id desc,
+      a.id desc
+    for update of a
   loop
     update public.council_payment_allocations
     set allocated_amount = 0, updated_at = now() where id = v_charge.id;

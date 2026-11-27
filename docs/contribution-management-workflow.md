@@ -12,8 +12,8 @@ This document records the agreed Contribution and Payment workflow. It supersede
 
 - The **Job Card Number** is the primary financial account key and owns the contribution balance.
 - Every charge and payment is associated with a Job Card.
-- A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Apply Tags of their source FTOs.
-- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose an Apply Tag when recording a payment.
+- A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Tags of their source FTOs.
+- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose a Tag when recording a payment.
 - Financial history remains available when a Job Card is Active, Inactive, Deleted or Exempt.
 - Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new CO charges; it does not prevent repayment of existing obligations.
 
@@ -26,11 +26,11 @@ Keep these as distinct categories in the Job Card contribution detail:
 
 Do not combine the two categories into one indistinguishable charge type. Both contribute to the Job Card balance and can be covered by payments. Manual/Extra Charges need their own entry and reversal history.
 
-### 1.3 FTO and Apply Tag roles
+### 1.3 FTO and Tag roles
 
 - FTOs remain the source of Regular CO Charges.
-- Each FTO has one current Apply Tag. Tags are assigned during the FTO CO Calculation workflow.
-- Apply Tags classify/group FTOs for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
+- Each FTO has one current Tag. Tags are assigned during the FTO CO Calculation workflow.
+- Tags classify/group FTOs for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
 - Do not create a separate Contribution Period entity or require a period to be opened.
 - Changing an FTO's tag changes its reporting classification, but does not change the Job Card balance, charge amount or payment/allocation history.
 - A payment is not restricted to one tag. FIFO covers eligible outstanding charges on the Job Card across all tags.
@@ -94,7 +94,7 @@ CO formula configuration remains in the existing Council Settings workflow.
 - **Outstanding** is the default list/filter view.
 - Provide access to Fully Paid and All Job Cards as additional views.
 - Selecting a Job Card opens its Contribution Detail.
-- Apply Tag can be used to filter/group source charge information, but never owns the account balance.
+- Tag can be used to filter/group source charge information, but never owns the account balance.
 - Summary figures must reconcile to the underlying Job Card accounts and ledger.
 
 ### 4.2 Job Card Contribution Detail
@@ -146,7 +146,7 @@ The administrator must not have to type the Job Card Number again to record a pa
 
 - Every payment belongs to one Job Card.
 - Payments may be recorded when no outstanding balance exists; excess is retained as unallocated credit for future eligible charges.
-- Payments can cover Regular CO Charges and Manual/Extra Charges across all Apply Tags.
+- Payments can cover Regular CO Charges and Manual/Extra Charges across all Tags.
 - Payment date/time and the creating administrator are captured automatically. The user does not manually enter the payment date.
 - Individual payments from Job Card Detail are CASH.
 
@@ -225,15 +225,15 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 
 ## 7. FIFO allocation and reallocation
 
-- FIFO operates at **Job Card level across all Apply Tags**.
-- The administrator does not select an Apply Tag when recording a payment.
+- FIFO operates at **Job Card level across all Tags**.
+- The administrator does not select a Tag when recording a payment.
 - Partial allocations are allowed.
 - Payments are allocated to the Job Card's oldest eligible outstanding charges according to the agreed FIFO order.
 - Within the allocation process, use the oldest available payment first.
 - If payment exceeds current outstanding charges, keep the excess as unallocated credit on that Job Card.
 - Re-run allocation automatically after relevant CO recalculation confirmation, charge changes, payment edits, refunds, reversals or reinstatements.
 - Allocation changes must be auditable. Preserve Allocate, Release and Reallocate history; do not silently overwrite prior allocations.
-- The exact immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges across a Job Card remains a technical detail to finalize. Mutable Apply Tag names must not rewrite existing allocations or determine the Job Card account.
+- The exact immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges across a Job Card remains a technical detail to finalize. Mutable Tag names must not rewrite existing allocations or determine the Job Card account.
 
 ## 8. Manual/Extra Charges and CO recalculation distinction
 
@@ -265,7 +265,7 @@ The agreed reports are:
 3. **CO Charge Report**
    - Job Card Number.
    - Source FTO.
-   - Apply Tag.
+   - Tag.
    - CO charge amount.
    - Recalculation adjustments.
 
@@ -287,7 +287,7 @@ The agreed reports are:
 Report filters:
 - Date range.
 - Job Card Number.
-- Apply Tag, where applicable.
+- Tag, where applicable.
 - Transaction type.
 - CASH/BANK method, where applicable.
 

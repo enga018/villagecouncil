@@ -31,7 +31,7 @@ The following decisions were confirmed after the original financial requirements
 | ID | Area | Decision |
 |---|---|---|
 | FIN-001 | Scope | Implement CO Calculation first; Contribution Management and Payments follow in later phases. |
-| FIN-002 | Period model | Do not require a separately created/open Contribution Period before calculation; use FTO Apply Tags for grouping. |
+| FIN-002 | Period model | Do not require a separately created/open Contribution Period before calculation; use FTO Tags for grouping. |
 | FIN-003 | Formula | Use ROUND((Credit Amount / divisor) × multiplier, 2), default 300 and 100. |
 | FIN-004 | Source eligibility | Only Processed FTO transactions are chargeable; Credit Amount is authoritative. |
 | FIN-005 | Exemption timing | Evaluate transaction first_imported_at against exemption intervals. |
@@ -60,7 +60,7 @@ The following decisions were confirmed after the original financial requirements
 | FIN-028 | Reinstatement | Explicit reinstatement requires a reason and current Processed eligibility; restore original charge. |
 | FIN-029 | Reversal cycles | A charge can be reversed/reinstated multiple times with complete history. |
 | FIN-030 | Payment availability | Payments can be recorded with no outstanding balance and for Active, Inactive, Deleted or Exempt Job Cards. |
-| FIN-031 | FIFO | Job Card-level FIFO across all Apply Tags without tag selection; partial allocations; excess remains unallocated. Chronological ordering across charge categories remains open. |
+| FIN-031 | FIFO | Job Card-level FIFO across all Tags without tag selection; partial allocations; excess remains unallocated. Chronological ordering across charge categories remains open. |
 | FIN-032 | Allocation history | Record Allocate, Release and Reallocate events; do not overwrite allocation history. |
 | FIN-033 | Refunds | Full/partial refunds; mandatory reason; original payment retained; release allocations then rerun FIFO. |
 | FIN-034 | Permissions | Every active Council membership has administrator-level financial permissions in this phase; no finance role. |
@@ -76,7 +76,7 @@ The first phase must design for downstream financial workflows without implement
 
 ### FIN-002 — No mandatory Contribution Period creation
 
-An administrator should not have to create and open a separate Contribution Period before calculating CO. FTO Apply Tags provide the grouping used later on the Contribution page.
+An administrator should not have to create and open a separate Contribution Period before calculating CO. FTO Tags provide the grouping used later on the Contribution page.
 
 ### FIN-003 and FIN-004 — Formula and source data
 
@@ -137,7 +137,7 @@ Reinstatement is explicit, requires a reason, and is allowed only if the source 
 Payments can be recorded even with no current outstanding charges. The unallocated balance remains available for future charges. Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards; this does not make those Job Cards eligible for new charges.
 
 FIFO priority:
-1. Oldest outstanding Apply Tag first.
+1. Oldest eligible outstanding charge first across the Job Card, regardless of Tag; the immutable chronological key remains to be finalized.
 2. Oldest available payment first.
 3. Partial allocations.
 4. Unallocated balances remain available.
@@ -156,7 +156,7 @@ All financial data and writes must be Council-scoped and backend-authorized, wit
 
 These are not product decisions and must not be silently filled in:
 
-1. **FIFO ordering across charge categories:** FIFO runs at Job Card level across all Apply Tags. Define the immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges while preserving existing allocations.
+1. **FIFO ordering across charge categories:** FIFO runs at Job Card level across all Tags. Define the immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges while preserving existing allocations.
 2. **Payment-entry form:** Exact required/optional fields and UI layout remain unconfirmed.
 3. **Exemption management navigation:** The exemption business rules are agreed, but the separate entry point has not been specified. Do not add controls to the Job Cards list or Contribution page.
 4. **Archiving a tag with current FTO assignments:** Historical associations must survive. Confirm whether current assignments must be moved before archive or whether an assigned tag can be archived directly.
@@ -167,12 +167,12 @@ These are not product decisions and must not be silently filled in:
 The following decisions were confirmed in the latest workflow review and are now recorded as the current model:
 
 1. **Job Card financial account:** Job Card Number is the primary financial account/grouping key. Charges are sourced from FTOs and remain traceable to the source FTO transaction and calculation version.
-2. **Apply Tag role:** Tags classify/group FTOs. They are assigned/generated during CO Calculation, not created as a Contribution-period workflow. Tags are not financial accounts or payment destinations.
+2. **Tag role:** Tags classify/group FTOs. They are assigned/generated during CO Calculation, not created as a Contribution-period workflow. Tags are not financial accounts or payment destinations.
 3. **No Contribution Period entity:** Do not introduce a separate Contribution Period or require period creation/opening.
-4. **Payment ownership:** Payments are recorded against a Job Card and can cover Regular CO Charges and Other Charges across all Apply Tags. The user does not select a tag when recording a payment.
+4. **Payment ownership:** Payments are recorded against a Job Card and can cover Regular CO Charges and Other Charges across all Tags. The user does not select a tag when recording a payment.
 5. **Payment with no outstanding balance:** A payment may be recorded even when there is no current outstanding charge. Any excess remains as unallocated credit on that Job Card for future eligible charges.
 6. **Bulk payment format:** One Job Card payment per line, using `JOB-CARD-NUMBER, AMOUNT`. The batch payment method is selected as CASH or BANK. Preview and validation are required before saving; each line creates a separate payment record.
-7. **FIFO scope:** Automatic FIFO operates at Job Card level across all Apply Tags. Partial allocations are supported. The exact chronological key across Regular CO Charges and Other Charges remains open.
+7. **FIFO scope:** Automatic FIFO operates at Job Card level across all Tags. Partial allocations are supported. The exact chronological key across Regular CO Charges and Other Charges remains open.
 8. **Allocation edits:** Manual allocation edits are allowed and all changes must be audited. Reallocation is supported and must preserve the financial trail.
 9. **Refunds:** Refunds and reallocation are within the accepted workflow scope. Detailed refund rules remain to be finalized before implementation.
 
@@ -210,7 +210,7 @@ The following decisions supplement and supersede conflicting older Contribution/
 11. **No payment deletion:** Payment records are never permanently deleted. Corrections use editing; actual returned money uses the overpayment-only Refund workflow.
 12. **Bulk payment:** One Job Card per line, format `JOB-CARD-NUMBER, AMOUNT`. Select CASH or BANK once for the batch. Validate and preview before confirmation. Each line creates its own payment record.
 13. **Bulk history:** Keep batch reference, date/time, method, administrator, Job Card entries, individual amounts, totals and allocation results. Individual payments remain editable. PDF/Excel export was deferred for later discussion.
-14. **FIFO:** Allocation is Job Card based across all Apply Tags. No tag selection at payment entry. Partial allocations are supported; excess remains as unallocated credit. Automatic reallocation follows relevant charge/payment/refund changes.
+14. **FIFO:** Allocation is Job Card based across all Tags. No tag selection at payment entry. Partial allocations are supported; excess remains as unallocated credit. Automatic reallocation follows relevant charge/payment/refund changes.
 15. **Reports:** Five reports are agreed: Outstanding, Collection, CO Charge, Manual Charge, and Waiver and Refund. All active Council administrators can access them; no separate reporting permission.
 16. **Responsive design:** Every Contribution screen must have both PC and mobile layouts. Job Card lists use tables on PC and readable cards on mobile; detail and data-entry workflows must be touch-friendly.
 17. **Export scope:** Export/download was explicitly deferred and is not part of the current agreed implementation scope.

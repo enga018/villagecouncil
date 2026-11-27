@@ -251,6 +251,7 @@ end;
 $record_tagged_bulk_payment$;
 
 revoke all on function public.record_council_bulk_payment_batch(uuid, text, jsonb, uuid) from public, anon, authenticated;
+revoke all on function public.create_council_manual_charge(uuid, text, text, numeric, uuid) from public, anon, authenticated;
 revoke all on function public.record_council_bulk_payment_batch(uuid, text, uuid, jsonb, uuid) from public, anon, authenticated;
 grant execute on function public.record_council_bulk_payment_batch(uuid, text, uuid, jsonb, uuid) to authenticated;
 

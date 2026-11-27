@@ -129,6 +129,7 @@ export default function BatchOperationsPage() {
   function resetPreview() {
     setPreview(null);
     setNotice("");
+    setLastFifo([]);
     setIdempotencyKey("");
   }
 
@@ -199,7 +200,11 @@ export default function BatchOperationsPage() {
       setPasted("");
       setPreview(null);
       setIdempotencyKey("");
-      await loadHistory(councilId);
+      try {
+        await loadHistory(councilId);
+      } catch (historyError) {
+        setError(`Batch saved successfully, but history could not be refreshed: ${errorMessage(historyError)}`);
+      }
     } catch (err) {
       setError(errorMessage(err));
     } finally {

@@ -168,6 +168,15 @@ The administrator must not have to type the Job Card Number again to record a pa
 - Money actually returned is handled through the Refund workflow, and only when the Job Card is overpaid.
 - Preserve the original payment and all correction/refund history.
 
+### 5.4 Atomic payment operations (implementation detail)
+
+- Individual payment creation is a CASH-only operation from Job Card Detail. The database records the payment, appends its creation event and runs FIFO in one transaction.
+- Payment creation requires a client-generated idempotency key. Retrying the same request returns the original payment; reusing the key with different payment details is rejected.
+- Paid in Full calculates the positive outstanding amount under the Job Card lock, then records the resulting CASH payment and runs FIFO in the same transaction. It must not create a payment when no positive outstanding amount exists.
+- Payment correction updates the existing payment, appends a before/after audit event with the mandatory reason, and reruns FIFO in the same transaction. The original `paid_at` and `recorded_by` fields remain unchanged.
+- If FIFO detects that fixed historical allocations exceed the corrected payment capacity, the entire correction rolls back.
+- Refund processing remains a separate operation and is not implemented by payment correction.
+
 ## 6. Bulk Payments
 
 ### 6.1 Entry format

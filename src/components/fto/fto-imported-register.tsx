@@ -47,7 +47,6 @@ type Fto = {
   council_fto_transactions: Transaction[];
 };
 
-type AutoIncrement = { newFtos: number; newTransactions: number } | null;
 
 const FTO_PAGE_SIZE = 5;
 

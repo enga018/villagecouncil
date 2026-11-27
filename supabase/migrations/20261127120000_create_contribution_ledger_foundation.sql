@@ -155,7 +155,7 @@ create table public.council_payment_allocations (
   job_card_number text not null,
   payment_id uuid not null,
   charge_id uuid not null,
-  allocated_amount numeric(14,2) not null check (allocated_amount > 0),
+  allocated_amount numeric(14,2) not null check (allocated_amount >= 0),
   allocation_type text not null check (allocation_type in ('fifo_auto', 'historical_fifo_reviewed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -168,7 +168,8 @@ create table public.council_payment_allocations (
   constraint council_allocations_job_card_fk
     foreign key (village_council_id, job_card_number)
     references public.council_job_cards(village_council_id, job_card_number) on delete restrict,
-  constraint council_allocations_id_tenant_unique unique (id, village_council_id)
+  constraint council_allocations_id_tenant_unique unique (id, village_council_id),
+  constraint council_allocations_payment_charge_unique unique (payment_id, charge_id)
 );
 
 create index council_payment_allocations_payment_idx

@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(32);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -31,6 +31,7 @@ select ok(to_regprocedure('public.reverse_council_manual_charge(uuid,uuid,text,b
 select ok(to_regprocedure('public.correct_council_job_card_payment(uuid,uuid,numeric,text,text,text,text)') is not null, 'payment correction RPC exists');
 select ok(to_regprocedure('public.refund_council_job_card_payment(uuid,uuid,numeric,text,uuid)') is not null, 'refund RPC exists');
 select ok(to_regprocedure('public.record_council_job_card_waiver(uuid,text,numeric,text,uuid)') is not null, 'waiver RPC exists');
+select ok(to_regprocedure('public.preview_council_bulk_payment_batch(uuid,text)') is not null, 'bulk payment preview RPC exists');
 
 -- Tenant boundaries and immutable history are enforced in the database.
 select ok((select relrowsecurity from pg_class where oid = 'public.council_contribution_charges'::regclass), 'charge ledger has RLS enabled');

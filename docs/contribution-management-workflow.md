@@ -80,7 +80,7 @@ The Contribution module has four sections:
 3. **Reports** — contribution and financial reports.
 4. **Settings** — relevant financial configuration.
 
-Paid in Full, Waive and Refund remain actions inside the relevant Job Card Contribution Detail. All new payments and Manual/Extra Charges are entered through the shared Batch Operations workspace, including one-record submissions. Remove the separate single-entry Record Payment and Manual/Extra Charge forms.
+Paid in Full, Waive and Refund remain actions inside the relevant Job Card Contribution Detail. Keep the **Record Payment** action on the Contributions page as a shortcut into the shared Batch Operations workspace with **Payments** preselected. Keep the **Manual/Extra Charge** action as a shortcut into the same workspace with **Manual/Extra Charges** preselected. Both shortcuts use the same shared entry flow, including one-record submissions; do not build separate single-entry forms.
 
 CO formula configuration remains in the existing Council Settings workflow.
 
@@ -108,7 +108,7 @@ The detail page is the financial workspace for that Job Card. It must show, sepa
 - Current outstanding or overpaid balance.
 - Relevant source and audit history.
 
-The administrator can review payment and charge history here. New payments and Manual/Extra Charges are created through Batch Operations rather than separate forms on this page.
+The administrator can review payment and charge history here. New payments and Manual/Extra Charges are created through Batch Operations rather than separate forms on this page. The **Record Payment** shortcut remains available from the Contributions page and opens Batch Operations with Payments selected.
 
 ### 4.3 Actions and visibility
 
@@ -170,7 +170,7 @@ The administrator can review payment and charge history here. New payments and M
 
 ### 5.4 Atomic payment operations (implementation detail)
 
-- Individual payment creation is a CASH-only operation from Job Card Detail. The database records the payment, appends its creation event and runs FIFO in one transaction.
+- Payment creation, whether one line or multiple lines, uses the shared Batch Operations payment workflow. The administrator selects CASH or BANK and a Tag for the batch. The database records the batch, separate payment records, creation events and FIFO allocations atomically.\n- Paid in Full remains a separate CASH action inside Job Card Contribution Detail.
 - Payment creation requires a client-generated idempotency key. Retrying the same request returns the original payment; reusing the key with different payment details is rejected.
 - Paid in Full calculates the positive outstanding amount under the Job Card lock, then records the resulting CASH payment and runs FIFO in the same transaction. It must not create a payment when no positive outstanding amount exists.
 - Payment correction updates the existing payment, appends a before/after audit event with the mandatory reason, and reruns FIFO in the same transaction. The original `paid_at` and `recorded_by` fields remain unchanged.
@@ -274,7 +274,7 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 ## 8. Manual/Extra Charges and CO recalculation distinction
 
 - Manual/Extra Charges are additional charges entered by an administrator and are separate from Regular CO Charges.
-- Entry fields are Job Card Number, charge description and amount. The system captures creator and creation timestamp automatically. No Tag selector is provided.
+- Entry fields are Job Card Number, charge description and amount. The administrator selects one Tag for the batch; it is copied to each Manual/Extra Charge as classification/reporting metadata. The system captures creator and creation timestamp automatically.
 - Each Manual/Extra Charge has a stable identity and immutable original creation timestamp.
 - Administrators can correct a Manual/Extra Charge; a correction reason is required. Preserve the previous and revised values and rerun FIFO for the affected Job Card.
 - Administrators can reverse a Manual/Extra Charge with a reason and confirmation. Never delete the original record. Record the reversal and release/reallocate affected automatic allocations through FIFO.
@@ -388,7 +388,7 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 2. Implement the Job Card-centred Regular CO Charge ledger.
 3. Implement separate Manual/Extra Charges and their audited reversal workflow.
 4. Implement the Contributions page and Job Card detail for PC and mobile.
-5. Implement individual CASH payment, Paid in Full, single-administrator approved Waive (mandatory reason) and conditional Refund actions.
+5. Implement the Record Payment shortcut into shared Batch Operations, the CASH Paid in Full action, single-administrator approved Waive (mandatory reason) and conditional Refund actions.
 6. Implement editable payment records, immutable original creation metadata and audit history.
 7. Implement the shared Batch Operations workspace with a Payments/Manual-Extra Charges selector, matching paste/preview/confirmation layouts, and separate batch histories.
 8. Implement Job Card-level automatic FIFO, unallocated credit, immutable allocation events and FIFO-run tracking; do not provide manual allocation.
@@ -405,7 +405,7 @@ These details remain open and must not be silently invented:
 5. **Resolved:** Batch Operations uses all-or-nothing validation for both Payments and Manual/Extra Charges. If any line is invalid, no records in that batch are saved.
 6. **Resolved:** A Job Card may appear only once in a batch, for both Payments and Manual/Extra Charges.
 7. **Resolved:** Batch-level Tag selection is required for both Payments and Manual/Extra Charges. Manual/Extra Charges also require a Description. Tag is classification/reporting metadata and does not change Job Card-level FIFO allocation across Tags.
-8. **Resolved:** Remove separate single-entry Record Payment and Manual/Extra Charge forms; use a one-line Batch Operations submission instead. Paid in Full, Waive and Refund remain Job Card detail actions.
+8. **Resolved:** Keep the Record Payment and Manual/Extra Charge actions as shortcuts into the shared Batch Operations workspace, with the corresponding operation preselected. One-line submissions use the same shared workflow; do not create separate single-entry forms. Paid in Full, Waive and Refund remain Job Card detail actions.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges — **resolved: unified chronology, oldest timestamp first, regardless of charge type**.
 8. Exact reference/receipt numbering requirements.
 9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.

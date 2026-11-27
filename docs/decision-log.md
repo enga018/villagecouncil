@@ -235,3 +235,16 @@ These decisions were confirmed during the payment-ledger architecture review and
 12. **Refund/waiver/payment audit:** Financial records are not deleted. Payment edits, refunds, waivers, charge revisions, allocation events and FIFO runs retain actor/time and relevant before/after values.
 
 The detailed product workflow is maintained in [Contribution Management Workflow](contribution-management-workflow.md). The implementation must be staged through repository review and tests; no production database migration or deployment is authorized by this decision-log update.
+
+
+## 2026-11-27 — Implementation clarifications superseding legacy open items
+
+The following implementation decisions resolve earlier open statements in this document:
+
+1. **Unified FIFO chronology — resolved:** Regular CO Charges and Manual/Extra Charges share one chronological queue per Job Card. Regular CO uses Government `transaction_date`, falling back to immutable `first_imported_at`; Manual/Extra uses immutable original `created_at`. Compare the timestamps directly; use the stable source transaction ID or charge ID as the tie-breaker. Charge type never creates priority.
+2. **Allocation editing — superseded:** Administrators cannot manually allocate, move, assign, adjust or override allocations. FIFO alone creates new allocations. Historical reviewed allocations are fixed.
+3. **Payment operations:** Individual payment creation, Paid in Full and payment correction are implemented as atomic database operations with FIFO in the same transaction. Payment creation and Paid in Full use idempotency keys; correction requires a reason and preserves original payment date/time and creator.
+4. **Refunds:** Refunds are immutable records linked to a payment and Job Card. They require a positive overpayment, a reason and an idempotency key; they are validated against Job Card credit and the selected payment's remaining capacity. Refund and FIFO reallocation are atomic.
+5. **Waiver implementation remains blocked:** Partial waivers are accepted in principle, but the exact reason and approval requirements have not been decided. Do not implement waiver writes until those requirements are confirmed.
+6. **Bulk invalid-line behavior remains unresolved:** Do not assume whole-batch rejection or valid-lines-only processing.
+7. **No production deployment authority:** Committing migrations to the feature branch does not authorize applying them to Supabase production, merging the branch or deploying the application.

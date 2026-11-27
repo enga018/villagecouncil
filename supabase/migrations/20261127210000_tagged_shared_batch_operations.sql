@@ -1,4 +1,4 @@
--- Tag-aware shared Batch Operations and atomic Manual/Extra Charge batches.
+-- Tagged Manual/Extra Charge batches and shared Batch Operations.
 -- Feature-branch migration only. Do not apply to the hosted database without approval.
 
 begin;

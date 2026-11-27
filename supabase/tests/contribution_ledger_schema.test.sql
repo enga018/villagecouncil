@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(42);
+select plan(44);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -75,6 +75,8 @@ select ok(exists (
 select ok(not has_table_privilege('authenticated', 'public.council_payments', 'INSERT'), 'authenticated role cannot insert payments directly');
 select ok(not has_table_privilege('authenticated', 'public.council_payment_allocations', 'UPDATE'), 'authenticated role cannot edit allocations directly');
 select ok(not has_function_privilege('authenticated', 'public.sync_council_regular_co_charge(uuid,uuid,text,uuid)', 'EXECUTE'), 'authenticated role cannot call internal CO sync helper');
+select ok(not has_function_privilege('authenticated', 'public.create_council_manual_charge(uuid,text,text,numeric,uuid)', 'EXECUTE'), 'authenticated role must use the shared batch flow for manual charges');
+select ok(not has_function_privilege('authenticated', 'public.record_council_bulk_payment_batch(uuid,text,jsonb,uuid)', 'EXECUTE'), 'untagged bulk payment confirmation is disabled');
 
 select * from finish();
 rollback;

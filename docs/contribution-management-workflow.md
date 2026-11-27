@@ -80,7 +80,7 @@ The Contribution module has four sections:
 3. **Reports** — contribution and financial reports.
 4. **Settings** — relevant financial configuration.
 
-Paid in Full, Waive and Refund remain actions inside the relevant Job Card Contribution Detail. Keep the **Record Payment** action on the Contributions page as a shortcut into the shared Batch Operations workspace with **Payments** preselected. Keep the **Manual/Extra Charge** action as a shortcut into the same workspace with **Manual/Extra Charges** preselected. Both shortcuts use the same shared entry flow, including one-record submissions; do not build separate single-entry forms.
+All five financial actions are available from the relevant Job Card Contribution Detail, each on its own dedicated page: **Record Payment**, **Paid in Full**, **Waive**, **Refund** and **Add Manual/Extra Charge**. Do not use modals or inline forms for these actions. The Job Card context is carried into the destination page automatically; the administrator must not re-enter the Job Card Number. After a successful save, return to that Job Card's Contribution Detail. Batch Operations remains a separate workspace for bulk Payments and bulk Manual/Extra Charges only.
 
 CO formula configuration remains in the existing Council Settings workflow.
 
@@ -108,40 +108,38 @@ The detail page is the financial workspace for that Job Card. It must show, sepa
 - Current outstanding or overpaid balance.
 - Relevant source and audit history.
 
-The administrator can review payment and charge history here. New payments and Manual/Extra Charges are created through Batch Operations rather than separate forms on this page. The **Record Payment** shortcut remains available from the Contributions page and opens Batch Operations with Payments selected.
+The administrator can review payment and charge history here and initiate Job Card-specific financial actions. Each action opens its own dedicated page, with the selected Job Card carried forward automatically. Do not use modals or inline forms. After a successful save, return to this Job Card Contribution Detail. Batch Operations is separate and remains available for bulk operations involving multiple Job Cards.
 
 ### 4.3 Actions and visibility
 
 **Record Payment**
-- Keep a clearly visible **Record Payment** button/action on the Contributions page.
-- It opens the shared Batch Operations workspace with **Payments** preselected.
-- The same workflow supports a single Job Card line or multiple Job Card lines; do not create a separate single-payment form.
-- Select CASH or BANK. Payments do not have a Tag selector.
-- Payment date/time and the creating administrator are recorded automatically.
-- A payment can be recorded even when the current outstanding balance is zero or negative. Excess remains as unallocated/overpaid credit on the Job Card.
+- Show this action in Job Card Contribution Detail and always keep it available, including when outstanding is zero or negative.
+- Open a dedicated Job Card-specific payment-entry page, not Batch Operations. The Job Card Number is prefilled/known and is not re-entered.
+- The administrator enters the amount; receipt/reference and remarks are optional. Do not provide a manual payment date/time field.
+- Individual payments use CASH. Payment timestamp and creating administrator are captured automatically.
+- A payment can be recorded when outstanding is zero or negative. Excess remains as unallocated/overpaid credit on the Job Card.
+- After saving, return to the same Job Card Contribution Detail.
 
 **Paid in Full**
-- Provide a **Paid in Full** action in Job Card Contribution Detail.
-- It records the amount needed to settle the current outstanding balance as a CASH payment.
-- The system calculates the amount; the administrator does not need to calculate or type the remaining balance manually.
-- Do not allow it to create a negative or duplicate settlement amount.
+- Show only when the Job Card has positive outstanding.
+- Open its own dedicated Job Card-specific page. Calculate and display the current outstanding amount automatically; the administrator must not type or calculate the settlement amount.
+- Record a CASH payment through the atomic Paid-in-Full operation with FIFO. Prevent negative or duplicate settlement.
+- After saving, return to the same Job Card Contribution Detail.
 
 **Waive**
-- A waiver can be entered for an amount less than the current outstanding amount.
-- Show the Waive action only when the Job Card has a positive outstanding balance.
-- Hide it when there is no positive outstanding balance.
-- Record the waiver as its own financial adjustment, not as a payment. A waiver reduces eligible outstanding charge balance and triggers FIFO reallocation where existing automatic allocations would exceed the revised charge balance.
-- Exact waiver reason/approval fields and any further constraints must follow the final waiver form decision before implementation.
+- Show only when the Job Card has positive outstanding.
+- Open its own dedicated Job Card-specific page. Partial waiver is allowed; the amount cannot exceed current outstanding.
+- A non-empty reason is mandatory. One active Council administrator records and approves the waiver in the same operation; no second approver is required. Capture actor and timestamp automatically.
+- Record the waiver as an immutable adjustment, not a payment. It reduces outstanding and triggers atomic FIFO recalculation.
+- After saving, return to the same Job Card Contribution Detail.
 
 **Refund**
-- Refund is allowed only against a Job Card's **overpaid balance**. It is not a general payment reversal.
-- Allow a full or partial refund, but never more than the available overpaid balance.
-- A reason is required.
-- Record refund date/time and administrator automatically.
-- Preserve the original payment record; record the refund separately.
-- The Refund button is **hidden by default**. Show it only when the Job Card has a positive overpaid balance. Hide it when the overpaid balance is zero or the Job Card has an outstanding/zero balance.
-- Before refunding, release automatic FIFO allocations in reverse allocation order (newest charge first), preserve fixed historical allocations, then record the refund and rerun FIFO. If fixed historical allocations exceed remaining payment capacity, reject the refund atomically.
-- After refund, recalculate the Job Card's remaining overpaid balance and update button visibility.
+- Show only when the Job Card has positive overpaid credit; otherwise hide it.
+- Open its own dedicated Job Card-specific page. The administrator selects a payment belonging to that Job Card and enters a full or partial refund amount.
+- Require a non-empty reason. The amount cannot exceed either the Job Card's positive overpaid credit or the selected payment's remaining refundable capacity.
+- Capture administrator and timestamp automatically. Preserve the original payment; record the refund as a separate immutable record.
+- Release automatic FIFO allocations newest-charge-first, preserve fixed historical allocations, then record the refund and rerun FIFO atomically. Reject the operation if fixed historical allocations exceed remaining payment capacity.
+- After saving, return to the same Job Card Contribution Detail.
 
 ## 5. Individual payments and payment record editing
 
@@ -151,7 +149,7 @@ The administrator can review payment and charge history here. New payments and M
 - Payments may be recorded when no outstanding balance exists; excess is retained as unallocated credit for future eligible charges.
 - Payments can cover Regular CO Charges and Manual/Extra Charges across all Tags.
 - Payment date/time and the creating administrator are captured automatically. The user does not manually enter the payment date.
-- Payments created through Batch Operations may be CASH or BANK, according to the selected batch method.
+- Individual Job Card payments are CASH. Bulk payment batches remain in Batch Operations and follow the batch payment-method behavior documented in section 6.
 
 ### 5.2 Editing payments
 
@@ -257,7 +255,7 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 
 The following describes the shipped UI behavior and takes precedence over older UI wording in this document where they conflict:
 
-- The Contributions page presents one **Batch Operations** action. It opens the shared Batch Operations workspace; the user chooses **Payments** or **Manual/Extra Charges** there. The earlier separate Record Payment and Manual/Extra Charge entry buttons are consolidated.
+- Batch Operations remains the bulk-entry workspace for multiple Job Cards. It does not replace the dedicated single-Job-Card action pages. Job Card Detail actions for Record Payment and Add Manual/Extra Charge navigate to their own dedicated pages; Paid in Full, Waive and Refund also each have dedicated pages.
 - **Payments:** the UI has no CASH/BANK selector and submits BANK for every batch. Payment batches have no Tag. The paste format remains `JOB-CARD-NUMBER, AMOUNT` per line.
 - **Manual/Extra Charges:** the user selects one Tag and enters one shared Description for the whole batch. The paste area accepts only `JOB-CARD-NUMBER, AMOUNT` per line; the client combines the shared description with each line for the existing preview/confirmation RPC format. Descriptions containing commas are rejected by the UI.
 - The batch preview and confirmation flow remains shared between both operation types, while each operation retains its own validation and fields.
@@ -290,7 +288,7 @@ The following describes the shipped UI behavior and takes precedence over older 
 ## 8. Manual/Extra Charges and CO recalculation distinction
 
 - Manual/Extra Charges are additional charges entered by an administrator and are separate from Regular CO Charges.
-- Entry fields are Job Card Number, charge description and amount. The administrator selects one Tag for the batch; it is copied to each Manual/Extra Charge as classification/reporting metadata. The system captures creator and creation timestamp automatically.
+- Single-Job-Card Manual/Extra Charge entry opens its own dedicated page from Job Card Detail. The Job Card Number is prefilled and is not re-entered. Enter description, amount and selected Tag; creator and timestamp are captured automatically. Bulk Manual/Extra Charges continue to use the Batch Operations workflow described below.
 - Each Manual/Extra Charge has a stable identity and immutable original creation timestamp.
 - Administrators can correct a Manual/Extra Charge; a correction reason is required. Preserve the previous and revised values and rerun FIFO for the affected Job Card.
 - Administrators can reverse a Manual/Extra Charge with a reason and confirmation. Never delete the original record. Record the reversal and release/reallocate affected automatic allocations through FIFO.
@@ -369,13 +367,13 @@ Export/download formats were deferred and must be discussed separately.
 
 ## 10. Responsive PC and mobile requirements
 
-Every Contribution module screen must be designed for both PC and mobile. This includes Contributions, Job Card Detail, Paid in Full, Waive, Refund, Batch Operations entry/history and Reports.
+Every Contribution module screen must be designed for both PC and mobile. This includes Contributions, Job Card Detail, the dedicated Record Payment, Paid in Full, Waive, Refund and Add Manual/Extra Charge pages, Batch Operations entry/history and Reports.
 
 **PC**
 - Use dashboard summary cards and a readable Job Card table.
 - Keep search and filters in an efficient toolbar.
 - Use spacious Job Card detail layouts and clear transaction tables.
-- Use an appropriate dialog/panel for entry and confirmation.
+- Dedicated Job Card action pages use normal page navigation, not modals or inline forms. Use clear page-level review and confirmation where required.
 
 **Mobile**
 - Use compact summary cards and touch-friendly search/filters.
@@ -405,9 +403,9 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 2. Implement the Job Card-centred Regular CO Charge ledger.
 3. Implement separate Manual/Extra Charges and their audited reversal workflow.
 4. Implement the Contributions page and Job Card detail for PC and mobile.
-5. Implement the Record Payment shortcut into shared Batch Operations, the CASH Paid in Full action, single-administrator approved Waive (mandatory reason) and conditional Refund actions.
+5. Implement dedicated Job Card-specific pages for Record Payment, Paid in Full, Waive, Refund and Add Manual/Extra Charge; preserve Job Card context and return to detail after successful save.
 6. Implement editable payment records, immutable original creation metadata and audit history.
-7. Implement the shared Batch Operations workspace with a Payments/Manual-Extra Charges selector, matching paste/preview/confirmation layouts, and separate batch histories.
+7. Keep the shared Batch Operations workspace as a separate bulk workflow for multiple Job Cards, with a Payments/Manual-Extra Charges selector, matching paste/preview/confirmation layouts, and separate batch histories.
 8. Implement Job Card-level automatic FIFO, unallocated credit, immutable allocation events and FIFO-run tracking; do not provide manual allocation.
 9. Implement the five agreed reports for all active Council administrators.
 10. Complete end-to-end financial, audit, tenant-isolation, concurrency and responsive UI testing.
@@ -429,3 +427,8 @@ These details remain open and must not be silently invented:
 10. Export/download formats, which are deferred for later discussion.
 
 Do not treat export/download, unconfirmed waiver details, or unresolved form fields as settled requirements.
+
+
+## 14. Job Card-specific action pages — confirmed 2026-11-27
+
+The five single-Job-Card financial actions are separate dedicated pages launched from Job Card Contribution Detail: Record Payment, Paid in Full, Waive, Refund and Add Manual/Extra Charge. Do not implement these as modals or inline forms. Carry the selected Job Card context into each page without asking the administrator to re-enter its number. After a successful save, navigate back to that Job Card's Contribution Detail. Record Payment remains available at any balance; Paid in Full and Waive appear only for positive outstanding; Refund appears only for positive overpaid credit; Add Manual/Extra Charge is a Job Card-level action. Single payments use CASH, with amount required and receipt/reference and remarks optional; timestamp and actor are automatic. Paid in Full calculates the current outstanding amount. Waive requires a positive amount not exceeding outstanding and a non-empty reason; one active Council administrator records and approves it. Refund requires selecting a payment belonging to the Job Card, a reason, and an amount within both Job Card overpaid credit and that payment's remaining refundable capacity. Manual/Extra Charge requires description, amount and Tag. Batch Operations remains available separately for bulk payments and bulk Manual/Extra Charges across multiple Job Cards; it is not the destination for these single-entry actions.

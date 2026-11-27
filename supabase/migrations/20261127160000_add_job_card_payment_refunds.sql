@@ -169,6 +169,8 @@ begin
       else ch.original_created_at end,
     case when ch.charge_type = 'regular_co' then tx.id else ch.id end
   from public.council_contribution_charges ch
+  left join public.council_fto_transactions tx
+    on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
   left join lateral (
     select sum(w.amount) as amount
     from public.council_contribution_waivers w
@@ -203,10 +205,6 @@ begin
         case when ch.charge_type = 'regular_co' then tx.id else ch.id end
       )
   ) prior_charges on true
-  left join public.council_fto_transactions tx
-    on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
-  left join public.council_fto_transactions tx
-    on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
   left join lateral (
     select sum(a.allocated_amount) as amount
     from public.council_payment_allocations a

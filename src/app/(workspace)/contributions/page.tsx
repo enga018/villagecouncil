@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
 type JobCard = {
@@ -174,12 +175,11 @@ export default function ContributionsPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Contributions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Job Card contribution accounts and eligible Regular CO Charges.</p>
         </div>
-        <span className="w-fit rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">Read-only first release</span>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/contributions/batch-operations?operation=payment" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-xs font-semibold text-white hover:bg-blue-800">Record Payment</Link>
+          <Link href="/contributions/batch-operations?operation=manual_charge" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">Manual/Extra Charge</Link>
+        </div>
       </section>
-
-      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
-        This first release shows eligible CO charges from each FTO&apos;s latest saved calculation. Payment entry, allocation and net outstanding balances are not active yet. Deferred, Rejected and Exempt transactions are excluded.
-      </div>
 
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</p>}
 

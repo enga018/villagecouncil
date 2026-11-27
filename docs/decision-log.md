@@ -137,7 +137,7 @@ Reinstatement is explicit, requires a reason, and is allowed only if the source 
 Payments can be recorded even with no current outstanding charges. The unallocated balance remains available for future charges. Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards; this does not make those Job Cards eligible for new charges.
 
 FIFO priority:
-1. Oldest eligible outstanding charge first across the Job Card, regardless of Tag; the immutable chronological key remains to be finalized.
+1. Oldest eligible outstanding charge first across the Job Card, regardless of Tag.
 2. Oldest available payment first.
 3. Partial allocations.
 4. Unallocated balances remain available.
@@ -216,3 +216,52 @@ The following decisions supplement and supersede conflicting older Contribution/
 17. **Export scope:** Export/download was explicitly deferred and is not part of the current agreed implementation scope.
 
 The detailed workflow is in [Contribution Management Workflow](contribution-management-workflow.md).
+
+## 2026-11-27 — Final payment ledger and FIFO implementation decisions
+
+These decisions were confirmed during the payment-ledger architecture review and supersede conflicting earlier notes above.
+
+1. **Job Card account:** All charges, payments, waivers, refunds, allocations and balances belong to the Job Card account. Tags classify FTOs and Manual/Extra Charges for grouping/reporting only; they are not payment metadata. There is no Contribution Period entity.
+2. **Payment correction:** Editing a payment amount upward or downward triggers an atomic recalculation of automatic FIFO allocations. Preserve fixed historical reviewed allocations. If those fixed allocations exceed the corrected payment capacity, reject the correction and report the conflict. Preserve the original payment creation date/time and creator; every edit requires a reason and retains old/new values, editor and timestamp.
+3. **Refund allocation release:** Refunds are allowed only against positive Job Card overpaid credit, with a mandatory reason. Before reducing payment capacity, release automatic FIFO allocations in reverse allocation order (newest charge first). Preserve fixed historical reviewed allocations. If fixed allocations exceed the remaining payment capacity, reject the refund atomically. The original payment remains unchanged.
+4. **No manual allocation:** Administrators cannot manually allocate, move, assign, adjust or override payment allocations. All new allocations are performed by automatic FIFO. Any `historical_fifo_reviewed` allocations imported from legacy history are fixed and cannot be modified by FIFO.
+5. **Allocation persistence:** Maintain current allocation state separately from append-only allocation events. Record each allocation, release and reallocation with actor, timestamp, amount, context and associated FIFO run. Maintain a FIFO run record for each allocation operation, including trigger, affected Job Card and outcome. Calculate balances from current allocation state, not by summing historical events.
+6. **Regular CO FIFO chronology:** Use Government `transaction_date`; if absent, use immutable `first_imported_at`; use stable FTO transaction ID as the final tie-breaker.
+7. **Manual/Extra Charge FIFO chronology:** Use immutable original `created_at`, then immutable charge ID as tie-breaker. Editing a charge never changes its FIFO position; reversing and recreating it creates a new position.
+8. **Manual/Extra Charges:** Entry fields are Job Card Number, description and amount; the administrator selects a Tag for the batch, which is stored on each charge. Creator and timestamp are automatic. Corrections require a reason and retain old/new values. Reversal requires a reason and confirmation. Never delete the original charge.
+9. **Regular CO charge identity and history:** Each Regular CO Charge has a stable identity linked to its FTO transaction. Confirmed recalculation creates an immutable revision rather than a duplicate charge. A zero-value or ineligible charge becomes inactive, not deleted; later eligibility reactivates the same identity with a new revision.
+10. **Charge/waiver changes and FIFO:** Relevant charge changes, confirmed CO recalculations, waivers, payment corrections, refunds, reversals and reinstatements trigger FIFO for affected Job Cards. Release only automatic allocations as required; preserve fixed historical reviewed allocations.
+11. **FTO Government status finality:** Processed and Rejected are terminal transaction statuses. Deferred may transition to Processed or Rejected. A refreshed Government import must not overwrite an existing final status with a different status; enforce this in the database and keep associated status fields consistent.
+12. **Refund/waiver/payment audit:** Financial records are not deleted. Payment edits, refunds, waivers, charge revisions, allocation events and FIFO runs retain actor/time and relevant before/after values.
+
+The detailed product workflow is maintained in [Contribution Management Workflow](contribution-management-workflow.md). The implementation must be staged through repository review and tests; no production database migration or deployment is authorized by this decision-log update.
+
+
+## 2026-11-27 — Implementation clarifications superseding legacy open items
+
+The following implementation decisions resolve earlier open statements in this document:
+
+1. **Unified FIFO chronology — resolved:** Regular CO Charges and Manual/Extra Charges share one chronological queue per Job Card. Regular CO uses Government `transaction_date`, falling back to immutable `first_imported_at`; Manual/Extra uses immutable original `created_at`. Compare the timestamps directly; use the stable source transaction ID or charge ID as the tie-breaker. Charge type never creates priority.
+2. **Allocation editing — superseded:** Administrators cannot manually allocate, move, assign, adjust or override allocations. FIFO alone creates new allocations. Historical reviewed allocations are fixed.
+3. **Payment operations:** Individual payment creation, Paid in Full and payment correction are implemented as atomic database operations with FIFO in the same transaction. Payment creation and Paid in Full use idempotency keys; correction requires a reason and preserves original payment date/time and creator.
+4. **Refunds:** Refunds are immutable records linked to a payment and Job Card. They require a positive overpayment, a reason and an idempotency key; they are validated against Job Card credit and the selected payment's remaining capacity. Refund and FIFO reallocation are atomic.
+5. **Waiver implementation remains blocked:** Partial waivers are accepted in principle, but the exact reason and approval requirements have not been decided. Do not implement waiver writes until those requirements are confirmed.
+6. **Bulk invalid-line behavior remains unresolved:** Do not assume whole-batch rejection or valid-lines-only processing.
+7. **No production deployment authority:** Committing migrations to the feature branch does not authorize applying them to Supabase production, merging the branch or deploying the application.
+
+
+## 2026-11-27 — Waiver approval and implementation decision
+
+1. **Approval model:** One active Council administrator may record and approve a waiver in the same operation. No second-administrator approval is required.
+2. **Reason and audit:** A non-empty reason is mandatory. Record the administrator as both recorder and approver, with the timestamp captured automatically.
+3. **Eligibility:** Waivers are allowed only while the Job Card has a positive outstanding balance. Partial waivers are supported, but the amount cannot exceed the current outstanding balance. The Waive action is hidden when outstanding is zero or negative.
+4. **Financial treatment:** A waiver is an immutable adjustment, not a payment. It reduces Job Card outstanding balance and does not create payment credit. The FIFO engine accounts for waived outstanding before allocating payments.
+5. **Integrity:** Waiver creation is tenant-scoped, membership-validated, idempotent and atomic with the FIFO recalculation. Waiver history cannot be updated or deleted.
+6. **No production authorization:** The waiver migration is feature-branch code only. It does not authorize applying migrations to Supabase production, merging the branch or deploying the app.
+
+
+## 2026-11-27 — Tag selection by financial operation
+
+1. **Manual/Extra Charges:** The administrator must select a Tag for the charge batch. Store that Tag on the batch and each Manual/Extra Charge for classification and reporting.
+2. **Payments:** Do not show or store a Tag on payment batches or individual payments. The administrator selects only the payment method, CASH or BANK.
+3. **FIFO:** Payment allocation remains Job Card-level across all eligible charges and all Tags. The selected payment method does not affect allocation priority.

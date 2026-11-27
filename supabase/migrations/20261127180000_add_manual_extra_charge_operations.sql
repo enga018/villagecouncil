@@ -161,16 +161,24 @@ begin
   from public.council_contribution_charges ch
   where ch.id = p_charge_id
     and ch.village_council_id = p_village_council_id
-    and ch.charge_type = 'manual_extra'
-  for update;
+    and ch.charge_type = 'manual_extra';
   if not found then raise exception 'Manual/Extra Charge not found in this Village Council.'; end if;
-  if not v_charge.is_active then raise exception 'A reversed Manual/Extra Charge cannot be corrected.'; end if;
-  if v_charge.current_amount = p_new_amount then raise exception 'The corrected amount is unchanged.'; end if;
 
   perform 1 from public.council_job_cards j
   where j.village_council_id = p_village_council_id
     and j.job_card_number = v_charge.job_card_number
   for update;
+  if not found then raise exception 'Job Card not found in this Village Council.'; end if;
+
+  select * into v_charge
+  from public.council_contribution_charges ch
+  where ch.id = p_charge_id
+    and ch.village_council_id = p_village_council_id
+    and ch.charge_type = 'manual_extra'
+  for update;
+  if not found then raise exception 'Manual/Extra Charge not found in this Village Council.'; end if;
+  if not v_charge.is_active then raise exception 'A reversed Manual/Extra Charge cannot be corrected.'; end if;
+  if v_charge.current_amount = p_new_amount then raise exception 'The corrected amount is unchanged.'; end if;
 
   update public.council_contribution_charges
   set current_amount = p_new_amount, updated_at = now()
@@ -257,15 +265,23 @@ begin
   from public.council_contribution_charges ch
   where ch.id = p_charge_id
     and ch.village_council_id = p_village_council_id
-    and ch.charge_type = 'manual_extra'
-  for update;
+    and ch.charge_type = 'manual_extra';
   if not found then raise exception 'Manual/Extra Charge not found in this Village Council.'; end if;
-  if not v_charge.is_active then raise exception 'Manual/Extra Charge is already reversed.'; end if;
 
   perform 1 from public.council_job_cards j
   where j.village_council_id = p_village_council_id
     and j.job_card_number = v_charge.job_card_number
   for update;
+  if not found then raise exception 'Job Card not found in this Village Council.'; end if;
+
+  select * into v_charge
+  from public.council_contribution_charges ch
+  where ch.id = p_charge_id
+    and ch.village_council_id = p_village_council_id
+    and ch.charge_type = 'manual_extra'
+  for update;
+  if not found then raise exception 'Manual/Extra Charge not found in this Village Council.'; end if;
+  if not v_charge.is_active then raise exception 'Manual/Extra Charge is already reversed.'; end if;
 
   update public.council_contribution_charges
   set is_active = false, updated_at = now()

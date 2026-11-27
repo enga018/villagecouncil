@@ -288,7 +288,7 @@ export default function ContributionsPage() {
                     ? <p className="rounded-xl bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">No Manual/Extra Charges.</p>
                     : <div className="space-y-2">{selected.charges.filter(row => row.charge_type === "manual_extra").map(charge => <article key={charge.id} className="rounded-xl border border-slate-200 p-3">
                       <div className="flex items-start justify-between gap-3"><p className="min-w-0 text-xs font-semibold text-slate-900">{charge.description || "No description"}</p><p className="shrink-0 text-sm font-bold tabular-nums">{money(Number(charge.current_amount))}</p></div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500"><span>Created: {date(charge.original_created_at)}</span><span>Tag: {charge.tag_id ? tagNameForDisplay(charge.tag_id, accounts) : "Unassigned"}</span><span>Allocated: {money(allocationByCharge(selected, charge.id))}</span>{!charge.is_active && <span className="font-semibold text-rose-700">Reversed</span>}</div>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500"><span>Created: {date(charge.original_created_at)}</span><span>Tag: {charge.tag_id ? tagLookup.get(charge.tag_id) || "Archived tag" : "Unassigned"}</span><span>Allocated: {money(allocationByCharge(selected, charge.id))}</span>{!charge.is_active && <span className="font-semibold text-rose-700">Reversed</span>}</div>
                     </article>)}</div>}
                 </section>
 

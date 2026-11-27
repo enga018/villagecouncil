@@ -24,7 +24,7 @@ declare
   v_revision integer;
   v_actor uuid;
 begin
-  if p_change_source not in ('co_recalculation', 'government_status') then
+  if p_change_source not in ('co_recalculation', 'government_status', 'permanent_exempt_mark') then
     raise exception 'Unsupported Regular CO charge synchronization source.';
   end if;
 
@@ -190,7 +190,7 @@ set search_path = ''
 as $sync_exempt$
 begin
   perform public.sync_council_regular_co_charge(
-    new.village_council_id, new.fto_transaction_id, 'government_status', auth.uid()
+    new.village_council_id, new.fto_transaction_id, 'permanent_exempt_mark', auth.uid()
   );
   return new;
 end;

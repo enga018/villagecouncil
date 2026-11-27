@@ -81,13 +81,11 @@ select ok(not has_function_privilege('authenticated', 'public.create_council_man
 -- Regular CO FIFO chronology follows Government Processed Date, with the
 -- transaction date retained only as a fallback for legacy rows.
 select ok(
-  pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)
-    ~ 'tx\\.processed_date::timestamp',
+  position('tx.processed_date::timestamp' in pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)) > 0,
   'FIFO uses FTO Processed Date for the current regular CO charge'
 );
 select ok(
-  pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)
-    ~ 'older_tx\\.processed_date::timestamp',
+  position('older_tx.processed_date::timestamp' in pg_get_functiondef('public.run_council_job_card_fifo(uuid,text,text,uuid,text)'::regprocedure)) > 0,
   'FIFO prior-charge comparison also uses FTO Processed Date'
 );
 

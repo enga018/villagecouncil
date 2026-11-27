@@ -34,7 +34,7 @@ The financial workflow is broader than CO Calculation, but implementation is int
 
 The CO ledger and database design must leave room for later payments, refunds, allocations and reversals. However, the first implementation phase must not expand into building the complete payment workflow.
 
-There is **no requirement to create a separate Contribution Period before calculating CO**. Administrators should not have to create and open a period as a prerequisite. FTO Apply Tags provide the grouping mechanism used by the Contribution page.
+There is **no requirement to create a separate Contribution Period before calculating CO**. Administrators should not have to create and open a period as a prerequisite. FTO Tags provide the grouping mechanism used by the Contribution page.
 
 ## 2. CO calculation rules
 
@@ -145,11 +145,11 @@ Do not add exemption badges, visible exemption status indicators, or exemption c
 
 The final placement of any separate exemption-management entry point is not specified by this decision set and should not be invented as part of the CO calculation implementation.
 
-## 4. FTO-level Apply Tags
+## 4. FTO-level Tags
 
 ### 4.1 Tag meaning and ownership
 
-An Apply Tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
+An Tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
 
 - Each FTO has exactly one current tag.
 - Multiple FTOs can share the same tag.
@@ -231,7 +231,7 @@ The administrator can correct an FTO's tag directly in the CO Calculation Previe
 Preview is grouped by FTO and includes, at minimum:
 
 - FTO number.
-- Current Apply Tag.
+- Current Tag.
 - Number of eligible transactions.
 - Number of Exempt transactions.
 - Total Credit Amount for eligible transactions.
@@ -281,7 +281,7 @@ Maintain a separate calculation batch history. Each batch records:
 - Batch date and time.
 - Administrator.
 - FTOs included.
-- Apply Tags involved.
+- Tags involved.
 - New charges created.
 - Charges reversed or corrected.
 - Total CO amount.
@@ -309,7 +309,7 @@ Applied calculation history is read-only. Administrators can inspect and export 
 - It requires a reason and audit record.
 - Reinstatement is blocked if the source FTO transaction is not currently Processed and otherwise eligible.
 - Reinstate the original charge; do not create a duplicate.
-- Preserve the original calculation details and original Apply Tag association unless the FTO's current tag has subsequently been changed (tag grouping follows the FTO's current tag).
+- Preserve the original calculation details and original Tag association unless the FTO's current tag has subsequently been changed (tag grouping follows the FTO's current tag).
 - After reinstatement, run FIFO again using the available unallocated payments for that Job Card.
 - A charge may be reversed and reinstated multiple times. Every cycle is retained in history.
 
@@ -326,7 +326,7 @@ Contribution Management is implemented after CO Calculation.
 - Tag changes update grouping immediately but do not alter charge or payment history.
 - Outstanding balances remain associated with the underlying charges, not with a mutable tag name.
 
-There is no separate period creation step required before CO calculation. Apply Tags provide the grouping for Contribution Management.
+There is no separate period creation step required before CO calculation. Tags provide the grouping for Contribution Management.
 
 ## 8. Payments and FIFO allocation (later phase; current workflow superseded by contribution-management-workflow.md)
 
@@ -346,7 +346,7 @@ Individual payment is recorded from Job Card Detail as CASH; payment date/time i
 
 The agreed allocation priority is:
 
-1. Job Card-level FIFO across all Apply Tags; the administrator does not select a tag when recording a payment.
+1. Job Card-level FIFO across all Tags; the administrator does not select a tag when recording a payment.
 2. Oldest eligible outstanding charge first, using a stable chronological key across charge categories to be finalized before allocator implementation.
 3. Oldest available payment first.
 4. Partial allocations are supported.

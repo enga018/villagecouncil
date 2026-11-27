@@ -248,3 +248,13 @@ The following implementation decisions resolve earlier open statements in this d
 5. **Waiver implementation remains blocked:** Partial waivers are accepted in principle, but the exact reason and approval requirements have not been decided. Do not implement waiver writes until those requirements are confirmed.
 6. **Bulk invalid-line behavior remains unresolved:** Do not assume whole-batch rejection or valid-lines-only processing.
 7. **No production deployment authority:** Committing migrations to the feature branch does not authorize applying them to Supabase production, merging the branch or deploying the application.
+
+
+## 2026-11-27 — Waiver approval and implementation decision
+
+1. **Approval model:** One active Council administrator may record and approve a waiver in the same operation. No second-administrator approval is required.
+2. **Reason and audit:** A non-empty reason is mandatory. Record the administrator as both recorder and approver, with the timestamp captured automatically.
+3. **Eligibility:** Waivers are allowed only while the Job Card has a positive outstanding balance. Partial waivers are supported, but the amount cannot exceed the current outstanding balance. The Waive action is hidden when outstanding is zero or negative.
+4. **Financial treatment:** A waiver is an immutable adjustment, not a payment. It reduces Job Card outstanding balance and does not create payment credit. The FIFO engine accounts for waived outstanding before allocating payments.
+5. **Integrity:** Waiver creation is tenant-scoped, membership-validated, idempotent and atomic with the FIFO recalculation. Waiver history cannot be updated or deleted.
+6. **No production authorization:** The waiver migration is feature-branch code only. It does not authorize applying migrations to Supabase production, merging the branch or deploying the app.

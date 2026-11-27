@@ -245,7 +245,7 @@ export default function ContributionsPage() {
                             <th className="whitespace-nowrap px-3 py-3">FTO Number</th>
                             <th className="whitespace-nowrap px-3 py-3">Applicant</th>
                             <th className="whitespace-nowrap px-3 py-3">Transaction Date</th>
-                            <th className="whitespace-nowrap px-3 py-3">Apply Tag</th>
+                            <th className="whitespace-nowrap px-3 py-3">Tag</th>
                             <th className="whitespace-nowrap px-3 py-3 text-right">Amount</th>
                           </tr>
                         </thead>
@@ -266,7 +266,7 @@ export default function ContributionsPage() {
                       {selected.charges.map(charge => (
                         <article key={charge.id} className="rounded-xl border border-slate-200 p-3">
                           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-slate-950">{charge.fto_number}</p><p className="mt-1 text-[11px] text-slate-500">{charge.applicant_name || "Applicant not recorded"}</p></div><p className="shrink-0 text-sm font-bold tabular-nums text-slate-950">{money(Number(charge.co_amount))}</p></div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500"><div><p>Transaction date</p><p className="mt-1 font-semibold text-slate-700">{date(charge.transaction_date)}</p></div><div><p>Apply Tag</p><p className="mt-1 font-semibold text-slate-700">{charge.tag_name}</p></div></div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500"><div><p>Transaction date</p><p className="mt-1 font-semibold text-slate-700">{date(charge.transaction_date)}</p></div><div><p>Tag</p><p className="mt-1 font-semibold text-slate-700">{charge.tag_name}</p></div></div>
                         </article>
                       ))}
                     </div>

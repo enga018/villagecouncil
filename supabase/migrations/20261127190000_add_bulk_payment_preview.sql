@@ -47,12 +47,12 @@ begin
       r.line_number,
       r.original_line,
       case
-        when r.original_line ~ '^\\s*[^,]+\\s*,\\s*[0-9]+([.][0-9]{1,2})?\\s*$'
+        when r.original_line ~ '^\s*[^,]+\s*,\s*[0-9]+([.][0-9]{1,2})?\s*$'
         then btrim(split_part(r.original_line, ',', 1))
         else null
       end as job_card_number,
       case
-        when r.original_line ~ '^\\s*[^,]+\\s*,\\s*[0-9]+([.][0-9]{1,2})?\\s*$'
+        when r.original_line ~ '^\s*[^,]+\s*,\s*[0-9]+([.][0-9]{1,2})?\s*$'
         then btrim(split_part(r.original_line, ',', 2))::numeric(14,2)
         else null
       end as amount

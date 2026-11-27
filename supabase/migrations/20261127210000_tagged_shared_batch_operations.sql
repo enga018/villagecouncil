@@ -3,6 +3,16 @@
 
 begin;
 
+-- Distinguish initial manual charge creation from a later correction.
+alter table public.council_contribution_charge_revisions
+  drop constraint council_contribution_charge_revisions_change_source_check;
+alter table public.council_contribution_charge_revisions
+  add constraint council_contribution_charge_revisions_change_source_check
+  check (change_source in (
+    'co_recalculation', 'government_status', 'permanent_exempt_mark',
+    'manual_creation', 'manual_correction', 'reversal', 'reinstatement'
+  ));
+
 -- Tag is classification metadata. It is deliberately not part of FIFO keys.
 alter table public.council_payment_batches
   add column tag_id uuid;
@@ -452,7 +462,7 @@ begin
     previous_is_active,new_is_active,reason,actor_id,change_source
   )
   select village_council_id,id,1,null,current_amount,null,true,
-    'Created in Manual/Extra Charge batch '||v_batch_reference,v_actor,'manual_correction'
+    'Created in Manual/Extra Charge batch '||v_batch_reference,v_actor,'manual_creation'
   from inserted;
 
   insert into public.council_manual_charge_events(

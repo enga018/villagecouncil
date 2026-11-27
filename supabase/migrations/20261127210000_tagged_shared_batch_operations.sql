@@ -440,9 +440,6 @@ begin
       (value->>'amount')::numeric(14,2),true,v_actor,p_tag_id,v_batch_id
     from jsonb_array_elements(p_lines)
     returning id,village_council_id,job_card_number,current_amount
-  ), numbered as (
-    select i.*,row_number() over(order by i.job_card_number,i.id)::integer as revision_number
-    from inserted i
   )
   insert into public.council_contribution_charge_revisions(
     village_council_id,charge_id,revision_number,previous_amount,new_amount,
@@ -450,7 +447,7 @@ begin
   )
   select village_council_id,id,1,null,current_amount,null,true,
     'Created in Manual/Extra Charge batch '||v_batch_reference,v_actor,'manual_correction'
-  from numbered;
+  from inserted;
 
   insert into public.council_manual_charge_events(
     village_council_id,charge_id,event_type,previous_amount,new_amount,reason,actor_id,idempotency_key

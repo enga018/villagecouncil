@@ -457,11 +457,9 @@ export default function BatchOperationsPage() {
                           {item.kind === "payment" && <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold uppercase text-blue-700">{line.payment_method || item.payment_method || "BANK"}</span>}
                           {item.kind === "manual_charge" && line.is_active === false && <span className="shrink-0 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">Reversed</span>}
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg bg-slate-50 p-3">
-                          <div><p className="text-[10px] text-slate-500">{item.kind === "payment" ? "Paid" : "Current amount"}</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(line.amount)}</p></div>
-                          {item.kind === "payment" && <div><p className="text-[10px] text-slate-500">Refunded</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(line.refunded_amount || 0)}</p></div>}
-                          {item.kind === "payment" && <div><p className="text-[10px] text-slate-500">Net payment</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(Number(line.amount) - (line.refunded_amount || 0))}</p></div>}
-                          <div><p className="text-[10px] text-slate-500">Currently allocated</p><p className="mt-1 text-sm font-semibold tabular-nums">{money(line.allocated_amount || 0)}</p></div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-[10px] text-slate-500">{item.kind === "payment" ? "Paid Amount" : "Charge Amount"}</p>
+                          <p className="mt-1 text-sm font-semibold tabular-nums">{money(line.amount)}</p>
                         </div>
                       </article>)}
                     </div>

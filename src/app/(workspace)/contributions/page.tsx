@@ -232,14 +232,45 @@ export default function ContributionsPage() {
                 <p className="text-[10px] text-slate-500">Total eligible Regular CO Charges · before payments</p>
               </div>
               <div className="mt-4 space-y-3">
-                <h3 className="text-xs font-bold text-slate-900">Regular CO Charges</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-bold text-slate-900">Regular CO Charges</h3>
+                  <span className="text-[10px] text-slate-500">{selected.charges.length.toLocaleString("en-IN")} records</span>
+                </div>
                 {selected.charges.length === 0 ? <p className="rounded-xl bg-slate-50 px-3 py-8 text-center text-xs text-slate-500">No eligible CO charges for this Job Card.</p>
-                  : selected.charges.map(charge => (
-                    <article key={charge.id} className="rounded-xl border border-slate-200 p-3">
-                      <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-slate-950">{charge.fto_number}</p><p className="mt-1 text-[11px] text-slate-500">{charge.applicant_name || "Applicant not recorded"}</p></div><p className="shrink-0 text-sm font-bold tabular-nums text-slate-950">{money(Number(charge.co_amount))}</p></div>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500"><div><p>Transaction date</p><p className="mt-1 font-semibold text-slate-700">{date(charge.transaction_date)}</p></div><div><p>Apply Tag</p><p className="mt-1 font-semibold text-slate-700">{charge.tag_name}</p></div></div>
-                    </article>
-                  ))}
+                  : <>
+                    <div className="hidden overflow-x-auto md:block">
+                      <table className="w-full min-w-[760px] table-auto text-left">
+                        <thead>
+                          <tr className="border-y border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            <th className="whitespace-nowrap px-3 py-3">FTO Number</th>
+                            <th className="whitespace-nowrap px-3 py-3">Applicant</th>
+                            <th className="whitespace-nowrap px-3 py-3">Transaction Date</th>
+                            <th className="whitespace-nowrap px-3 py-3">Apply Tag</th>
+                            <th className="whitespace-nowrap px-3 py-3 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {selected.charges.map(charge => (
+                            <tr key={charge.id} className="text-xs text-slate-700">
+                              <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{charge.fto_number}</td>
+                              <td className="min-w-[150px] px-3 py-3">{charge.applicant_name || "Applicant not recorded"}</td>
+                              <td className="whitespace-nowrap px-3 py-3">{date(charge.transaction_date)}</td>
+                              <td className="px-3 py-3">{charge.tag_name}</td>
+                              <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums text-slate-900">{money(Number(charge.co_amount))}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="space-y-2 md:hidden">
+                      {selected.charges.map(charge => (
+                        <article key={charge.id} className="rounded-xl border border-slate-200 p-3">
+                          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-slate-950">{charge.fto_number}</p><p className="mt-1 text-[11px] text-slate-500">{charge.applicant_name || "Applicant not recorded"}</p></div><p className="shrink-0 text-sm font-bold tabular-nums text-slate-950">{money(Number(charge.co_amount))}</p></div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500"><div><p>Transaction date</p><p className="mt-1 font-semibold text-slate-700">{date(charge.transaction_date)}</p></div><div><p>Apply Tag</p><p className="mt-1 font-semibold text-slate-700">{charge.tag_name}</p></div></div>
+                        </article>
+                      ))}
+                    </div>
+                  </>}
               </div>
             </div>}
         </div>

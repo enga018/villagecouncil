@@ -413,9 +413,8 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 ## 13. Remaining decisions before implementation
 
 These details remain open and must not be silently invented:
-1. Exact fields and validation for creating a Manual/Extra Charge.
-2. Whether a reason is mandatory for every Manual/Extra Charge reversal and any additional confirmation rules.
-3. **Resolved:** A waiver requires a mandatory reason and is recorded and approved by the same active Council administrator. Record actor and approval timestamp automatically; no second-administrator approval is required.
+1. **Resolved:** A Job Card-specific Manual/Extra Charge page carries the Job Card context automatically and requires description, amount and Tag. Creator and timestamp are automatic.
+2. **Resolved:** Manual/Extra Charge corrections require a reason; reversal requires a reason and confirmation. Preserve the original record and audit history.
 4. Exact reference/receipt numbering requirements.
 5. **Resolved:** Batch Operations uses all-or-nothing validation for both Payments and Manual/Extra Charges. If any line is invalid, no records in that batch are saved.
 6. **Resolved:** A Job Card may appear only once in a batch, for both Payments and Manual/Extra Charges.

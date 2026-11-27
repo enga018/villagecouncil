@@ -138,7 +138,14 @@ set search_path = ''
 as $sync_fto$
 declare
   v_transaction_id uuid;
+  v_job_card_number text;
+  v_actor_id uuid;
 begin
+  select c.created_by into v_actor_id
+  from public.council_fto_co_calculations c
+  where c.id = new.latest_co_calculation_id
+    and c.village_council_id = new.village_council_id;
+
   for v_transaction_id in
     select t.id
     from public.council_fto_transactions t
@@ -150,6 +157,19 @@ begin
       new.village_council_id, v_transaction_id, 'co_recalculation', auth.uid()
     );
   end loop;
+
+  for v_job_card_number in
+    select distinct t.job_card_number
+    from public.council_fto_transactions t
+    where t.village_council_id = new.village_council_id
+      and t.fto_id = new.id
+  loop
+    perform public.run_council_job_card_fifo(
+      new.village_council_id, v_job_card_number, 'co_recalculation', v_actor_id,
+      'Confirmed FTO CO recalculation'
+    );
+  end loop;
+
   return new;
 end;
 $sync_fto$;
@@ -166,11 +186,26 @@ language plpgsql
 security definer
 set search_path = ''
 as $sync_status$
+declare
+  v_actor_id uuid;
 begin
   if old.normalized_status is distinct from new.normalized_status then
+    select c.created_by into v_actor_id
+    from public.council_ftos f
+    join public.council_fto_co_calculations c
+      on c.id = f.latest_co_calculation_id and c.village_council_id = f.village_council_id
+    where f.id = new.fto_id and f.village_council_id = new.village_council_id;
+
     perform public.sync_council_regular_co_charge(
-      new.village_council_id, new.id, 'government_status', auth.uid()
+      new.village_council_id, new.id, 'government_status', coalesce(auth.uid(), v_actor_id)
     );
+
+    if v_actor_id is not null then
+      perform public.run_council_job_card_fifo(
+        new.village_council_id, new.job_card_number, 'co_recalculation', v_actor_id,
+        'Government transaction status changed'
+      );
+    end if;
   end if;
   return new;
 end;
@@ -188,10 +223,29 @@ language plpgsql
 security definer
 set search_path = ''
 as $sync_exempt$
+declare
+  v_job_card_number text;
+  v_actor_id uuid;
 begin
+  select t.job_card_number, c.created_by
+  into v_job_card_number, v_actor_id
+  from public.council_fto_transactions t
+  join public.council_ftos f
+    on f.id = t.fto_id and f.village_council_id = t.village_council_id
+  join public.council_fto_co_calculations c
+    on c.id = f.latest_co_calculation_id and c.village_council_id = f.village_council_id
+  where t.id = new.fto_transaction_id and t.village_council_id = new.village_council_id;
+
   perform public.sync_council_regular_co_charge(
-    new.village_council_id, new.fto_transaction_id, 'permanent_exempt_mark', auth.uid()
+    new.village_council_id, new.fto_transaction_id, 'permanent_exempt_mark', coalesce(auth.uid(), v_actor_id)
   );
+
+  if v_actor_id is not null then
+    perform public.run_council_job_card_fifo(
+      new.village_council_id, v_job_card_number, 'co_recalculation', v_actor_id,
+      'Permanent transaction exemption mark recorded'
+    );
+  end if;
   return new;
 end;
 $sync_exempt$;

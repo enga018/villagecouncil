@@ -22,7 +22,8 @@ type Preview = {
   valid_total: number;
   lines: PreviewLine[];
 };
-type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; refunded_amount?: number };
+type BatchAudit = { id: string; event: string; created_at: string; reason?: string | null; previous_amount?: number | string | null; new_amount?: number | string | null; actor_id?: string | null; change_source?: string | null };
+type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; refunded_amount?: number; audit: BatchAudit[] };
 type FifoResult = { success: boolean; job_card_number: string; released_amount: number; allocated_amount: number; allocation_count: number };
 type HistoryItem = {
   id: string;
@@ -229,18 +230,23 @@ export default function BatchOperationsPage() {
         if (result.error) throw result.error;
         const paymentRows = result.data || [];
         const paymentIds = paymentRows.map(row => row.id);
-        const [allocationResult, refundResult] = await Promise.all([
+        const [allocationResult, refundResult, paymentEventResult] = await Promise.all([
           paymentIds.length
             ? supabase.from("council_payment_allocations").select("payment_id,allocated_amount")
                 .eq("village_council_id", councilId).in("payment_id", paymentIds)
             : Promise.resolve({ data: [], error: null }),
           paymentIds.length
-            ? supabase.from("council_payment_refunds").select("payment_id,amount")
+            ? supabase.from("council_payment_refunds").select("id,payment_id,amount,reason,refunded_at,recorded_by")
+                .eq("village_council_id", councilId).in("payment_id", paymentIds)
+            : Promise.resolve({ data: [], error: null }),
+          paymentIds.length
+            ? supabase.from("council_payment_events").select("id,payment_id,event_type,previous_amount,new_amount,reason,actor_id,created_at")
                 .eq("village_council_id", councilId).in("payment_id", paymentIds)
             : Promise.resolve({ data: [], error: null }),
         ]);
         if (allocationResult.error) throw allocationResult.error;
         if (refundResult.error) throw refundResult.error;
+        if (paymentEventResult.error) throw paymentEventResult.error;
         const allocatedByPayment = new Map<string, number>();
         for (const allocation of allocationResult.data || []) {
           allocatedByPayment.set(allocation.payment_id, (allocatedByPayment.get(allocation.payment_id) || 0) + Number(allocation.allocated_amount));
@@ -252,7 +258,13 @@ export default function BatchOperationsPage() {
         const details: BatchDetail[] = paymentRows.map(row => {
           const allocated = allocatedByPayment.get(row.id) || 0;
           const refunded = refundedByPayment.get(row.id) || 0;
-          return { id: row.id, job_card_number: row.job_card_number, amount: row.amount, payment_method: row.payment_method, allocated_amount: allocated, refunded_amount: refunded };
+          const corrections: BatchAudit[] = (paymentEventResult.data || [])
+            .filter(event => event.payment_id === row.id && event.event_type === "corrected")
+            .map(event => ({ id: event.id, event: "Payment corrected", created_at: event.created_at, reason: event.reason, previous_amount: event.previous_amount, new_amount: event.new_amount, actor_id: event.actor_id }));
+          const refunds: BatchAudit[] = (refundResult.data || [])
+            .filter(refund => refund.payment_id === row.id)
+            .map(refund => ({ id: refund.id, event: "Refund recorded", created_at: refund.refunded_at, reason: refund.reason, new_amount: refund.amount, actor_id: refund.recorded_by }));
+          return { id: row.id, job_card_number: row.job_card_number, amount: row.amount, payment_method: row.payment_method, allocated_amount: allocated, refunded_amount: refunded, audit: [...corrections, ...refunds].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) };
         });
         setBatchDetails(previous => ({ ...previous, [item.id]: details }));
       } else {
@@ -262,19 +274,36 @@ export default function BatchOperationsPage() {
         if (result.error) throw result.error;
         const chargeRows = result.data || [];
         const chargeIds = chargeRows.map(row => row.id);
-        const allocationResult = chargeIds.length
-          ? await supabase.from("council_payment_allocations").select("charge_id,allocated_amount")
-              .eq("village_council_id", councilId).in("charge_id", chargeIds)
-          : { data: [], error: null };
+        const [allocationResult, chargeEventResult, revisionResult] = await Promise.all([
+          chargeIds.length
+            ? supabase.from("council_payment_allocations").select("charge_id,allocated_amount")
+                .eq("village_council_id", councilId).in("charge_id", chargeIds)
+            : Promise.resolve({ data: [], error: null }),
+          chargeIds.length
+            ? supabase.from("council_manual_charge_events").select("id,charge_id,event_type,previous_amount,new_amount,reason,actor_id,created_at")
+                .eq("village_council_id", councilId).in("charge_id", chargeIds)
+            : Promise.resolve({ data: [], error: null }),
+          chargeIds.length
+            ? supabase.from("council_contribution_charge_revisions").select("id,charge_id,revision_number,previous_amount,new_amount,reason,actor_id,created_at,change_source")
+                .eq("village_council_id", councilId).in("charge_id", chargeIds)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
         if (allocationResult.error) throw allocationResult.error;
+        if (chargeEventResult.error) throw chargeEventResult.error;
+        if (revisionResult.error) throw revisionResult.error;
         const allocatedByCharge = new Map<string, number>();
         for (const allocation of allocationResult.data || []) {
           allocatedByCharge.set(allocation.charge_id, (allocatedByCharge.get(allocation.charge_id) || 0) + Number(allocation.allocated_amount));
         }
         const details: BatchDetail[] = chargeRows.map(row => {
           const allocated = allocatedByCharge.get(row.id) || 0;
-          const amount = Number(row.current_amount);
-          return { id: row.id, job_card_number: row.job_card_number, amount: row.current_amount, description: row.description, is_active: row.is_active, allocated_amount: allocated };
+          const chargeEvents: BatchAudit[] = (chargeEventResult.data || [])
+            .filter(event => event.charge_id === row.id)
+            .map(event => ({ id: event.id, event: event.event_type === "reversed" ? "Charge reversed" : event.event_type === "corrected" ? "Charge corrected" : "Charge created", created_at: event.created_at, reason: event.reason, previous_amount: event.previous_amount, new_amount: event.new_amount, actor_id: event.actor_id }));
+          const revisions: BatchAudit[] = (revisionResult.data || [])
+            .filter(revision => revision.charge_id === row.id)
+            .map(revision => ({ id: revision.id, event: "Revision " + revision.revision_number + " · " + revision.change_source.replaceAll("_", " "), created_at: revision.created_at, reason: revision.reason, previous_amount: revision.previous_amount, new_amount: revision.new_amount, actor_id: revision.actor_id, change_source: revision.change_source }));
+          return { id: row.id, job_card_number: row.job_card_number, amount: row.current_amount, description: row.description, is_active: row.is_active, allocated_amount: allocated, audit: [...chargeEvents, ...revisions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) };
         });
         setBatchDetails(previous => ({ ...previous, [item.id]: details }));
       }
@@ -412,6 +441,7 @@ export default function BatchOperationsPage() {
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
                 {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
                   : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">{item.kind === "payment" ? "Paid" : "Current amount"}</th>{item.kind === "payment" && <><th className="px-3 py-2 text-right">Refunded</th><th className="px-3 py-2 text-right">Net payment</th></>}<th className="px-3 py-2 text-right">Currently allocated</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <><td className="px-3 py-2 text-right tabular-nums">{money(line.refunded_amount || 0)}</td><td className="px-3 py-2 text-right tabular-nums">{money(Number(line.amount) - (line.refunded_amount || 0))}</td></>}<td className="px-3 py-2 text-right tabular-nums">{money(line.allocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
+                {detailLoading !== item.id && (batchDetails[item.id] || []).some(line => line.audit.length > 0) && <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4"><h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Correction and refund history</h3><div className="mt-3 space-y-3">{(batchDetails[item.id] || []).flatMap(line => line.audit.map(event => ({ ...event, job_card_number: line.job_card_number }))).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(event => <div key={event.id} className="rounded-lg border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-900">{event.job_card_number} · {event.event}</p><span className="text-[10px] text-slate-500">{prettyDate(event.created_at)}</span></div><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">{(event.previous_amount != null || event.new_amount != null) && <span>{event.previous_amount == null ? "—" : money(event.previous_amount)} → {event.new_amount == null ? "—" : money(event.new_amount)}</span>}<span>{event.actor_id === currentUserId ? "You" : "Council admin"}</span></div>{event.reason && <p className="mt-2 text-[11px] leading-5 text-slate-600">Reason: {event.reason}</p>}</div>)}</div></div>}
               </div>}
             </div>)}
           </div>}

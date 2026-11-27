@@ -244,6 +244,7 @@ export default function FtoCoAction({
                     </div>
                   )}
 
+                  {showPreview && (
                   <div className="rounded-xl border border-slate-200 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div><p className="text-xs font-bold text-slate-900">FTO tag</p><p className="mt-1 text-[10px] text-slate-500">One tag applies to the entire FTO. You can change it later.</p></div>
@@ -261,6 +262,7 @@ export default function FtoCoAction({
                     </div>
                     {!showPreview && newTagName.trim() && <p className="mt-2 text-[10px] text-slate-500">A new tag will be created only after you confirm the change.</p>}
                   </div>
+                  )}
 
                   {!showPreview && confirmTagChange && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">

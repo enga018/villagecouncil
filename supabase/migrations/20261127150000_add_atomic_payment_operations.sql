@@ -239,6 +239,18 @@ begin
     raise exception 'Payment not found in this Village Council.';
   end if;
 
+  if p_new_amount < (
+    coalesce((select sum(r.amount) from public.council_payment_refunds r
+      where r.village_council_id = p_village_council_id
+        and r.payment_id = p_payment_id), 0)
+    + coalesce((select sum(a.allocated_amount) from public.council_payment_allocations a
+      where a.village_council_id = p_village_council_id
+        and a.payment_id = p_payment_id
+        and a.allocation_type = 'historical_fifo_reviewed'), 0)
+  ) then
+    raise exception 'Corrected payment amount cannot be lower than amounts already refunded or fixed by historical allocations.';
+  end if;
+
   if v_payment.amount = p_new_amount
      and v_payment.payment_method = p_new_method
      and v_payment.receipt_reference is not distinct from nullif(btrim(p_new_receipt_reference), '')

@@ -362,7 +362,7 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 2. Implement the Job Card-centred Regular CO Charge ledger.
 3. Implement separate Manual/Extra Charges and their audited reversal workflow.
 4. Implement the Contributions page and Job Card detail for PC and mobile.
-5. Implement individual CASH payment, Paid in Full, Waive and conditional Refund actions.
+5. Implement individual CASH payment, Paid in Full, single-administrator approved Waive (mandatory reason) and conditional Refund actions.
 6. Implement editable payment records, immutable original creation metadata and audit history.
 7. Implement Bulk Payments with CASH/BANK selection, line parsing, validation preview, confirmation and batch history.
 8. Implement Job Card-level automatic FIFO, unallocated credit, immutable allocation events and FIFO-run tracking; do not provide manual allocation.
@@ -374,7 +374,7 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 These details remain open and must not be silently invented:
 1. Exact fields and validation for creating a Manual/Extra Charge.
 2. Whether a reason is mandatory for every Manual/Extra Charge reversal and any additional confirmation rules.
-3. Exact waiver reason/approval fields and whether any additional restrictions apply beyond the agreed amount/button visibility rules.
+3. **Resolved:** A waiver requires a mandatory reason and is recorded and approved by the same active Council administrator. Record actor and approval timestamp automatically; no second-administrator approval is required.
 4. Exact fields for an individual payment beyond the amount and automatically captured date/time/administrator.
 5. Bulk batch behavior when some lines are invalid: reject the whole batch or allow valid lines to be saved separately.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges — **resolved: unified chronology, oldest timestamp first, regardless of charge type**.

@@ -131,7 +131,7 @@ declare
   v_batch_id uuid;
   v_batch_reference text;
   v_line_count integer;
-  v_total numeric(14,2);
+  v_total numeric;
   v_invalid jsonb;
   v_fifo_results jsonb;
   v_payload_hash text := md5(jsonb_build_object(
@@ -173,7 +173,7 @@ begin
   with submitted as (
     select ordinality::integer as line_number,
       nullif(btrim(value->>'job_card_number'), '') as job_card_number,
-      case when coalesce(value->>'amount','') ~ '^[0-9]+([.][0-9]{1,2})?$'
+      case when coalesce(value->>'amount','') ~ '^[0-9]{1,12}([.][0-9]{1,2})?$'
         then (value->>'amount')::numeric(14,2) else null end as amount
     from jsonb_array_elements(p_lines) with ordinality
   ), checked as (
@@ -188,7 +188,7 @@ begin
     'issue', case when job_card_number is null then 'Missing Job Card Number.'
       when duplicate_count > 1 then 'Duplicate Job Card Number.'
       when not job_card_exists then 'Job Card not found in this Village Council.'
-      when amount is null or amount <= 0 then 'Amount must be positive with at most two decimal places.'
+      when amount is null or amount <= 0 then 'Amount must be positive, within the supported 12-digit range, and have at most two decimal places.'
       else null end
   ) order by line_number) filter (
     where job_card_number is null or duplicate_count > 1 or not job_card_exists or amount is null or amount <= 0
@@ -197,8 +197,11 @@ begin
     raise exception 'Payment batch rejected: every line must be valid. Issues: %', v_invalid;
   end if;
 
-  select count(*), sum((value->>'amount')::numeric(14,2))
+  select count(*), sum((value->>'amount')::numeric)
   into v_line_count, v_total from jsonb_array_elements(p_lines);
+  if v_total > 999999999999.99 then
+    raise exception 'Batch total exceeds the supported maximum of 999,999,999,999.99.';
+  end if;
 
   perform j.job_card_number
   from public.council_job_cards j
@@ -297,7 +300,7 @@ begin
     from raw_lines
   ), evaluated as (
     select p.*,
-      case when amount_text ~ '^[0-9]+([.][0-9]{1,2})?$' then amount_text::numeric(14,2) end as amount,
+      case when amount_text ~ '^[0-9]{1,12}([.][0-9]{1,2})?$' then amount_text::numeric(14,2) end as amount,
       count(*) filter (where job_card_number is not null and job_card_number <> '') over (partition by job_card_number) as duplicate_count,
       exists (select 1 from public.council_job_cards j where j.village_council_id = p_village_council_id and j.job_card_number = p.job_card_number) as job_card_exists
     from parsed p
@@ -327,7 +330,7 @@ begin
         when 'duplicate_job_card' then 'This Job Card appears more than once in the batch.'
         when 'job_card_not_found' then 'Job Card was not found in this Village Council.'
         when 'missing_description' then 'Enter a charge description.'
-        when 'invalid_amount' then 'Amount must be positive with no more than two decimal places.'
+        when 'invalid_amount' then 'Amount must be positive, within the supported 12-digit range, and have no more than two decimal places.'
         else null end
     ) order by line_number),'[]'::jsonb)
   ) into v_result from classified;
@@ -353,7 +356,7 @@ declare
   v_batch_id uuid;
   v_batch_reference text;
   v_line_count integer;
-  v_total numeric(14,2);
+  v_total numeric;
   v_payload_hash text := md5(jsonb_build_object('tag_id',p_tag_id,'lines',p_lines)::text);
   v_invalid jsonb;
   v_fifo_results jsonb;
@@ -390,7 +393,7 @@ begin
     select ordinality::integer as line_number,
       nullif(btrim(value->>'job_card_number'),'') as job_card_number,
       nullif(btrim(value->>'description'),'') as description,
-      case when coalesce(value->>'amount','') ~ '^[0-9]+([.][0-9]{1,2})?$'
+      case when coalesce(value->>'amount','') ~ '^[0-9]{1,12}([.][0-9]{1,2})?$'
         then (value->>'amount')::numeric(14,2) end as amount
     from jsonb_array_elements(p_lines) with ordinality
   ), checked as (
@@ -404,7 +407,7 @@ begin
       when duplicate_count>1 then 'Duplicate Job Card Number.'
       when not job_card_exists then 'Job Card not found in this Village Council.'
       when description is null then 'Missing charge description.'
-      when amount is null or amount<=0 then 'Amount must be positive with at most two decimal places.'
+      when amount is null or amount<=0 then 'Amount must be positive, within the supported 12-digit range, and have at most two decimal places.'
       else null end
   ) order by line_number) filter(where job_card_number is null or duplicate_count>1 or not job_card_exists
     or description is null or amount is null or amount<=0),'[]'::jsonb)
@@ -413,8 +416,11 @@ begin
     raise exception 'Manual/Extra Charge batch rejected: every line must be valid. Issues: %',v_invalid;
   end if;
 
-  select count(*),sum((value->>'amount')::numeric(14,2)) into v_line_count,v_total
+  select count(*),sum((value->>'amount')::numeric) into v_line_count,v_total
   from jsonb_array_elements(p_lines);
+  if v_total > 999999999999.99 then
+    raise exception 'Batch total exceeds the supported maximum of 999,999,999,999.99.';
+  end if;
 
   perform j.job_card_number
   from public.council_job_cards j

@@ -13,7 +13,7 @@ This document records the agreed Contribution and Payment workflow. It supersede
 - The **Job Card Number** is the primary financial account key and owns the contribution balance.
 - Every charge and payment is associated with a Job Card.
 - A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Tags of their source FTOs.
-- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose an Tag when recording a payment.
+- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose a Tag when recording a payment.
 - Financial history remains available when a Job Card is Active, Inactive, Deleted or Exempt.
 - Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new CO charges; it does not prevent repayment of existing obligations.
 
@@ -226,7 +226,7 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 ## 7. FIFO allocation and reallocation
 
 - FIFO operates at **Job Card level across all Tags**.
-- The administrator does not select an Tag when recording a payment.
+- The administrator does not select a Tag when recording a payment.
 - Partial allocations are allowed.
 - Payments are allocated to the Job Card's oldest eligible outstanding charges according to the agreed FIFO order.
 - Within the allocation process, use the oldest available payment first.

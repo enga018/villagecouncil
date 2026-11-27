@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(48);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');
@@ -77,6 +77,20 @@ select ok(not has_table_privilege('authenticated', 'public.council_payment_alloc
 select ok(not has_function_privilege('authenticated', 'public.sync_council_regular_co_charge(uuid,uuid,text,uuid)', 'EXECUTE'), 'authenticated role cannot call internal CO sync helper');
 select ok(not has_function_privilege('authenticated', 'public.create_council_manual_charge(uuid,text,text,numeric,uuid)', 'EXECUTE'), 'authenticated role must use the shared batch flow for manual charges');
 
+
+-- Regular CO charges follow their source FTO's current Tag while calculation snapshots remain historical.
+select ok(
+  position('f.current_co_tag_id' in pg_get_functiondef('public.sync_council_regular_co_charge(uuid,uuid,text,uuid)'::regprocedure)) > 0,
+  'Regular CO charge synchronization reads the source FTO current Tag'
+);
+select ok(
+  position('tag_id' in pg_get_functiondef('public.sync_council_regular_co_charge(uuid,uuid,text,uuid)'::regprocedure)) > 0,
+  'Regular CO charge synchronization writes the current Tag to the charge'
+);
+select ok(
+  position('update public.council_contribution_charges' in pg_get_functiondef('public.set_council_fto_tag(uuid,uuid,uuid)'::regprocedure)) > 0,
+  'FTO Tag reassignment updates existing Regular CO charge grouping'
+);
 
 -- Regular CO FIFO chronology follows Government Processed Date, with the
 -- transaction date retained only as a fallback for legacy rows.

@@ -4,7 +4,8 @@
 begin;
 
 alter table public.council_payment_batches
-  add column idempotency_key uuid;
+  add column idempotency_key uuid,
+  add column payload_hash text;
 
 create unique index council_payment_batches_idempotency_unique
   on public.council_payment_batches(village_council_id, idempotency_key)
@@ -30,6 +31,7 @@ declare
   v_total numeric(14,2);
   v_invalid jsonb;
   v_fifo_results jsonb;
+  v_payload_hash text := md5(p_lines::text);
 begin
   if v_actor is null then raise exception 'Authentication is required.'; end if;
   if p_payment_method not in ('cash', 'bank') then
@@ -57,7 +59,8 @@ begin
     and b.idempotency_key = p_idempotency_key;
   if found then
     if v_existing.payment_method <> p_payment_method
-       or v_existing.line_count <> jsonb_array_length(p_lines) then
+       or v_existing.line_count <> jsonb_array_length(p_lines)
+       or v_existing.payload_hash is distinct from v_payload_hash then
       raise exception 'This idempotency key was already used for a different bulk payment batch.';
     end if;
     return jsonb_build_object(
@@ -136,10 +139,10 @@ begin
 
   insert into public.council_payment_batches (
     id, village_council_id, batch_reference, payment_method,
-    recorded_by, line_count, total_amount, idempotency_key
+    recorded_by, line_count, total_amount, idempotency_key, payload_hash
   ) values (
     v_batch_id, p_village_council_id, v_batch_reference, p_payment_method,
-    v_actor, v_line_count, v_total, p_idempotency_key
+    v_actor, v_line_count, v_total, p_idempotency_key, v_payload_hash
   );
 
   insert into public.council_payments (

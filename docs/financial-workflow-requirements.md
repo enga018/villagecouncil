@@ -340,7 +340,7 @@ These rules are agreed for the later Payments phase. They are recorded now so th
 - Exemption blocks new CO charges, not repayment of existing obligations.
 - Payments and FIFO allocation continue for existing active charges during an exemption interval.
 
-Individual payment is recorded from Job Card Detail as CASH; payment date/time is automatic and is not manually entered. The detailed payment edit and bulk entry rules are in [Contribution Management Workflow](contribution-management-workflow.md).
+Payments are recorded through the shared Batch Operations workflow; the administrator selects CASH or BANK for the batch, with no Tag selector. Payment date/time is automatic and is not manually entered. Manual/Extra Charge batches require a Tag. The detailed payment edit and batch entry rules are in [Contribution Management Workflow](contribution-management-workflow.md).
 
 ### 8.2 FIFO priority
 
@@ -354,7 +354,7 @@ The agreed allocation priority is:
 
 FIFO operates within the same Job Card. Payment allocations must not exceed the remaining valid payment amount or the outstanding amount of a charge.
 
-A tag is mutable and is not an accounting control. The implementation must preserve the agreed oldest-tag-first priority without allowing a rename, reassignment or merge to rewrite existing allocations. The immutable chronological key used to order tags for future FIFO runs remains an implementation detail to resolve before building the allocator.
+Tags are mutable grouping/reporting labels, not accounting controls or FIFO priority keys. A Tag selection is required when creating Manual/Extra Charges, but payments do not carry a Tag. FIFO orders eligible charges by their immutable charge chronology across the Job Card, regardless of Tag.
 
 ### 8.3 Allocation event history
 
@@ -425,7 +425,7 @@ These later workflows must be supported by the data model, but should not delay 
 
 ### Decisions still requiring technical resolution before the relevant implementation
 
-1. **FIFO tag chronology:** Tags can be renamed, reassigned and merged, but FIFO uses oldest outstanding tag first. Define an immutable chronological ordering key for FIFO without changing existing allocations when tags are edited.
+1. **FIFO charge chronology:** FIFO uses the oldest eligible outstanding charge first across the Job Card, regardless of Tag. Preserve immutable charge chronology when Tags are renamed, reassigned or merged.
 2. **Payment-entry form:** The exact required and optional fields and UI layout have not been confirmed.
 3. **Exemption management entry point:** The business rules and permissions are agreed, but the separate navigation/UI placement has not been specified. Do not add exemption indicators or controls to the Job Cards list or Contribution page.
 4. **Tag archival with current assignments:** Tags are not deleted and historical associations must survive archive/restore. Confirm whether a tag may be archived while FTOs are still currently assigned, or whether all current FTOs must first be reassigned.

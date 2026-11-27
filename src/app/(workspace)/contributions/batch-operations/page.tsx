@@ -22,7 +22,7 @@ type Preview = {
   valid_total: number;
   lines: PreviewLine[];
 };
-type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number };
+type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; refunded_amount?: number };
 type FifoResult = { success: boolean; job_card_number: string; released_amount: number; allocated_amount: number; allocation_count: number };
 type HistoryItem = {
   id: string;
@@ -229,18 +229,30 @@ export default function BatchOperationsPage() {
         if (result.error) throw result.error;
         const paymentRows = result.data || [];
         const paymentIds = paymentRows.map(row => row.id);
-        const allocationResult = paymentIds.length
-          ? await supabase.from("council_payment_allocations").select("payment_id,allocated_amount")
-              .eq("village_council_id", councilId).in("payment_id", paymentIds)
-          : { data: [], error: null };
+        const [allocationResult, refundResult] = await Promise.all([
+          paymentIds.length
+            ? supabase.from("council_payment_allocations").select("payment_id,allocated_amount")
+                .eq("village_council_id", councilId).in("payment_id", paymentIds)
+            : Promise.resolve({ data: [], error: null }),
+          paymentIds.length
+            ? supabase.from("council_payment_refunds").select("payment_id,amount")
+                .eq("village_council_id", councilId).in("payment_id", paymentIds)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
         if (allocationResult.error) throw allocationResult.error;
+        if (refundResult.error) throw refundResult.error;
         const allocatedByPayment = new Map<string, number>();
         for (const allocation of allocationResult.data || []) {
           allocatedByPayment.set(allocation.payment_id, (allocatedByPayment.get(allocation.payment_id) || 0) + Number(allocation.allocated_amount));
         }
+        const refundedByPayment = new Map<string, number>();
+        for (const refund of refundResult.data || []) {
+          refundedByPayment.set(refund.payment_id, (refundedByPayment.get(refund.payment_id) || 0) + Number(refund.amount));
+        }
         const details: BatchDetail[] = paymentRows.map(row => {
           const allocated = allocatedByPayment.get(row.id) || 0;
-          return { id: row.id, job_card_number: row.job_card_number, amount: row.amount, payment_method: row.payment_method, allocated_amount: allocated };
+          const refunded = refundedByPayment.get(row.id) || 0;
+          return { id: row.id, job_card_number: row.job_card_number, amount: row.amount, payment_method: row.payment_method, allocated_amount: allocated, refunded_amount: refunded };
         });
         setBatchDetails(previous => ({ ...previous, [item.id]: details }));
       } else {
@@ -399,7 +411,7 @@ export default function BatchOperationsPage() {
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
                 {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
-                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2 text-right">Currently allocated</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td><td className="px-3 py-2 text-right tabular-nums">{money(line.allocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
+                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">{item.kind === "payment" ? "Paid" : "Current amount"}</th>{item.kind === "payment" && <><th className="px-3 py-2 text-right">Refunded</th><th className="px-3 py-2 text-right">Net payment</th></>}<th className="px-3 py-2 text-right">Currently allocated</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <><td className="px-3 py-2 text-right tabular-nums">{money(line.refunded_amount || 0)}</td><td className="px-3 py-2 text-right tabular-nums">{money(Number(line.amount) - (line.refunded_amount || 0))}</td></>}<td className="px-3 py-2 text-right tabular-nums">{money(line.allocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
               </div>}
             </div>)}
           </div>}

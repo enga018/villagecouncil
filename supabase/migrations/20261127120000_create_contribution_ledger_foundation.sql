@@ -184,7 +184,8 @@ create table public.council_fifo_runs (
   job_card_number text not null,
   trigger_type text not null check (trigger_type in (
     'payment_created', 'payment_corrected', 'charge_created', 'charge_corrected',
-    'charge_reversed', 'charge_reinstated', 'co_recalculation', 'waiver', 'refund',
+    'charge_reversed', 'charge_reinstated', 'co_recalculation', 'government_status',
+    'permanent_exempt_mark', 'waiver', 'refund',
     'historical_import', 'manual_reconciliation'
   )),
   status text not null check (status in ('running', 'completed', 'failed')),

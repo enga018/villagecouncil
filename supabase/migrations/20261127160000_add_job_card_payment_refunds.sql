@@ -176,11 +176,18 @@ begin
       and w.job_card_number = ch.job_card_number
   ) waiver_totals on true
   left join lateral (
-    select sum(older.current_amount) as amount
+    select sum(greatest(0, older.current_amount - coalesce(older_fixed.amount, 0))) as amount
     from public.council_contribution_charges older
     left join public.council_fto_transactions older_tx
       on older_tx.id = older.fto_transaction_id
      and older_tx.village_council_id = older.village_council_id
+    left join lateral (
+      select sum(oa.allocated_amount) as amount
+      from public.council_payment_allocations oa
+      where oa.village_council_id = older.village_council_id
+        and oa.charge_id = older.id
+        and oa.allocation_type = 'historical_fifo_reviewed'
+    ) older_fixed on true
     where older.village_council_id = ch.village_council_id
       and older.job_card_number = ch.job_card_number
       and older.is_active and older.current_amount > 0

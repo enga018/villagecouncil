@@ -33,6 +33,7 @@ type HistoryItem = {
   kind: Operation;
   payment_method?: string;
   tag_id: string;
+  recorded_by: string;
 };
 
 function money(value: number | string) {
@@ -48,6 +49,7 @@ function errorMessage(error: unknown) {
 export default function BatchOperationsPage() {
   const [operation, setOperation] = useState<Operation>("payment");
   const [councilId, setCouncilId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagId, setTagId] = useState("");
   const [method, setMethod] = useState<"cash" | "bank">("cash");
@@ -70,10 +72,10 @@ export default function BatchOperationsPage() {
   async function loadHistory(id: string) {
     const [payments, charges] = await Promise.all([
       supabase.from("council_payment_batches")
-        .select("id,batch_reference,recorded_at,line_count,total_amount,payment_method,tag_id")
+        .select("id,batch_reference,recorded_at,line_count,total_amount,payment_method,tag_id,recorded_by")
         .eq("village_council_id", id).order("recorded_at", { ascending: false }).limit(30),
       supabase.from("council_manual_charge_batches")
-        .select("id,batch_reference,recorded_at,line_count,total_amount,tag_id")
+        .select("id,batch_reference,recorded_at,line_count,total_amount,tag_id,recorded_by")
         .eq("village_council_id", id).order("recorded_at", { ascending: false }).limit(30),
     ]);
     if (payments.error) throw payments.error;
@@ -105,6 +107,7 @@ export default function BatchOperationsPage() {
         if (membershipError) throw membershipError;
         if (!membership) throw new Error("No active Village Council assignment was found.");
         const id = membership.village_council_id;
+        if (alive) setCurrentUserId(user.id);
         const { data: tagRows, error: tagError } = await supabase.from("council_co_tags")
           .select("id,name").eq("village_council_id", id).eq("is_archived", false).order("name");
         if (tagError) throw tagError;
@@ -386,7 +389,7 @@ export default function BatchOperationsPage() {
           : <div className="mt-4 divide-y divide-slate-100">
             {history.map(item => <div key={item.id} className="border-b border-slate-100 py-3 last:border-0">
               <button type="button" onClick={() => void toggleBatchDetails(item)} className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""} · {tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}</p></div>
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · Recorded by {item.recorded_by === currentUserId ? "You" : "Council admin"} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""} · {tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}</p></div>
                 <span className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</span><span className="text-[10px] font-semibold text-blue-700">{detailLoading === item.id ? "Loading…" : expandedBatch === item.id ? "Hide details ↑" : "View details ↓"}</span></span>
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">

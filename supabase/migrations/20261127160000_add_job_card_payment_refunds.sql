@@ -307,7 +307,9 @@ declare
   v_payment public.council_payments%rowtype;
   v_refunded numeric(14,2);
   v_allocated numeric(14,2);
-  v_available numeric(14,2);
+  v_fixed_allocated numeric(14,2);
+  v_job_card_credit numeric(14,2);
+  v_payment_refundable numeric(14,2);
   v_refund_id uuid;
   v_fifo_result jsonb;
   v_existing public.council_payment_refunds%rowtype;
@@ -358,13 +360,35 @@ begin
 
   select coalesce(sum(r.amount), 0) into v_refunded
   from public.council_payment_refunds r where r.payment_id = p_payment_id;
+
   select coalesce(sum(a.allocated_amount), 0) into v_allocated
   from public.council_payment_allocations a
-  where a.payment_id = p_payment_id;
-  v_available := v_payment.amount - v_refunded - v_allocated;
+  where a.village_council_id = p_village_council_id
+    and a.job_card_number = v_payment.job_card_number;
 
-  if v_available <= 0 or p_amount > v_available then
-    raise exception 'Refund cannot exceed the available overpaid credit for this payment. Available: %', greatest(v_available, 0);
+  select coalesce(sum(a.allocated_amount), 0) into v_fixed_allocated
+  from public.council_payment_allocations a
+  where a.payment_id = p_payment_id
+    and a.allocation_type = 'historical_fifo_reviewed';
+
+  select coalesce(sum(p.amount), 0)
+    - coalesce((select sum(r.amount) from public.council_payment_refunds r
+      where r.village_council_id = p_village_council_id
+        and r.job_card_number = v_payment.job_card_number), 0)
+    - v_allocated
+  into v_job_card_credit
+  from public.council_payments p
+  where p.village_council_id = p_village_council_id
+    and p.job_card_number = v_payment.job_card_number;
+
+  -- Refunds are limited by the Job Card's actual overpaid credit and by the
+  -- selected payment's capacity after refunds and fixed historical allocations.
+  -- Automatic allocations may be released/rebuilt by the FIFO run below.
+  v_payment_refundable := v_payment.amount - v_refunded - v_fixed_allocated;
+  if v_job_card_credit <= 0 or p_amount > v_job_card_credit
+     or p_amount > v_payment_refundable then
+    raise exception 'Refund exceeds available Job Card overpaid credit or the selected payment capacity. Job Card credit: %, payment capacity: %',
+      greatest(v_job_card_credit, 0), greatest(v_payment_refundable, 0);
   end if;
 
   insert into public.council_payment_refunds (

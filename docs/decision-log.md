@@ -265,3 +265,18 @@ The following implementation decisions resolve earlier open statements in this d
 1. **Manual/Extra Charges:** The administrator must select a Tag for the charge batch. Store that Tag on the batch and each Manual/Extra Charge for classification and reporting.
 2. **Payments:** Do not show or store a Tag on payment batches or individual payments. The administrator selects only the payment method, CASH or BANK.
 3. **FIFO:** Payment allocation remains Job Card-level across all eligible charges and all Tags. The selected payment method does not affect allocation priority.
+
+
+## 2026-11-27 — Batch Operations UI shipped in PR #37
+
+The following implementation details are now shipped and supersede conflicting earlier UI descriptions:
+
+1. **Single entry point:** The Contributions page uses one **Batch Operations** button. Payments and Manual/Extra Charges are selected inside the shared workspace; separate entry buttons are not used.
+2. **Payment batches:** The current UI does not display a CASH/BANK selector. It submits BANK for all batches. Payment batches do not have Tags. The existing database RPC still accepts both CASH and BANK values; this UI decision does not remove backend capability.
+3. **Manual/Extra Charge batches:** Select one Tag and enter one shared Description for the batch. Paste lines contain only `JOB-CARD-NUMBER, AMOUNT`. The client adds the shared description when constructing the existing preview request. Commas are not allowed in the shared description.
+4. **Batch history layout:** Use dedicated mobile cards and a separate desktop table.
+5. **Batch detail fields:** Payment rows show Job Card and Paid Amount only. Manual/Extra Charge rows show Job Card and Charge Amount only. Do not repeat the shared description on each line.
+6. **Manual batch Tag display:** Show the Tag once as a static, non-clickable label above the expanded Job Card rows; do not repeat it as a table column.
+7. **Audit history:** Existing audit/correction/refund history remains available beneath the simplified batch details when records exist.
+8. **Database scope:** PR #37 changed the UI only. No database migration or production data change was part of this work.
+

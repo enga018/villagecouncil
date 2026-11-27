@@ -210,8 +210,7 @@ JOB-CARD-NUMBER, AMOUNT
 
 ### 6.2 Payment method
 
-- Select one payment method for the batch: **CASH** or **BANK**.
-- Select one payment method for the batch: **CASH** or **BANK**. The selected method applies to every payment created from that batch.
+- **Current UI implementation (PR #37): BANK only.** The payment-method selector is intentionally hidden; the UI submits `BANK` for every payment batch. The database operation continues to support the `cash` and `bank` method values for other authorized workflows.
 - Payments do not have a Tag field. FIFO still covers eligible outstanding charges on the Job Card across all Tags.
 - Individual payments are still stored as separate payment records linked to their source batch.
 - Capture batch date/time and administrator automatically.
@@ -253,6 +252,21 @@ A completed batch is not an undifferentiated payment: its individual payment rec
 
 PDF/Excel export and download were explicitly deferred for a later discussion and are not part of the current agreed scope.
 
+
+### 6.6 Current Batch Operations UI implementation (PR #37)
+
+The following describes the shipped UI behavior and takes precedence over older UI wording in this document where they conflict:
+
+- The Contributions page presents one **Batch Operations** action. It opens the shared Batch Operations workspace; the user chooses **Payments** or **Manual/Extra Charges** there. The earlier separate Record Payment and Manual/Extra Charge entry buttons are consolidated.
+- **Payments:** the UI has no CASH/BANK selector and submits BANK for every batch. Payment batches have no Tag. The paste format remains `JOB-CARD-NUMBER, AMOUNT` per line.
+- **Manual/Extra Charges:** the user selects one Tag and enters one shared Description for the whole batch. The paste area accepts only `JOB-CARD-NUMBER, AMOUNT` per line; the client combines the shared description with each line for the existing preview/confirmation RPC format. Descriptions containing commas are rejected by the UI.
+- The batch preview and confirmation flow remains shared between both operation types, while each operation retains its own validation and fields.
+- Batch detail history uses responsive layouts: dedicated cards on mobile and a table on desktop.
+- Payment batch detail rows show only **Job Card** and **Paid Amount**. Manual/Extra Charge batch detail rows show only **Job Card** and **Charge Amount**. The shared description is not repeated on every row.
+- For Manual/Extra Charge batches, the selected Tag is shown once as a static, non-clickable label above the expanded Job Card details, not as a repeated table column.
+- Existing audit/correction/refund history remains available below the simplified batch rows when audit records exist.
+- These are UI changes only. PR #37 introduced no database migration or schema change. The existing atomic batch RPCs remain responsible for validation, persistence and audit records.
+
 ## 7. FIFO allocation and reallocation
 
 - FIFO operates at **Job Card level across all Tags**. Tags are grouping/reporting labels, never payment destinations or allocation accounts.
@@ -288,12 +302,13 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 
 Bulk Manual/Extra Charges are entered from the same Batch Operations workspace by selecting **Manual/Extra Charges**.
 
-Use a paste-friendly line format containing:
+Use a paste-friendly line format containing only:
 - Job Card Number.
-- Charge description.
 - Amount.
 
-Select one **Tag** for the charge batch. The selected Tag and description are stored on each Manual/Extra Charge. Tag is classification/reporting metadata and does not change Job Card balance ownership or FIFO chronology. A Job Card may appear only once in a charge batch; duplicate Job Card Numbers invalidate the entire batch.
+The administrator enters one shared **Description** for the entire batch, immediately below the Tag selector. The application applies that description to every line when preparing the validated batch request. A comma is not allowed in the shared description because the underlying preview parser uses comma-separated fields.
+
+Select one **Tag** for the charge batch. The selected Tag and shared description are stored on each Manual/Extra Charge. Tag is classification/reporting metadata and does not change Job Card balance ownership or FIFO chronology. A Job Card may appear only once in a charge batch; duplicate Job Card Numbers invalidate the entire batch.
 
 The preview follows the same layout and review pattern as Payments, but shows charge-specific fields and validation. Each accepted line creates a separate Manual/Extra Charge with its own stable charge identity, creator, creation timestamp and audit event.
 

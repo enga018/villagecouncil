@@ -61,7 +61,7 @@ begin
   evaluated as (
     select
       p.*,
-      case when p.amount_text ~ '^[0-9]+([.][0-9]{1,2})?$'
+      case when p.amount_text ~ '^[0-9]{1,12}([.][0-9]{1,2})?$'
         then p.amount_text::numeric(14,2) else null end as amount,
       count(*) filter (where p.job_card_number is not null and p.job_card_number <> '')
         over (partition by p.job_card_number) as duplicate_count,
@@ -106,7 +106,7 @@ begin
             when 'job_card_not_found' then 'Job Card was not found in this Village Council.'
             when 'missing_job_card' then 'Enter a Job Card Number before the comma.'
             when 'missing_amount' then 'Enter an amount after the comma.'
-            when 'invalid_amount' then 'Amount must be a positive number with no more than two decimal places.'
+            when 'invalid_amount' then 'Amount must be positive, within the supported 12-digit range, and have no more than two decimal places.'
             else null
           end
         ) order by line_number

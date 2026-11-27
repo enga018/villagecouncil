@@ -76,7 +76,7 @@ This review is part of the recalculation workflow. It is not a separate general-
 The Contribution module has four sections:
 
 1. **Contributions** — Job Card contribution accounts, charges, payments and balances.
-2. **Bulk Payments** — bulk collection entry and bulk payment history.
+2. **Batch Operations** — one shared batch workspace for bulk Payments and bulk Manual/Extra Charges.
 3. **Reports** — contribution and financial reports.
 4. **Settings** — relevant financial configuration.
 
@@ -186,9 +186,16 @@ The administrator must not have to type the Job Card Number again to record a pa
 - The refund record and FIFO reallocation commit or roll back together. Repeated requests with the same idempotency key return the original refund; a different request using that key is rejected.
 - Refund history is append-only. Refund correction or deletion is not supported; an incorrect refund requires a separately designed compensating workflow.
 
-## 6. Bulk Payments
+## 6. Batch Operations
 
-### 6.1 Entry format
+Batch Operations is one shared workspace for entering multiple financial records. At the top, the administrator selects the operation type:
+
+- **Payments** — create one payment for each listed Job Card.
+- **Manual/Extra Charges** — create one separate charge for each listed Job Card.
+
+Both operation types use the same page structure, paste area, validation preview, review/confirmation step and batch history pattern. The fields, validation rules and resulting financial records differ by selected operation. Changing the selector changes the relevant input format and preview columns; it does not create a separate page or navigation section.
+
+### 6.1 Payments entry format
 
 Each line represents one Job Card payment. The Job Card Number and amount are separated by a comma:
 
@@ -198,14 +205,14 @@ JOB-CARD-NUMBER, AMOUNT
 JOB-CARD-NUMBER, AMOUNT
 ```
 
-### 6.2 Batch payment method
+### 6.2 Payment method
 
 - Select one payment method for the batch: **CASH** or **BANK**.
 - The selected method applies to each payment created from that batch.
 - Individual payments are still stored as separate payment records linked to their source batch.
 - Capture batch date/time and administrator automatically.
 
-### 6.3 Validation and confirmation
+### 6.3 Payment validation and confirmation
 
 Before saving, show a review/confirmation preview:
 - Parsed Job Card Number and amount for each line.
@@ -220,9 +227,9 @@ A batch is all-or-nothing. If any line is invalid, the entire batch is rejected 
 
 Amounts greater than a Job Card's current outstanding balance are allowed. The excess remains as unallocated/overpaid credit for that Job Card.
 
-### 6.4 Bulk Payment History
+### 6.4 Payment batch history
 
-Provide a dedicated Bulk Payment History view so administrators can find previous collection batches.
+Within Batch Operations, provide payment batch history so administrators can find previous collection batches.
 
 The history list should support:
 - Search by batch reference.
@@ -272,6 +279,21 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 - Regular CO Charge corrections are handled through the confirmed CO recalculation workflow in section 2. Do not provide a separate manual CO-charge allocation or reversal interface.
 - A Regular CO Charge retains a stable identity linked to its source FTO transaction. A recalculation creates an immutable revision of its amount/eligibility; it does not create a duplicate charge.
 - If a Regular CO Charge becomes zero or ineligible, retain it as an inactive historical record. If it later becomes eligible again, reactivate the same charge identity with a new revision. Preserve all prior calculation versions and lifecycle events.
+
+### 8.1 Bulk Manual/Extra Charges
+
+Bulk Manual/Extra Charges are entered from the same Batch Operations workspace by selecting **Manual/Extra Charges**.
+
+Use a paste-friendly line format containing:
+- Job Card Number.
+- Charge description.
+- Amount.
+
+The preview follows the same layout and review pattern as Payments, but shows charge-specific fields and validation. Each accepted line creates a separate Manual/Extra Charge with its own stable charge identity, creator, creation timestamp and audit event. No Tag is selected or assigned.
+
+The entire charge batch is all-or-nothing: if any line is invalid, no charges are created. The database must revalidate every line during confirmation. On successful confirmation, rerun FIFO for each affected Job Card in the same atomic operation. Preserve each charge as an independent record so it can later be corrected or reversed individually under section 8.
+
+Batch history must distinguish Payment batches from Manual/Extra Charge batches and show the operation type, batch reference, date/time, administrator, number of Job Cards/records and total amount. Opening a batch shows each Job Card and its corresponding payment or charge details. Individual records remain independently auditable.
 
 ## 9. Reports
 
@@ -339,7 +361,7 @@ Every Contribution module screen must be designed for both PC and mobile. This i
 - Display Job Cards as readable cards rather than squeezing a wide desktop table onto the screen.
 - Open Job Card Detail as a full-screen mobile view.
 - Make balances and available actions clear and easy to reach.
-- Use a large paste-friendly text area for Bulk Payment entry.
+- Use a large paste-friendly text area for Batch Operations, with the same responsive preview and confirmation layout for Payments and Manual/Extra Charges.
 - Make validation, confirmation, history and report tables usable on a narrow screen.
 
 Do not treat mobile as a scaled-down desktop view. Both layouts are required.
@@ -364,7 +386,7 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 4. Implement the Contributions page and Job Card detail for PC and mobile.
 5. Implement individual CASH payment, Paid in Full, single-administrator approved Waive (mandatory reason) and conditional Refund actions.
 6. Implement editable payment records, immutable original creation metadata and audit history.
-7. Implement Bulk Payments with CASH/BANK selection, line parsing, validation preview, confirmation and batch history.
+7. Implement the shared Batch Operations workspace with a Payments/Manual-Extra Charges selector, matching paste/preview/confirmation layouts, and separate batch histories.
 8. Implement Job Card-level automatic FIFO, unallocated credit, immutable allocation events and FIFO-run tracking; do not provide manual allocation.
 9. Implement the five agreed reports for all active Council administrators.
 10. Complete end-to-end financial, audit, tenant-isolation, concurrency and responsive UI testing.
@@ -376,7 +398,7 @@ These details remain open and must not be silently invented:
 2. Whether a reason is mandatory for every Manual/Extra Charge reversal and any additional confirmation rules.
 3. **Resolved:** A waiver requires a mandatory reason and is recorded and approved by the same active Council administrator. Record actor and approval timestamp automatically; no second-administrator approval is required.
 4. Exact fields for an individual payment beyond the amount and automatically captured date/time/administrator.
-5. Bulk batch behavior when some lines are invalid: reject the whole batch or allow valid lines to be saved separately.
+5. **Resolved:** Batch Operations uses all-or-nothing validation for both Payments and Manual/Extra Charges. If any line is invalid, no records in that batch are saved.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges — **resolved: unified chronology, oldest timestamp first, regardless of charge type**.
 8. Exact reference/receipt numbering requirements.
 9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.

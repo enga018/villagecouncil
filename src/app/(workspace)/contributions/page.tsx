@@ -61,6 +61,8 @@ function sum<T>(rows: T[], value: (row: T) => number) {
 
 export default function ContributionsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [transactionLookup, setTransactionLookup] = useState<Map<string, Transaction>>(new Map());
+  const [tagLookup, setTagLookup] = useState<Map<string, string>>(new Map());
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"outstanding" | "all">("outstanding");
@@ -161,6 +163,8 @@ export default function ContributionsPage() {
         });
         if (current) {
           setAccounts(nextAccounts);
+          setTransactionLookup(transactionById);
+          setTagLookup(tagById);
           setSelectedId(previous => previous && nextAccounts.some(account => account.id === previous) ? previous : "");
         }
       } catch (err) {
@@ -270,10 +274,10 @@ export default function ContributionsPage() {
                   {selected.charges.filter(row => row.charge_type === "regular_co").length === 0
                     ? <p className="rounded-xl bg-slate-50 px-3 py-5 text-center text-xs text-slate-500">No Regular CO Charges.</p>
                     : <div className="space-y-2">{selected.charges.filter(row => row.charge_type === "regular_co").map(charge => {
-                      const tx = charge.fto_transaction_id ? transactionByIdForDisplay(charge.fto_transaction_id, accounts) : null;
+                      const tx = charge.fto_transaction_id ? transactionLookup.get(charge.fto_transaction_id) || null : null;
                       return <article key={charge.id} className="rounded-xl border border-slate-200 p-3">
                         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-bold text-slate-950">{tx?.fto_number || "FTO not recorded"}</p><p className="mt-1 text-[11px] text-slate-500">{tx?.applicant_name || "Applicant not recorded"}</p></div><p className="shrink-0 text-sm font-bold tabular-nums">{money(Number(charge.current_amount))}</p></div>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500"><span>Date: {date(tx?.processed_date || tx?.transaction_date || null)}</span><span>Tag: {charge.tag_id ? tagNameForDisplay(charge.tag_id, accounts) : "Unassigned"}</span><span>Allocated: {money(allocationByCharge(selected, charge.id))}</span>{!charge.is_active && <span className="font-semibold text-rose-700">Reversed</span>}</div>
+                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-500"><span>Date: {date(tx?.processed_date || tx?.transaction_date || null)}</span><span>Tag: {charge.tag_id ? tagLookup.get(charge.tag_id) || "Archived tag" : "Unassigned"}</span><span>Allocated: {money(allocationByCharge(selected, charge.id))}</span>{!charge.is_active && <span className="font-semibold text-rose-700">Reversed</span>}</div>
                       </article>;
                     })}</div>}
                 </section>

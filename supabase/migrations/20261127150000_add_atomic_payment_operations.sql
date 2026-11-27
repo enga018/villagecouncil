@@ -166,6 +166,12 @@ begin
       where a.village_council_id = p_village_council_id
         and a.job_card_number = p_job_card_number
     ), 0)
+    - coalesce((
+      select sum(w.amount)
+      from public.council_contribution_waivers w
+      where w.village_council_id = p_village_council_id
+        and w.job_card_number = p_job_card_number
+    ), 0)
   into v_outstanding
   from public.council_contribution_charges ch
   where ch.village_council_id = p_village_council_id

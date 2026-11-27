@@ -184,7 +184,7 @@ export default function BatchOperationsPage() {
             p_village_council_id: councilId,
             p_tag_id: tagId,
             p_lines: lines,
-            p_idempotency_key: crypto.randomUUID(),
+            p_idempotency_key: requestKey,
           };
       const { data, error: rpcError } = await supabase.rpc(rpc, args);
       if (rpcError) throw rpcError;
@@ -211,22 +211,32 @@ export default function BatchOperationsPage() {
     setDetailLoading(item.id);
     setError("");
     try {
-      const result = item.kind === "payment"
-        ? await supabase.from("council_payments")
-            .select("id,job_card_number,amount,payment_method")
-            .eq("village_council_id", councilId).eq("batch_id", item.id).order("job_card_number")
-        : await supabase.from("council_contribution_charges")
-            .select("id,job_card_number,current_amount,description,is_active")
-            .eq("village_council_id", councilId).eq("manual_charge_batch_id", item.id).order("job_card_number");
-      if (result.error) throw result.error;
-      setBatchDetails(previous => ({ ...previous, [item.id]: (result.data || []).map((row: any) => ({
-        id: row.id,
-        job_card_number: row.job_card_number,
-        amount: item.kind === "payment" ? row.amount : row.current_amount,
-        payment_method: row.payment_method,
-        description: row.description,
-        is_active: row.is_active,
-      })) }));
+      if (item.kind === "payment") {
+        const result = await supabase.from("council_payments")
+          .select("id,job_card_number,amount,payment_method")
+          .eq("village_council_id", councilId).eq("batch_id", item.id).order("job_card_number");
+        if (result.error) throw result.error;
+        const details: BatchDetail[] = (result.data || []).map(row => ({
+          id: row.id,
+          job_card_number: row.job_card_number,
+          amount: row.amount,
+          payment_method: row.payment_method,
+        }));
+        setBatchDetails(previous => ({ ...previous, [item.id]: details }));
+      } else {
+        const result = await supabase.from("council_contribution_charges")
+          .select("id,job_card_number,current_amount,description,is_active")
+          .eq("village_council_id", councilId).eq("manual_charge_batch_id", item.id).order("job_card_number");
+        if (result.error) throw result.error;
+        const details: BatchDetail[] = (result.data || []).map(row => ({
+          id: row.id,
+          job_card_number: row.job_card_number,
+          amount: row.current_amount,
+          description: row.description,
+          is_active: row.is_active,
+        }));
+        setBatchDetails(previous => ({ ...previous, [item.id]: details }));
+      }
     } catch (err) {
       setError(errorMessage(err));
       setExpandedBatch("");

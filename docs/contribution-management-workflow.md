@@ -13,7 +13,7 @@ This document records the agreed Contribution and Payment workflow. It supersede
 - The **Job Card Number** is the primary financial account key and owns the contribution balance.
 - Every charge and payment is associated with a Job Card.
 - A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Tags of their source FTOs.
-- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose a Tag when recording a payment.
+- Payment allocation runs within the Job Card across all eligible charges. A selected payment Tag is classification/reporting metadata only; it does not restrict allocation to charges with the same Tag.
 - Financial history remains available when a Job Card is Active, Inactive, Deleted or Exempt.
 - Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new CO charges; it does not prevent repayment of existing obligations.
 
@@ -30,7 +30,7 @@ Do not combine the two categories into one indistinguishable charge type. Both c
 
 - FTOs remain the source of Regular CO Charges.
 - Each FTO has one current Tag. Tags are assigned during the FTO CO Calculation workflow.
-- Tags classify/group FTOs for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
+- Tags classify/group FTOs and financial transactions for Contribution review and reporting. They are not financial accounts, payment destinations or Contribution Periods.
 - Do not create a separate Contribution Period entity or require a period to be opened.
 - Changing an FTO's tag changes its reporting classification, but does not change the Job Card balance, charge amount or payment/allocation history.
 - A payment is not restricted to one tag. FIFO covers eligible outstanding charges on the Job Card across all tags.
@@ -80,7 +80,7 @@ The Contribution module has four sections:
 3. **Reports** — contribution and financial reports.
 4. **Settings** — relevant financial configuration.
 
-Record Payment, Paid in Full, Waive and Refund actions are located inside the relevant Job Card Contribution Detail. Do not require the administrator to navigate to a separate payment page and re-enter a Job Card Number when already working inside that Job Card.
+Paid in Full, Waive and Refund remain actions inside the relevant Job Card Contribution Detail. All new payments and Manual/Extra Charges are entered through the shared Batch Operations workspace, including one-record submissions. Remove the separate single-entry Record Payment and Manual/Extra Charge forms.
 
 CO formula configuration remains in the existing Council Settings workflow.
 
@@ -108,14 +108,14 @@ The detail page is the financial workspace for that Job Card. It must show, sepa
 - Current outstanding or overpaid balance.
 - Relevant source and audit history.
 
-The administrator must not have to type the Job Card Number again to record a payment from this page.
+The administrator can review payment and charge history here. New payments and Manual/Extra Charges are created through Batch Operations rather than separate forms on this page.
 
 ### 4.3 Actions and visibility
 
-**Record Payment**
-- Available from the Job Card Contribution Detail.
-- An individual payment recorded this way is treated as **CASH**. Do not show a payment-method selector in this individual entry flow.
-- The administrator enters the amount; the payment date/time is recorded automatically and is not manually entered.
+**New payments**
+- Created through Batch Operations, including when recording a payment for only one Job Card.
+- Select CASH or BANK and select a Tag for classification/reporting.
+- Payment date/time and the creating administrator are recorded automatically.
 - A payment can be recorded even when the current outstanding balance is zero or negative. Excess remains as unallocated/overpaid credit on the Job Card.
 
 **Paid in Full**
@@ -149,7 +149,7 @@ The administrator must not have to type the Job Card Number again to record a pa
 - Payments may be recorded when no outstanding balance exists; excess is retained as unallocated credit for future eligible charges.
 - Payments can cover Regular CO Charges and Manual/Extra Charges across all Tags.
 - Payment date/time and the creating administrator are captured automatically. The user does not manually enter the payment date.
-- Individual payments from Job Card Detail are CASH.
+- Payments created through Batch Operations may be CASH or BANK, according to the selected batch method.
 
 ### 5.2 Editing payments
 
@@ -208,7 +208,9 @@ JOB-CARD-NUMBER, AMOUNT
 ### 6.2 Payment method
 
 - Select one payment method for the batch: **CASH** or **BANK**.
-- The selected method applies to each payment created from that batch.
+- Select one **Tag** for the batch. The selected Tag is stored as classification/reporting metadata on each payment.
+- The selected method and Tag apply to every payment created from that batch.
+- Tag selection does not restrict FIFO: payments continue to cover eligible outstanding charges on the Job Card across all Tags.
 - Individual payments are still stored as separate payment records linked to their source batch.
 - Capture batch date/time and administrator automatically.
 
@@ -219,7 +221,7 @@ Before saving, show a review/confirmation preview:
 - Valid and invalid entries.
 - Missing/invalid Job Card Numbers.
 - Missing, non-numeric, zero or negative amounts.
-- Duplicate Job Card Numbers/lines flagged for administrator review.
+- Duplicate Job Card Numbers are invalid; a Job Card may appear only once in a payment batch.
 - Number of valid entries and total collection amount.
 - Selected CASH/BANK method.
 
@@ -289,7 +291,9 @@ Use a paste-friendly line format containing:
 - Charge description.
 - Amount.
 
-The preview follows the same layout and review pattern as Payments, but shows charge-specific fields and validation. Each accepted line creates a separate Manual/Extra Charge with its own stable charge identity, creator, creation timestamp and audit event. No Tag is selected or assigned.
+Select one **Tag** for the charge batch. The selected Tag and description are stored on each Manual/Extra Charge. Tag is classification/reporting metadata and does not change Job Card balance ownership or FIFO chronology. A Job Card may appear only once in a charge batch; duplicate Job Card Numbers invalidate the entire batch.
+
+The preview follows the same layout and review pattern as Payments, but shows charge-specific fields and validation. Each accepted line creates a separate Manual/Extra Charge with its own stable charge identity, creator, creation timestamp and audit event.
 
 The entire charge batch is all-or-nothing: if any line is invalid, no charges are created. The database must revalidate every line during confirmation. On successful confirmation, rerun FIFO for each affected Job Card in the same atomic operation. Preserve each charge as an independent record so it can later be corrected or reversed individually under section 8.
 
@@ -348,7 +352,7 @@ Export/download formats were deferred and must be discussed separately.
 
 ## 10. Responsive PC and mobile requirements
 
-Every Contribution module screen must be designed for both PC and mobile. This includes Contributions, Job Card Detail, individual payment, Paid in Full, Waive, Refund, Bulk Payment entry, Bulk Payment History and Reports.
+Every Contribution module screen must be designed for both PC and mobile. This includes Contributions, Job Card Detail, Paid in Full, Waive, Refund, Batch Operations entry/history and Reports.
 
 **PC**
 - Use dashboard summary cards and a readable Job Card table.
@@ -397,8 +401,11 @@ These details remain open and must not be silently invented:
 1. Exact fields and validation for creating a Manual/Extra Charge.
 2. Whether a reason is mandatory for every Manual/Extra Charge reversal and any additional confirmation rules.
 3. **Resolved:** A waiver requires a mandatory reason and is recorded and approved by the same active Council administrator. Record actor and approval timestamp automatically; no second-administrator approval is required.
-4. Exact fields for an individual payment beyond the amount and automatically captured date/time/administrator.
+4. Exact reference/receipt numbering requirements.
 5. **Resolved:** Batch Operations uses all-or-nothing validation for both Payments and Manual/Extra Charges. If any line is invalid, no records in that batch are saved.
+6. **Resolved:** A Job Card may appear only once in a batch, for both Payments and Manual/Extra Charges.
+7. **Resolved:** Batch-level Tag selection is required for both Payments and Manual/Extra Charges. Manual/Extra Charges also require a Description. Tag is classification/reporting metadata and does not change Job Card-level FIFO allocation across Tags.
+8. **Resolved:** Remove separate single-entry Record Payment and Manual/Extra Charge forms; use a one-line Batch Operations submission instead. Paid in Full, Waive and Refund remain Job Card detail actions.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges — **resolved: unified chronology, oldest timestamp first, regardless of charge type**.
 8. Exact reference/receipt numbering requirements.
 9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.

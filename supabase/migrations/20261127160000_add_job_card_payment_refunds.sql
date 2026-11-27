@@ -159,12 +159,45 @@ begin
 
   insert into pg_temp.fifo_work_charges (charge_id, remaining, chronology_at, tie_breaker)
   select ch.id,
-    greatest(0, ch.current_amount - coalesce(fixed.amount, 0)),
+    greatest(0,
+      ch.current_amount
+      - coalesce(fixed.amount, 0)
+      - greatest(0, coalesce(waiver_totals.amount, 0) - coalesce(prior_charges.amount, 0))
+    ),
     case when ch.charge_type = 'regular_co'
       then coalesce(tx.transaction_date::timestamp at time zone 'UTC', tx.first_imported_at)
       else ch.original_created_at end,
     case when ch.charge_type = 'regular_co' then tx.id else ch.id end
   from public.council_contribution_charges ch
+  left join lateral (
+    select sum(w.amount) as amount
+    from public.council_contribution_waivers w
+    where w.village_council_id = ch.village_council_id
+      and w.job_card_number = ch.job_card_number
+  ) waiver_totals on true
+  left join lateral (
+    select sum(older.current_amount) as amount
+    from public.council_contribution_charges older
+    left join public.council_fto_transactions older_tx
+      on older_tx.id = older.fto_transaction_id
+     and older_tx.village_council_id = older.village_council_id
+    where older.village_council_id = ch.village_council_id
+      and older.job_card_number = ch.job_card_number
+      and older.is_active and older.current_amount > 0
+      and (
+        case when older.charge_type = 'regular_co'
+          then coalesce(older_tx.transaction_date::timestamp at time zone 'UTC', older_tx.first_imported_at)
+          else older.original_created_at end,
+        case when older.charge_type = 'regular_co' then older_tx.id else older.id end
+      ) < (
+        case when ch.charge_type = 'regular_co'
+          then coalesce(tx.transaction_date::timestamp at time zone 'UTC', tx.first_imported_at)
+          else ch.original_created_at end,
+        case when ch.charge_type = 'regular_co' then tx.id else ch.id end
+      )
+  ) prior_charges on true
+  left join public.council_fto_transactions tx
+    on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
   left join public.council_fto_transactions tx
     on tx.id = ch.fto_transaction_id and tx.village_council_id = ch.village_council_id
   left join lateral (

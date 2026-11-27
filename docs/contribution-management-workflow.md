@@ -177,6 +177,15 @@ The administrator must not have to type the Job Card Number again to record a pa
 - If FIFO detects that fixed historical allocations exceed the corrected payment capacity, the entire correction rolls back.
 - Refund processing remains a separate operation and is not implemented by payment correction.
 
+### 5.5 Refund operation (implementation detail)
+
+- A refund is a separate immutable record linked to its original payment and Job Card. It never changes or deletes the original payment.
+- A refund requires a positive amount, a non-empty reason and an idempotency key. The system records the refund timestamp and administrator automatically.
+- Validate the requested amount against both the Job Card's current positive overpaid credit and the selected payment's remaining refundable capacity after prior refunds and fixed historical allocations.
+- Automatic allocations may be released and rebuilt by FIFO as part of the refund transaction. Fixed historical reviewed allocations are never changed; if they exceed the payment's remaining capacity after the refund, the entire refund rolls back.
+- The refund record and FIFO reallocation commit or roll back together. Repeated requests with the same idempotency key return the original refund; a different request using that key is rejected.
+- Refund history is append-only. Refund correction or deletion is not supported; an incorrect refund requires a separately designed compensating workflow.
+
 ## 6. Bulk Payments
 
 ### 6.1 Entry format

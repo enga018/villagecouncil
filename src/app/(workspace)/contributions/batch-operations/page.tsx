@@ -22,6 +22,7 @@ type Preview = {
   valid_total: number;
   lines: PreviewLine[];
 };
+type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean };
 type HistoryItem = {
   id: string;
   batch_reference: string;
@@ -58,6 +59,9 @@ export default function BatchOperationsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [expandedBatch, setExpandedBatch] = useState("");
+  const [batchDetails, setBatchDetails] = useState<Record<string, BatchDetail[]>>({});
+  const [detailLoading, setDetailLoading] = useState("");
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -197,6 +201,40 @@ export default function BatchOperationsPage() {
     }
   }
 
+  async function toggleBatchDetails(item: HistoryItem) {
+    if (expandedBatch === item.id) {
+      setExpandedBatch("");
+      return;
+    }
+    setExpandedBatch(item.id);
+    if (batchDetails[item.id]) return;
+    setDetailLoading(item.id);
+    setError("");
+    try {
+      const result = item.kind === "payment"
+        ? await supabase.from("council_payments")
+            .select("id,job_card_number,amount,payment_method")
+            .eq("village_council_id", councilId).eq("batch_id", item.id).order("job_card_number")
+        : await supabase.from("council_contribution_charges")
+            .select("id,job_card_number,current_amount,description,is_active")
+            .eq("village_council_id", councilId).eq("manual_charge_batch_id", item.id).order("job_card_number");
+      if (result.error) throw result.error;
+      setBatchDetails(previous => ({ ...previous, [item.id]: (result.data || []).map((row: any) => ({
+        id: row.id,
+        job_card_number: row.job_card_number,
+        amount: item.kind === "payment" ? row.amount : row.current_amount,
+        payment_method: row.payment_method,
+        description: row.description,
+        is_active: row.is_active,
+      })) }));
+    } catch (err) {
+      setError(errorMessage(err));
+      setExpandedBatch("");
+    } finally {
+      setDetailLoading("");
+    }
+  }
+
   const selectedTag = tags.find(tag => tag.id === tagId)?.name || "—";
   const validForConfirmation = Boolean(preview && preview.valid_count > 0 && preview.invalid_count === 0);
 
@@ -315,9 +353,15 @@ export default function BatchOperationsPage() {
         {loading ? <p className="py-8 text-center text-xs text-slate-500">Loading history…</p>
           : history.length === 0 ? <p className="py-8 text-center text-xs text-slate-500">No batches recorded yet.</p>
           : <div className="mt-4 divide-y divide-slate-100">
-            {history.map(item => <div key={item.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""} · {tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}</p></div>
-              <p className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</p>
+            {history.map(item => <div key={item.id} className="border-b border-slate-100 py-3 last:border-0">
+              <button type="button" onClick={() => void toggleBatchDetails(item)} className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""} · {tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}</p></div>
+                <span className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</span><span className="text-[10px] font-semibold text-blue-700">{detailLoading === item.id ? "Loading…" : expandedBatch === item.id ? "Hide details ↑" : "View details ↓"}</span></span>
+              </button>
+              {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+                {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
+                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">Amount</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
+              </div>}
             </div>)}
           </div>}
       </section>

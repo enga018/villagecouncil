@@ -6,7 +6,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 -- Core financial ledger tables.
 select ok(to_regclass('public.council_contribution_charges') is not null, 'charge ledger table exists');

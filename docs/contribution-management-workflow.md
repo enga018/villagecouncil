@@ -419,7 +419,7 @@ These details remain open and must not be silently invented:
 5. **Resolved:** Batch Operations uses all-or-nothing validation for both Payments and Manual/Extra Charges. If any line is invalid, no records in that batch are saved.
 6. **Resolved:** A Job Card may appear only once in a batch, for both Payments and Manual/Extra Charges.
 7. **Resolved:** Tag selection is required for Manual/Extra Charge batches and is stored on each charge. Payments do not have a Tag selector or Tag metadata; the administrator selects only CASH or BANK. Manual/Extra Charges also require a Description. Tag does not change Job Card-level FIFO allocation across Tags.
-8. **Resolved:** Keep the Record Payment and Manual/Extra Charge actions as shortcuts into the shared Batch Operations workspace, with the corresponding operation preselected. One-line submissions use the same shared workflow; do not create separate single-entry forms. Paid in Full, Waive and Refund remain Job Card detail actions.
+8. **Superseded by the 2026-11-27 Job Card action-page decision:** Record Payment and Add Manual/Extra Charge are dedicated single-Job-Card pages launched from Job Card Detail. Paid in Full, Waive and Refund also each have dedicated pages. Batch Operations remains a separate bulk workflow for multiple Job Cards.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges — **resolved: unified chronology, oldest timestamp first, regardless of charge type**.
 8. Exact reference/receipt numbering requirements.
 9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.

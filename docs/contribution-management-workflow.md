@@ -13,7 +13,7 @@ This document records the agreed Contribution and Payment workflow. It supersede
 - The **Job Card Number** is the primary financial account key and owns the contribution balance.
 - Every charge and payment is associated with a Job Card.
 - A Job Card account brings together its Regular CO Charges and Manual/Extra Charges, regardless of the Tags of their source FTOs.
-- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose an Tag when recording a payment.
+- Payment allocation runs within the Job Card across all eligible charges; the administrator does not choose a Tag when recording a payment.
 - Financial history remains available when a Job Card is Active, Inactive, Deleted or Exempt.
 - Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards. Exemption prevents eligible new CO charges; it does not prevent repayment of existing obligations.
 
@@ -128,7 +128,7 @@ The administrator must not have to type the Job Card Number again to record a pa
 - A waiver can be entered for an amount less than the current outstanding amount.
 - Show the Waive action only when the Job Card has a positive outstanding balance.
 - Hide it when there is no positive outstanding balance.
-- Record the waiver as its own financial adjustment, not as a payment.
+- Record the waiver as its own financial adjustment, not as a payment. A waiver reduces eligible outstanding charge balance and triggers FIFO reallocation where existing automatic allocations would exceed the revised charge balance.
 - Exact waiver reason/approval fields and any further constraints must follow the final waiver form decision before implementation.
 
 **Refund**
@@ -138,6 +138,7 @@ The administrator must not have to type the Job Card Number again to record a pa
 - Record refund date/time and administrator automatically.
 - Preserve the original payment record; record the refund separately.
 - The Refund button is **hidden by default**. Show it only when the Job Card has a positive overpaid balance. Hide it when the overpaid balance is zero or the Job Card has an outstanding/zero balance.
+- Before refunding, release automatic FIFO allocations in reverse allocation order (newest charge first), preserve fixed historical allocations, then record the refund and rerun FIFO. If fixed historical allocations exceed remaining payment capacity, reject the refund atomically.
 - After refund, recalculate the Job Card's remaining overpaid balance and update button visibility.
 
 ## 5. Individual payments and payment record editing
@@ -157,7 +158,7 @@ The administrator must not have to type the Job Card Number again to record a pa
 - Every edit requires a correction reason.
 - Preserve the original values in audit history, including revised values, editing administrator and edit timestamp.
 - The original payment date/time and original creating administrator are not rewritten by an edit.
-- After an amount or other allocation-relevant edit, automatically recalculate/release/reallocate FIFO as required.
+- After an amount or other allocation-relevant edit, automatically recalculate/release/reallocate FIFO. Preserve fixed historical allocations; reject the edit atomically if they exceed the corrected payment capacity.
 - Editing a payment is a correction to that payment record, not a new payment or a refund.
 
 ### 5.3 No permanent deletion
@@ -197,7 +198,7 @@ Before saving, show a review/confirmation preview:
 - Number of valid entries and total collection amount.
 - Selected CASH/BANK method.
 
-Do not silently accept invalid lines. The administrator reviews the preview before confirming the batch. Whether a batch with some invalid lines can partially save valid entries or must be corrected and resubmitted as a whole remains open.
+Do not silently accept invalid lines. The administrator reviews the preview before confirming the batch. A batch is validated as a whole and must be corrected and resubmitted if any line is invalid; do not partially save a batch.
 
 Amounts greater than a Job Card's current outstanding balance are allowed. The excess remains as unallocated/overpaid credit for that Job Card.
 
@@ -225,22 +226,32 @@ PDF/Excel export and download were explicitly deferred for a later discussion an
 
 ## 7. FIFO allocation and reallocation
 
-- FIFO operates at **Job Card level across all Tags**.
-- The administrator does not select an Tag when recording a payment.
-- Partial allocations are allowed.
-- Payments are allocated to the Job Card's oldest eligible outstanding charges according to the agreed FIFO order.
-- Within the allocation process, use the oldest available payment first.
-- If payment exceeds current outstanding charges, keep the excess as unallocated credit on that Job Card.
-- Re-run allocation automatically after relevant CO recalculation confirmation, charge changes, payment edits, refunds, reversals or reinstatements.
-- Allocation changes must be auditable. Preserve Allocate, Release and Reallocate history; do not silently overwrite prior allocations.
-- The exact immutable chronological key for ordering Regular CO Charges and Manual/Extra Charges across a Job Card remains a technical detail to finalize. Mutable Tag names must not rewrite existing allocations or determine the Job Card account.
+- FIFO operates at **Job Card level across all Tags**. Tags are grouping/reporting labels, never payment destinations or allocation accounts.
+- The administrator cannot manually allocate, move, assign, adjust or override a payment allocation. All new allocations are generated by the FIFO engine.
+- Partial allocations are allowed. The oldest eligible outstanding charge receives payment first; within a Job Card, the oldest available payment is consumed first.
+- Excess payment remains as unallocated credit on that Job Card for future eligible charges.
+- Regular CO Charge chronology is based on Government `transaction_date`; if missing, use immutable `first_imported_at`; use the stable FTO transaction ID as the final tie-breaker.
+- Manual/Extra Charge chronology is based on its immutable original `created_at`, with its immutable charge ID as the tie-breaker. Editing a charge never changes its FIFO position. Reversing and recreating a charge creates a new position.
+- Reallocation runs automatically after confirmed CO recalculation, charge changes, payment amount corrections, refunds, waivers, reversals and reinstatements, for all affected Job Cards.
+- Payment corrections recalculate automatic FIFO allocations whether the payment amount increases or decreases. Preserve fixed historical allocations. If fixed historical allocations exceed the corrected payment capacity, reject the correction atomically and report the conflict.
+- Refunds release automatic FIFO allocations in reverse allocation order (newest charge first) before reducing payment capacity. Fixed historical allocations are preserved; if they exceed the remaining payment capacity, reject the refund atomically.
+- Allocation state and allocation history are separate:
+  - `council_payment_allocations` stores the current allocation state.
+  - `council_allocation_events` is append-only and records allocation, release and reallocation events, including actor, timestamp, amount and reason/context.
+  - `council_fifo_runs` records each allocation operation, its trigger, affected Job Card, outcome and failure details.
+- Historical reviewed allocations, if present from an imported legacy ledger, are fixed and cannot be changed by automatic FIFO. There is no manual allocation facility for new records.
+- Current allocation state is used to calculate balances. Historical events explain how the current state was reached; do not calculate balances by summing all historical events.
 
 ## 8. Manual/Extra Charges and CO recalculation distinction
 
 - Manual/Extra Charges are additional charges entered by an administrator and are separate from Regular CO Charges.
-- Manual/Extra Charge reversal must be supported as a distinct adjustment with an auditable history; do not delete the original charge.
-- Regular CO Charge corrections are handled through the CO recalculation review → confirmation workflow described in section 2. Do not add a separate manual CO reversal/reinstatement interface as a substitute for recalculation.
-- The exact Manual/Extra Charge entry fields, required reason, permissions and reversal confirmation details must be finalized before implementation.
+- Entry fields are Job Card Number, charge description and amount. The system captures creator and creation timestamp automatically. No Tag selector is provided.
+- Each Manual/Extra Charge has a stable identity and immutable original creation timestamp.
+- Administrators can correct a Manual/Extra Charge; a correction reason is required. Preserve the previous and revised values and rerun FIFO for the affected Job Card.
+- Administrators can reverse a Manual/Extra Charge with a reason and confirmation. Never delete the original record. Record the reversal and release/reallocate affected automatic allocations through FIFO.
+- Regular CO Charge corrections are handled through the confirmed CO recalculation workflow in section 2. Do not provide a separate manual CO-charge allocation or reversal interface.
+- A Regular CO Charge retains a stable identity linked to its source FTO transaction. A recalculation creates an immutable revision of its amount/eligibility; it does not create a duplicate charge.
+- If a Regular CO Charge becomes zero or ineligible, retain it as an inactive historical record. If it later becomes eligible again, reactivate the same charge identity with a new revision. Preserve all prior calculation versions and lifecycle events.
 
 ## 9. Reports
 
@@ -334,7 +345,7 @@ Do not treat mobile as a scaled-down desktop view. Both layouts are required.
 5. Implement individual CASH payment, Paid in Full, Waive and conditional Refund actions.
 6. Implement editable payment records, immutable original creation metadata and audit history.
 7. Implement Bulk Payments with CASH/BANK selection, line parsing, validation preview, confirmation and batch history.
-8. Implement Job Card-level FIFO, unallocated credit, manual allocation correction and automatic reallocation after relevant changes.
+8. Implement Job Card-level automatic FIFO, unallocated credit, immutable allocation events and FIFO-run tracking; do not provide manual allocation.
 9. Implement the five agreed reports for all active Council administrators.
 10. Complete end-to-end financial, audit, tenant-isolation, concurrency and responsive UI testing.
 
@@ -347,7 +358,6 @@ These details remain open and must not be silently invented:
 4. Exact fields for an individual payment beyond the amount and automatically captured date/time/administrator.
 5. Bulk batch behavior when some lines are invalid: reject the whole batch or allow valid lines to be saved separately.
 6. The immutable chronological FIFO key across Regular CO Charges and Manual/Extra Charges.
-7. Exact manual allocation correction interface and reason requirements.
 8. Exact reference/receipt numbering requirements.
 9. Exemption-management navigation and tag archival with current FTO assignments remain governed by the open items in the existing financial requirements.
 10. Export/download formats, which are deferred for later discussion.

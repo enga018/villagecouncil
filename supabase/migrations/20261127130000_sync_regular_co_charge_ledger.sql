@@ -202,7 +202,7 @@ begin
 
     if v_actor_id is not null then
       perform public.run_council_job_card_fifo(
-        new.village_council_id, new.job_card_number, 'co_recalculation', v_actor_id,
+        new.village_council_id, new.job_card_number, 'government_status', v_actor_id,
         'Government transaction status changed'
       );
     end if;
@@ -242,7 +242,7 @@ begin
 
   if v_actor_id is not null then
     perform public.run_council_job_card_fifo(
-      new.village_council_id, v_job_card_number, 'co_recalculation', v_actor_id,
+      new.village_council_id, v_job_card_number, 'permanent_exempt_mark', v_actor_id,
       'Permanent transaction exemption mark recorded'
     );
   end if;

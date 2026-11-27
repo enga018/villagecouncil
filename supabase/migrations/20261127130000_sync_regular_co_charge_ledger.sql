@@ -165,7 +165,7 @@ begin
       and t.fto_id = new.id
   loop
     perform public.run_council_job_card_fifo(
-      new.village_council_id, v_job_card_number, 'co_recalculation', v_actor_id,
+      new.village_council_id, v_job_card_number, 'co_recalculation', coalesce(auth.uid(), v_actor_id),
       'Confirmed FTO CO recalculation'
     );
   end loop;
@@ -200,12 +200,10 @@ begin
       new.village_council_id, new.id, 'government_status', coalesce(auth.uid(), v_actor_id)
     );
 
-    if v_actor_id is not null then
-      perform public.run_council_job_card_fifo(
-        new.village_council_id, new.job_card_number, 'government_status', v_actor_id,
+    perform public.run_council_job_card_fifo(
+      new.village_council_id, new.job_card_number, 'government_status', coalesce(auth.uid(), v_actor_id),
         'Government transaction status changed'
-      );
-    end if;
+    );
   end if;
   return new;
 end;
@@ -240,12 +238,10 @@ begin
     new.village_council_id, new.fto_transaction_id, 'permanent_exempt_mark', coalesce(auth.uid(), v_actor_id)
   );
 
-  if v_actor_id is not null then
-    perform public.run_council_job_card_fifo(
-      new.village_council_id, v_job_card_number, 'permanent_exempt_mark', v_actor_id,
+  perform public.run_council_job_card_fifo(
+    new.village_council_id, v_job_card_number, 'permanent_exempt_mark', coalesce(auth.uid(), v_actor_id),
       'Permanent transaction exemption mark recorded'
-    );
-  end if;
+  );
   return new;
 end;
 $sync_exempt$;

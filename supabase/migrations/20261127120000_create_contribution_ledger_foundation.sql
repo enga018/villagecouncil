@@ -247,6 +247,34 @@ before update of normalized_status, government_status, rejection_reason
 on public.council_fto_transactions
 for each row execute function public.preserve_final_council_fto_transaction_status();
 
+-- Financial history is append-only. Current-state tables remain separately mutable
+-- through the authorized ledger functions added in subsequent migrations.
+create or replace function public.prevent_financial_history_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  raise exception 'Financial history records cannot be updated or deleted.';
+end;
+$;
+
+create trigger council_charge_revisions_immutable
+before update or delete on public.council_contribution_charge_revisions
+for each row execute function public.prevent_financial_history_mutation();
+
+create trigger council_manual_charge_events_immutable
+before update or delete on public.council_manual_charge_events
+for each row execute function public.prevent_financial_history_mutation();
+
+create trigger council_payment_events_immutable
+before update or delete on public.council_payment_events
+for each row execute function public.prevent_financial_history_mutation();
+
+create trigger council_allocation_events_immutable
+before update or delete on public.council_allocation_events
+for each row execute function public.prevent_financial_history_mutation();
+
 -- All ledger tables are readable only by active members of the owning Council.
 -- Writes will be exposed through authenticated, tenant-checking database functions.
 do $$
@@ -277,5 +305,6 @@ end;
 $$;
 
 revoke all on function public.preserve_final_council_fto_transaction_status() from public, anon, authenticated;
+revoke all on function public.prevent_financial_history_mutation() from public, anon, authenticated;
 
 commit;

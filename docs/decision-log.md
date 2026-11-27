@@ -216,3 +216,22 @@ The following decisions supplement and supersede conflicting older Contribution/
 17. **Export scope:** Export/download was explicitly deferred and is not part of the current agreed implementation scope.
 
 The detailed workflow is in [Contribution Management Workflow](contribution-management-workflow.md).
+
+## 2026-11-27 — Final payment ledger and FIFO implementation decisions
+
+These decisions were confirmed during the payment-ledger architecture review and supersede conflicting earlier notes above.
+
+1. **Job Card account:** All charges, payments, waivers, refunds, allocations and balances belong to the Job Card account. Tags remain FTO grouping/reporting labels only; there is no Contribution Period entity.
+2. **Payment correction:** Editing a payment amount upward or downward triggers an atomic recalculation of automatic FIFO allocations. Preserve fixed historical reviewed allocations. If those fixed allocations exceed the corrected payment capacity, reject the correction and report the conflict. Preserve the original payment creation date/time and creator; every edit requires a reason and retains old/new values, editor and timestamp.
+3. **Refund allocation release:** Refunds are allowed only against positive Job Card overpaid credit, with a mandatory reason. Before reducing payment capacity, release automatic FIFO allocations in reverse allocation order (newest charge first). Preserve fixed historical reviewed allocations. If fixed allocations exceed the remaining payment capacity, reject the refund atomically. The original payment remains unchanged.
+4. **No manual allocation:** Administrators cannot manually allocate, move, assign, adjust or override payment allocations. All new allocations are performed by automatic FIFO. Any `historical_fifo_reviewed` allocations imported from legacy history are fixed and cannot be modified by FIFO.
+5. **Allocation persistence:** Maintain current allocation state separately from append-only allocation events. Record each allocation, release and reallocation with actor, timestamp, amount, context and associated FIFO run. Maintain a FIFO run record for each allocation operation, including trigger, affected Job Card and outcome. Calculate balances from current allocation state, not by summing historical events.
+6. **Regular CO FIFO chronology:** Use Government `transaction_date`; if absent, use immutable `first_imported_at`; use stable FTO transaction ID as the final tie-breaker.
+7. **Manual/Extra Charge FIFO chronology:** Use immutable original `created_at`, then immutable charge ID as tie-breaker. Editing a charge never changes its FIFO position; reversing and recreating it creates a new position.
+8. **Manual/Extra Charges:** Entry fields are Job Card Number, description and amount; creator and timestamp are automatic. No Tag selector. Corrections require a reason and retain old/new values. Reversal requires a reason and confirmation. Never delete the original charge.
+9. **Regular CO charge identity and history:** Each Regular CO Charge has a stable identity linked to its FTO transaction. Confirmed recalculation creates an immutable revision rather than a duplicate charge. A zero-value or ineligible charge becomes inactive, not deleted; later eligibility reactivates the same identity with a new revision.
+10. **Charge/waiver changes and FIFO:** Relevant charge changes, confirmed CO recalculations, waivers, payment corrections, refunds, reversals and reinstatements trigger FIFO for affected Job Cards. Release only automatic allocations as required; preserve fixed historical reviewed allocations.
+11. **FTO Government status finality:** Processed and Rejected are terminal transaction statuses. Deferred may transition to Processed or Rejected. A refreshed Government import must not overwrite an existing final status with a different status; enforce this in the database and keep associated status fields consistent.
+12. **Refund/waiver/payment audit:** Financial records are not deleted. Payment edits, refunds, waivers, charge revisions, allocation events and FIFO runs retain actor/time and relevant before/after values.
+
+The detailed product workflow is maintained in [Contribution Management Workflow](contribution-management-workflow.md). The implementation must be staged through repository review and tests; no production database migration or deployment is authorized by this decision-log update.

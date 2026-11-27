@@ -336,7 +336,7 @@ export default function BatchOperationsPage() {
           <Link href="/contributions" className="text-xs font-semibold text-blue-700 hover:text-blue-900">← Contributions</Link>
           <p className="mt-4 text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Batch Operations</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Record multiple payments or Manual/Extra Charges through one reviewed, all-or-nothing workflow.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Record BANK payments or Manual/Extra Charges through one reviewed, all-or-nothing workflow.</p>
         </div>
       </header>
 
@@ -383,7 +383,7 @@ export default function BatchOperationsPage() {
           </div>
           <textarea id="batch-lines" value={pasted} onChange={event => { setPasted(event.target.value); resetPreview(); }}
             rows={8} spellCheck={false}
-            placeholder={operation === "payment" ? "SER123456789, 500\nSER123456790, 250" : "SER123456789, Registration correction, 100\nSER123456790, Late document fee, 50"}
+            placeholder={operation === "payment" ? "SER123456789, 500\nSER123456790, 250" : "SER123456789, 100\nSER123456790, 50"}
             className="mt-2 min-h-44 w-full rounded-xl border border-slate-200 px-3 py-3 font-mono text-xs leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
           <p className="mt-2 text-[11px] leading-5 text-slate-500">One Job Card per line. Duplicate Job Cards invalidate the entire batch. Every line must pass validation before confirmation.</p>
         </div>

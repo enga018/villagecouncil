@@ -66,7 +66,7 @@ export default function FtoCoAction({
   ftoId, ftoNumber, initialVersion, embedded = false,
 }: { ftoId: string; ftoNumber: string; initialVersion: number; embedded?: boolean }) {
   const [version, setVersion] = useState(initialVersion);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
   const [data, setData] = useState<PreviewData | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -121,7 +121,7 @@ export default function FtoCoAction({
   }
 
   useEffect(() => {
-    if (embedded) void openDialog();
+    if (embedded) void load();
   // The embedded panel is mounted per selected FTO; load its calculation once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [embedded, ftoId]);

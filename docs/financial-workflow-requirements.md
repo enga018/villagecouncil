@@ -149,7 +149,7 @@ The final placement of any separate exemption-management entry point is not spec
 
 ### 4.1 Tag meaning and ownership
 
-An Tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
+A tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
 
 - Each FTO has exactly one current tag.
 - Multiple FTOs can share the same tag.
@@ -354,7 +354,7 @@ The agreed allocation priority is:
 
 FIFO operates within the same Job Card. Payment allocations must not exceed the remaining valid payment amount or the outstanding amount of a charge.
 
-A tag is mutable and is not an accounting control. The implementation must preserve the agreed oldest-tag-first priority without allowing a rename, reassignment or merge to rewrite existing allocations. The immutable chronological key used to order tags for future FIFO runs remains an implementation detail to resolve before building the allocator.
+A tag is mutable and is not an accounting control. The implementation must preserve Job Card-level FIFO across all Tags, prioritizing the oldest eligible outstanding charge without allowing a tag rename, reassignment or merge to rewrite existing allocations. The immutable chronological key for ordering charges across charge categories remains an implementation detail to resolve before building the allocator.
 
 ### 8.3 Allocation event history
 

@@ -22,7 +22,8 @@ type Preview = {
   valid_total: number;
   lines: PreviewLine[];
 };
-type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; unallocated_amount?: number };\ntype FifoResult = { success: boolean; job_card_number: string; released_amount: number; allocated_amount: number; allocation_count: number };
+type BatchDetail = { id: string; job_card_number: string; amount: number | string; payment_method?: string; description?: string | null; is_active?: boolean; allocated_amount?: number; unallocated_amount?: number };
+type FifoResult = { success: boolean; job_card_number: string; released_amount: number; allocated_amount: number; allocation_count: number };
 type HistoryItem = {
   id: string;
   batch_reference: string;
@@ -57,7 +58,8 @@ export default function BatchOperationsPage() {
   const [previewing, setPreviewing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");\n  const [lastFifo, setLastFifo] = useState<FifoResult[]>([]);
+  const [notice, setNotice] = useState("");
+  const [lastFifo, setLastFifo] = useState<FifoResult[]>([]);
   const [idempotencyKey, setIdempotencyKey] = useState("");
   const [expandedBatch, setExpandedBatch] = useState("");
   const [batchDetails, setBatchDetails] = useState<Record<string, BatchDetail[]>>({});
@@ -188,8 +190,9 @@ export default function BatchOperationsPage() {
           };
       const { data, error: rpcError } = await supabase.rpc(rpc, args);
       if (rpcError) throw rpcError;
-      const result = data as { batch_reference?: string; line_count?: number; total_amount?: number; duplicate_request?: boolean };
-      setNotice(`Batch ${result.batch_reference || "recorded"} saved: ${result.line_count || lines.length} record(s), ${money(result.total_amount || preview.valid_total)}.`);
+      const result = data as { batch_reference?: string; line_count?: number; total_amount?: number; duplicate_request?: boolean; fifo?: FifoResult[] };
+      setLastFifo(Array.isArray(result.fifo) ? result.fifo : []);
+      setNotice(`Batch ${result.batch_reference || "recorded"} saved: ${result.line_count || lines.length} record(s), ${money(result.total_amount ?? preview.valid_total)}.${result.duplicate_request ? " This was an idempotent retry; no duplicate records were created." : ""}`);
       setPasted("");
       setPreview(null);
       setIdempotencyKey("");
@@ -216,25 +219,43 @@ export default function BatchOperationsPage() {
           .select("id,job_card_number,amount,payment_method")
           .eq("village_council_id", councilId).eq("batch_id", item.id).order("job_card_number");
         if (result.error) throw result.error;
-        const details: BatchDetail[] = (result.data || []).map(row => ({
-          id: row.id,
-          job_card_number: row.job_card_number,
-          amount: row.amount,
-          payment_method: row.payment_method,
-        }));
+        const paymentRows = result.data || [];
+        const paymentIds = paymentRows.map(row => row.id);
+        const allocationResult = paymentIds.length
+          ? await supabase.from("council_payment_allocations").select("payment_id,allocated_amount")
+              .eq("village_council_id", councilId).in("payment_id", paymentIds)
+          : { data: [], error: null };
+        if (allocationResult.error) throw allocationResult.error;
+        const allocatedByPayment = new Map<string, number>();
+        for (const allocation of allocationResult.data || []) {
+          allocatedByPayment.set(allocation.payment_id, (allocatedByPayment.get(allocation.payment_id) || 0) + Number(allocation.allocated_amount));
+        }
+        const details: BatchDetail[] = paymentRows.map(row => {
+          const allocated = allocatedByPayment.get(row.id) || 0;
+          return { id: row.id, job_card_number: row.job_card_number, amount: row.amount, payment_method: row.payment_method, allocated_amount: allocated, unallocated_amount: Math.max(0, Number(row.amount) - allocated) };
+        });
         setBatchDetails(previous => ({ ...previous, [item.id]: details }));
       } else {
         const result = await supabase.from("council_contribution_charges")
           .select("id,job_card_number,current_amount,description,is_active")
           .eq("village_council_id", councilId).eq("manual_charge_batch_id", item.id).order("job_card_number");
         if (result.error) throw result.error;
-        const details: BatchDetail[] = (result.data || []).map(row => ({
-          id: row.id,
-          job_card_number: row.job_card_number,
-          amount: row.current_amount,
-          description: row.description,
-          is_active: row.is_active,
-        }));
+        const chargeRows = result.data || [];
+        const chargeIds = chargeRows.map(row => row.id);
+        const allocationResult = chargeIds.length
+          ? await supabase.from("council_payment_allocations").select("charge_id,allocated_amount")
+              .eq("village_council_id", councilId).in("charge_id", chargeIds)
+          : { data: [], error: null };
+        if (allocationResult.error) throw allocationResult.error;
+        const allocatedByCharge = new Map<string, number>();
+        for (const allocation of allocationResult.data || []) {
+          allocatedByCharge.set(allocation.charge_id, (allocatedByCharge.get(allocation.charge_id) || 0) + Number(allocation.allocated_amount));
+        }
+        const details: BatchDetail[] = chargeRows.map(row => {
+          const allocated = allocatedByCharge.get(row.id) || 0;
+          const amount = Number(row.current_amount);
+          return { id: row.id, job_card_number: row.job_card_number, amount: row.current_amount, description: row.description, is_active: row.is_active, allocated_amount: allocated, unallocated_amount: row.is_active ? Math.max(0, amount - allocated) : 0 };
+        });
         setBatchDetails(previous => ({ ...previous, [item.id]: details }));
       }
     } catch (err) {

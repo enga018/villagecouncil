@@ -13,6 +13,18 @@ const plannedModules = [
 function displayNumber(value: number | null) {
   return value === null ? "—" : value.toLocaleString("en-IN");
 }
+function displayMoney(value: number | null) {
+  return value === null ? "—" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
+}
+async function collectRows<T>(load: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
+  const rows: T[] = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await load(from, from + 999);
+    if (page.error) throw new Error(page.error.message);
+    rows.push(...(page.data || []));
+    if (!page.data || page.data.length < 1000) return rows;
+  }
+}
 
 export default function DashboardPage() {
   const [activeJobCards, setActiveJobCards] = useState<number | null>(null);
@@ -24,6 +36,7 @@ export default function DashboardPage() {
   const [ftoProcessed, setFtoProcessed] = useState<number | null>(null);
   const [ftoDeferred, setFtoDeferred] = useState<number | null>(null);
   const [ftoRejected, setFtoRejected] = useState<number | null>(null);
+  const [contributionOutstanding, setContributionOutstanding] = useState<number | null>(null);
   const [ftoDataMissing, setFtoDataMissing] = useState(false);
   const [kpiError, setKpiError] = useState("");
 
@@ -62,6 +75,18 @@ export default function DashboardPage() {
           supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("normalized_status", "rejected"),
         ]);
 
+        const [contributionCharges, contributionAllocations, contributionWaivers] = await Promise.all([
+          collectRows<{ current_amount: number | string }>((from, to) => supabase.from("council_contribution_charges")
+            .select("current_amount").eq("village_council_id", councilId).eq("is_active", true).range(from, to)),
+          collectRows<{ allocated_amount: number | string }>((from, to) => supabase.from("council_payment_allocations")
+            .select("allocated_amount").eq("village_council_id", councilId).range(from, to)),
+          collectRows<{ amount: number | string }>((from, to) => supabase.from("council_contribution_waivers")
+            .select("amount").eq("village_council_id", councilId).range(from, to)),
+        ]);
+        const contributionBalance = contributionCharges.reduce((total, row) => total + Number(row.current_amount), 0)
+          - contributionAllocations.reduce((total, row) => total + Number(row.allocated_amount), 0)
+          - contributionWaivers.reduce((total, row) => total + Number(row.amount), 0);
+
         const jobCardErrors = [activeCards.error, allCards.error, activePeople.error, allPeople.error].filter(Boolean);
         if (jobCardErrors.length) throw jobCardErrors[0];
         if (current) {
@@ -69,6 +94,7 @@ export default function DashboardPage() {
           setTotalJobCards(allCards.count ?? 0);
           setActiveApplicants(activePeople.count ?? 0);
           setTotalApplicants(allPeople.count ?? 0);
+          setContributionOutstanding(contributionBalance);
           setKpiError("");
         }
 
@@ -157,8 +183,12 @@ export default function DashboardPage() {
             mark="CN"
             eyebrow="Financial accounts"
             action="Open Contributions"
-            accent="blue"
-          />
+            accent="emerald"
+          >
+            <div className="grid grid-cols-1 gap-2">
+              <MiniKpi label="Outstanding" value={displayMoney(contributionOutstanding)} context="Total unpaid contribution balance" tone="warning" />
+            </div>
+          </ModuleCard>
         </div>
       </section>
 

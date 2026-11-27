@@ -137,7 +137,7 @@ Reinstatement is explicit, requires a reason, and is allowed only if the source 
 Payments can be recorded even with no current outstanding charges. The unallocated balance remains available for future charges. Payments are allowed against Active, Inactive, Deleted and Exempt Job Cards; this does not make those Job Cards eligible for new charges.
 
 FIFO priority:
-1. Oldest outstanding Tag first.
+1. Oldest eligible outstanding charge first across the Job Card, regardless of Tag; the immutable chronological key remains to be finalized.
 2. Oldest available payment first.
 3. Partial allocations.
 4. Unallocated balances remain available.

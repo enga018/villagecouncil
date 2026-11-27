@@ -23,8 +23,8 @@ select ok(to_regclass('public.council_contribution_waivers') is not null, 'waive
 
 -- Critical RPC entry points must exist with the intended signatures.
 select ok(to_regprocedure('public.run_council_job_card_fifo(uuid,text,text,uuid,text)') is not null, 'Job Card FIFO function exists');
-select ok(to_regprocedure('public.record_council_job_card_payment(uuid,text,numeric,text,text,uuid)') is not null, 'individual payment RPC exists');
-select ok(to_regprocedure('public.record_council_job_card_paid_in_full(uuid,text,uuid)') is not null, 'Paid in Full RPC exists');
+select ok(to_regprocedure('public.record_council_job_card_payment(uuid,text,numeric,uuid,text,text)') is not null, 'individual payment RPC exists');
+select ok(to_regprocedure('public.record_council_job_card_paid_in_full(uuid,text,uuid,text,text)') is not null, 'Paid in Full RPC exists');
 select ok(to_regprocedure('public.correct_council_job_card_payment(uuid,uuid,numeric,text,text,text,text)') is not null, 'payment correction RPC exists');
 select ok(to_regprocedure('public.refund_council_job_card_payment(uuid,uuid,numeric,text,uuid)') is not null, 'refund RPC exists');
 select ok(to_regprocedure('public.record_council_job_card_waiver(uuid,text,numeric,text,uuid)') is not null, 'waiver RPC exists');

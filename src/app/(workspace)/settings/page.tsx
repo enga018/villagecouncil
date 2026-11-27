@@ -22,7 +22,7 @@ export default function SettingsPage() {
             <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">100</p>
           </div>
         </div>
-        <p className="mt-4 text-xs leading-5 text-slate-500">After an FTO has a saved calculation, its latest divisor and multiplier are used as the starting values for that FTO's next recalculation. Changing one FTO never changes another FTO. Every saved version retains the exact parameters used.</p>
+        <p className="mt-4 text-xs leading-5 text-slate-500">After an FTO has a saved calculation, its latest divisor and multiplier are used as the starting values for that FTO&apos;s next recalculation. Changing one FTO never changes another FTO. Every saved version retains the exact parameters used.</p>
       </section>
     </div>
   );

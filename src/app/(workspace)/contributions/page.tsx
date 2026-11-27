@@ -213,10 +213,10 @@ export default function ContributionsPage() {
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</p>}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Active charges</p><p className="mt-2 text-xl font-bold tabular-nums text-slate-950">{loading ? "—" : money(chargeTotal)}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Allocated payments</p><p className="mt-2 text-xl font-bold tabular-nums text-slate-950">{loading ? "—" : money(allocatedTotal)}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Waived</p><p className="mt-2 text-xl font-bold tabular-nums text-slate-950">{loading ? "—" : money(waiverTotal)}</p></div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Outstanding</p><p className="mt-2 text-xl font-bold tabular-nums text-slate-950">{loading ? "—" : money(outstandingTotal)}</p></div>
+        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Active charges</p><p className="mt-2 text-xl font-bold tabular-nums text-blue-700">{loading ? "—" : money(chargeTotal)}</p></div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Allocated payments</p><p className="mt-2 text-xl font-bold tabular-nums text-emerald-700">{loading ? "—" : money(allocatedTotal)}</p></div>
+        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Waived</p><p className="mt-2 text-xl font-bold tabular-nums text-violet-700">{loading ? "—" : money(waiverTotal)}</p></div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Outstanding</p><p className="mt-2 text-xl font-bold tabular-nums text-amber-700">{loading ? "—" : money(outstandingTotal)}</p></div>
       </section>
       {!loading && <p className="text-[11px] text-slate-500">Payments recorded: {money(paymentTotal)} · Refunds: {money(refundTotal)} · Unallocated credit: {money(creditTotal)} · Job Cards with outstanding balance: {cardsWithOutstanding.toLocaleString("en-IN")}</p>}
 
@@ -260,10 +260,10 @@ export default function ContributionsPage() {
                 <p className="mt-1 text-xs text-slate-500">{selected.head_of_household}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2"><span className={`rounded-full border px-2 py-1 text-[10px] font-semibold ${statusStyle(selected.status)}`}>{selected.status}</span><span className="text-xs text-slate-500">{selected.charges.length} charge record(s) · {selected.payments.length} payment(s)</span></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Active charges</p><p className="mt-1 text-sm font-bold tabular-nums">{money(selected.chargeTotal)}</p></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Allocated</p><p className="mt-1 text-sm font-bold tabular-nums">{money(selected.allocatedTotal)}</p></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Waived</p><p className="mt-1 text-sm font-bold tabular-nums">{money(selected.waiverTotal)}</p></div>
-                  <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Outstanding</p><p className="mt-1 text-sm font-bold tabular-nums">{money(selected.outstanding)}</p></div>
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3"><p className="text-[10px] text-blue-700">Active charges</p><p className="mt-1 text-sm font-bold tabular-nums text-blue-700">{money(selected.chargeTotal)}</p></div>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3"><p className="text-[10px] text-emerald-700">Allocated</p><p className="mt-1 text-sm font-bold tabular-nums text-emerald-700">{money(selected.allocatedTotal)}</p></div>
+                  <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3"><p className="text-[10px] text-violet-700">Waived</p><p className="mt-1 text-sm font-bold tabular-nums text-violet-700">{money(selected.waiverTotal)}</p></div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3"><p className="text-[10px] text-amber-700">Outstanding</p><p className="mt-1 text-sm font-bold tabular-nums text-amber-700">{money(selected.outstanding)}</p></div>
                 </div>
                 {selected.credit > 0 && <p className="mt-2 text-xs font-semibold text-emerald-700">Unallocated payment credit: {money(selected.credit)}</p>}
               </div>

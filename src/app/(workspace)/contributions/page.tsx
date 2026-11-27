@@ -49,7 +49,7 @@ function statusStyle(status: string) {
   if (status === "inactive") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-slate-200 bg-slate-100 text-slate-600";
 }
-async function collect<T>(load: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>) {
+async function collect<T>(load: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
   const result: T[] = [];
   for (let from = 0; ; from += 1000) {
     const page = await load(from, from + 999);

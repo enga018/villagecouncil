@@ -60,7 +60,7 @@ export default function BatchOperationsPage() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagId, setTagId] = useState("");
-  const [method, setMethod] = useState<"cash" | "bank">("cash");
+  const [description, setDescription] = useState("");
   const [pasted, setPasted] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -137,8 +137,12 @@ export default function BatchOperationsPage() {
   }
 
   async function runPreview() {
-    if (!councilId || (operation === "manual_charge" && !tagId) || !pasted.trim()) {
-      setError(operation === "manual_charge" ? "Choose a Tag and paste at least one line." : "Paste at least one line.");
+    if (!councilId || (operation === "manual_charge" && (!tagId || !description.trim())) || !pasted.trim()) {
+      setError(operation === "manual_charge" ? "Choose a Tag, enter a description, and paste at least one line." : "Paste at least one line.");
+      return;
+    }
+    if (operation === "manual_charge" && description.includes(",")) {
+      setError("The shared description cannot contain a comma.");
       return;
     }
     setPreviewing(true);
@@ -148,9 +152,15 @@ export default function BatchOperationsPage() {
       const rpc = operation === "payment"
         ? "preview_council_bulk_payment_batch"
         : "preview_council_bulk_manual_charge_batch";
+      const manualLines = operation === "manual_charge"
+        ? pasted.split(/\r?\n/).map(line => {
+            const parts = line.split(",");
+            return parts.length === 2 ? `${parts[0].trim()}, ${description.trim()}, ${parts[1].trim()}` : `${line}, ${description.trim()}`;
+          }).join("\n")
+        : pasted;
       const args = operation === "payment"
         ? { p_village_council_id: councilId, p_pasted_lines: pasted }
-        : { p_village_council_id: councilId, p_tag_id: tagId, p_pasted_lines: pasted };
+        : { p_village_council_id: councilId, p_tag_id: tagId, p_pasted_lines: manualLines };
       const { data, error: rpcError } = await supabase.rpc(rpc, args);
       if (rpcError) throw rpcError;
       setPreview(data as Preview);
@@ -183,7 +193,7 @@ export default function BatchOperationsPage() {
       const args = operation === "payment"
         ? {
             p_village_council_id: councilId,
-            p_payment_method: method,
+            p_payment_method: "bank",
             p_lines: lines,
             p_idempotency_key: requestKey,
           }
@@ -199,6 +209,7 @@ export default function BatchOperationsPage() {
       setLastFifo(Array.isArray(result.fifo) ? result.fifo : []);
       setNotice(`Batch ${result.batch_reference || "recorded"} saved: ${result.line_count || lines.length} record(s), ${money(result.total_amount ?? preview.valid_total)}.${result.duplicate_request ? " This was an idempotent retry; no duplicate records were created." : ""}`);
       setPasted("");
+      setDescription("");
       setPreview(null);
       setIdempotencyKey("");
       try {
@@ -325,7 +336,7 @@ export default function BatchOperationsPage() {
           <Link href="/contributions" className="text-xs font-semibold text-blue-700 hover:text-blue-900">← Contributions</Link>
           <p className="mt-4 text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Batch Operations</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Record multiple payments or Manual/Extra Charges through one reviewed, all-or-nothing workflow.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Record BANK payments or Manual/Extra Charges through one reviewed, all-or-nothing workflow.</p>
         </div>
       </header>
 
@@ -355,38 +366,34 @@ export default function BatchOperationsPage() {
           )}
         </div>
 
-        {operation === "payment" && (
-          <fieldset className="mt-5">
-            <legend className="mb-2 text-xs font-semibold text-slate-700">Payment method</legend>
-            <div className="flex gap-2">
-              {(["cash", "bank"] as const).map(value => (
-                <button type="button" key={value} onClick={() => { setMethod(value); resetPreview(); }}
-                  className={`min-h-10 rounded-xl border px-5 text-xs font-semibold uppercase ${method === value ? "border-blue-300 bg-blue-50 text-blue-800" : "border-slate-200 text-slate-600"}`}>
-                  {value}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+        {operation === "manual_charge" && (
+          <label className="mt-5 block">
+            <span className="mb-2 block text-xs font-semibold text-slate-700">Description</span>
+            <input value={description} onChange={event => { setDescription(event.target.value); resetPreview(); }}
+              placeholder="e.g. Registration correction" maxLength={200}
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
+            <span className="mt-1 block text-[10px] text-slate-500">This description will apply to every charge in the batch.</span>
+          </label>
         )}
 
         <div className="mt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label htmlFor="batch-lines" className="text-xs font-semibold text-slate-700">Paste records</label>
-            <span className="text-[10px] text-slate-500">{operation === "payment" ? "JOB-CARD-NUMBER, AMOUNT" : "JOB-CARD-NUMBER, DESCRIPTION, AMOUNT"}</span>
+            <span className="text-[10px] text-slate-500">{operation === "payment" ? "JOB-CARD-NUMBER, AMOUNT · BANK" : "JOB-CARD-NUMBER, AMOUNT"}</span>
           </div>
           <textarea id="batch-lines" value={pasted} onChange={event => { setPasted(event.target.value); resetPreview(); }}
             rows={8} spellCheck={false}
-            placeholder={operation === "payment" ? "SER123456789, 500\nSER123456790, 250" : "SER123456789, Registration correction, 100\nSER123456790, Late document fee, 50"}
+            placeholder={operation === "payment" ? "SER123456789, 500\nSER123456790, 250" : "SER123456789, 100\nSER123456790, 50"}
             className="mt-2 min-h-44 w-full rounded-xl border border-slate-200 px-3 py-3 font-mono text-xs leading-6 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
           <p className="mt-2 text-[11px] leading-5 text-slate-500">One Job Card per line. Duplicate Job Cards invalidate the entire batch. Every line must pass validation before confirmation.</p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || (operation === "manual_charge" && !tagId) || !pasted.trim()}
+          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || (operation === "manual_charge" && (!tagId || !description.trim())) || !pasted.trim()}
             className="min-h-11 rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
             {previewing ? "Validating…" : "Preview batch"}
           </button>
-          <button type="button" onClick={() => { setPasted(""); resetPreview(); setError(""); }}
+          <button type="button" onClick={() => { setPasted(""); setDescription(""); resetPreview(); setError(""); }}
             className="min-h-11 rounded-xl border border-slate-200 px-5 text-xs font-semibold text-slate-600 hover:bg-slate-50">Clear</button>
         </div>
       </section>
@@ -394,7 +401,7 @@ export default function BatchOperationsPage() {
       {preview && (
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">{operation === "payment" ? `Payment method: ${method.toUpperCase()}` : `Tag: ${selectedTag}`}</p></div>
+            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">{operation === "payment" ? "Payment method: BANK" : `Tag: ${selectedTag} · ${description}`}</p></div>
             <div className="text-right"><p className="text-xl font-bold tabular-nums text-slate-950">{money(preview.valid_total)}</p><p className="text-[10px] text-slate-500">Valid line total</p></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -441,8 +448,29 @@ export default function BatchOperationsPage() {
                 <span className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</span><span className="text-[10px] font-semibold text-blue-700">{detailLoading === item.id ? "Loading…" : expandedBatch === item.id ? "Hide details ↑" : "View details ↓"}</span></span>
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">
+                {item.kind === "manual_charge" && <div className="border-b border-slate-200 bg-slate-50 px-3 py-3 sm:px-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Tag</p><p className="mt-1 text-sm font-semibold text-slate-900">{tags.find(tag => tag.id === item.tag_id)?.name || "—"}</p></div>}
                 {detailLoading === item.id ? <p className="p-4 text-xs text-slate-500">Loading batch records…</p>
-                  : <table className="w-full min-w-[420px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-2">Job Card</th>{item.kind === "manual_charge" && <th className="px-3 py-2">Description</th>}<th className="px-3 py-2 text-right">{item.kind === "payment" ? "Paid" : "Current amount"}</th>{item.kind === "payment" && <><th className="px-3 py-2 text-right">Refunded</th><th className="px-3 py-2 text-right">Net payment</th></>}<th className="px-3 py-2 text-right">Currently allocated</th>{item.kind === "payment" && <th className="px-3 py-2">Method</th>}</tr></thead><tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-2 font-semibold">{line.job_card_number}</td>{item.kind === "manual_charge" && <td className="px-3 py-2 text-slate-600">{line.description || "—"}{line.is_active === false ? " · Reversed" : ""}</td>}<td className="px-3 py-2 text-right tabular-nums">{money(line.amount)}</td>{item.kind === "payment" && <><td className="px-3 py-2 text-right tabular-nums">{money(line.refunded_amount || 0)}</td><td className="px-3 py-2 text-right tabular-nums">{money(Number(line.amount) - (line.refunded_amount || 0))}</td></>}<td className="px-3 py-2 text-right tabular-nums">{money(line.allocated_amount || 0)}</td>{item.kind === "payment" && <td className="px-3 py-2 uppercase text-slate-600">{line.payment_method || item.payment_method}</td>}</tr>)}</tbody></table>}
+                  : <>
+                    <div className="divide-y divide-slate-100 sm:hidden">
+                      {(batchDetails[item.id] || []).map(line => <article key={line.id} className="space-y-3 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="min-w-0 break-words text-sm font-bold text-slate-950">{line.job_card_number}</p>
+                          {item.kind === "payment" && <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold uppercase text-blue-700">{line.payment_method || item.payment_method || "BANK"}</span>}
+                          {item.kind === "manual_charge" && line.is_active === false && <span className="shrink-0 rounded-full bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">Reversed</span>}
+                        </div>
+                        <div className="rounded-lg bg-slate-50 p-3">
+                          <p className="text-[10px] text-slate-500">{item.kind === "payment" ? "Paid Amount" : "Charge Amount"}</p>
+                          <p className="mt-1 text-sm font-semibold tabular-nums">{money(line.amount)}</p>
+                        </div>
+                      </article>)}
+                    </div>
+                    <div className="hidden overflow-x-auto sm:block">
+                      <table className="w-full min-w-[560px] text-left text-xs">
+                        <thead className="bg-slate-50 text-[10px] uppercase text-slate-500"><tr><th className="px-3 py-3">Job Card</th><th className="px-3 py-3 text-right">{item.kind === "payment" ? "Paid Amount" : "Charge Amount"}</th></tr></thead>
+                        <tbody className="divide-y divide-slate-100">{(batchDetails[item.id] || []).map(line => <tr key={line.id}><td className="px-3 py-3 font-semibold">{line.job_card_number}{item.kind === "manual_charge" && line.is_active === false ? " · Reversed" : ""}</td><td className="px-3 py-3 text-right tabular-nums">{money(line.amount)}</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  </>}
                 {detailLoading !== item.id && (batchDetails[item.id] || []).some(line => line.audit.length > 0) && <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4"><h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-700">Correction and refund history</h3><div className="mt-3 space-y-3">{(batchDetails[item.id] || []).flatMap(line => line.audit.map(event => ({ ...event, job_card_number: line.job_card_number }))).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(event => <div key={event.id} className="rounded-lg border border-slate-200 bg-white p-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-slate-900">{event.job_card_number} · {event.event}</p><span className="text-[10px] text-slate-500">{prettyDate(event.created_at)}</span></div><div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">{event.amount_label ? <span>{event.amount_label}</span> : (event.previous_amount != null || event.new_amount != null) && <span>{event.previous_amount == null ? "—" : money(event.previous_amount)} → {event.new_amount == null ? "—" : money(event.new_amount)}</span>}<span>{event.actor_id === currentUserId ? "You" : "Council admin"}</span></div>{event.reason && <p className="mt-2 text-[11px] leading-5 text-slate-600">Reason: {event.reason}</p>}</div>)}</div></div>}
               </div>}
             </div>)}

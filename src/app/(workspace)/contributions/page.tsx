@@ -175,9 +175,8 @@ export default function ContributionsPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Contributions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Job Card contribution accounts and eligible Regular CO Charges.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/contributions/batch-operations?operation=payment" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-4 text-xs font-semibold text-white hover:bg-blue-800">Record Payment</Link>
-          <Link href="/contributions/batch-operations?operation=manual_charge" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">Manual/Extra Charge</Link>
+        <div>
+          <Link href="/contributions/batch-operations" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800">Batch Operations</Link>
         </div>
       </section>
 

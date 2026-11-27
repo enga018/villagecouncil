@@ -163,7 +163,7 @@ export default function BatchOperationsPage() {
   }
 
   async function confirmBatch() {
-    if (!preview || preview.valid_count === 0 || preview.invalid_count !== 0 || !tagId) return;
+    if (!preview || preview.valid_count === 0 || preview.invalid_count !== 0 || (operation === "manual_charge" && !tagId)) return;
     const accepted = window.confirm(
       `Confirm ${preview.valid_count} ${operation === "payment" ? "payment" : "Manual/Extra Charge"} record(s), totalling ${money(preview.valid_total)}? This action will update Job Card balances.`
     );

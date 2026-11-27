@@ -105,15 +105,20 @@ begin
     return;
   end if;
 
+  -- Tag changes are grouping metadata, not financial charge revisions.
+  if v_charge.tag_id is distinct from v_tx.current_co_tag_id then
+    update public.council_contribution_charges
+    set tag_id = v_tx.current_co_tag_id, updated_at = now()
+    where id = v_charge.id and village_council_id = p_village_council_id;
+  end if;
+
   if v_charge.current_amount is distinct from v_new_amount
      or v_charge.is_active is distinct from v_new_active
-     or v_charge.source_calculation_id is distinct from v_item.calculation_id
-     or v_charge.tag_id is distinct from v_tx.current_co_tag_id then
+     or v_charge.source_calculation_id is distinct from v_item.calculation_id then
     update public.council_contribution_charges
     set current_amount = v_new_amount,
         is_active = v_new_active,
         source_calculation_id = v_item.calculation_id,
-        tag_id = v_tx.current_co_tag_id,
         updated_at = now()
     where id = v_charge.id and village_council_id = p_village_council_id;
 

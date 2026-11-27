@@ -26,8 +26,8 @@ The deployed application is a single web application. Council data is scoped to 
 | Job Cards | Available | `/job-cards/` |
 | FTO Monitoring | Available | `/fto-monitoring/` |
 | Register | Planned | `/register/` |
-| Contributions | Initial read-only CO ledger | `/contributions/` |
-| Payments | Planned | `/payments/` |
+| Contributions | Job Card contribution workspace and Batch Operations entry point | `/contributions/` |
+| Batch Operations | Available — bulk Payments and Manual/Extra Charges | `/contributions/batch-operations/` |
 | Reports | Planned | `/reports/` |
 | Settings | Available | `/settings/` |
 
@@ -42,6 +42,7 @@ src/
 │   │   ├── dashboard/          # Workspace overview and module cards
 │   │   ├── job-cards/          # Job Card workspace
 │   │   ├── fto-monitoring/     # FTO discovery, review, import and per-FTO CO actions
+│   │   ├── contributions/      # Job Card financial accounts and shared Batch Operations
 │   │   ├── settings/           # Council CO formula settings
 │   │   └── layout.tsx          # Authenticated workspace layout
 │   ├── layout.tsx              # Root document and global stylesheet
@@ -120,7 +121,7 @@ Council-owned records must remain scoped to the relevant `village_council_id`. S
 - [UI design system](docs/ui-design-system.md) — shared colors, surfaces, reusable components and future-module conventions.
 - [FTO Monitoring](docs/fto-monitoring.md) — Government portal discovery, Panchayat-based ownership, validation, retry and import activation.
 - [Financial Workflow Requirements](docs/financial-workflow-requirements.md) — CO calculation foundation and original detailed rules.
-- [Contribution Management Workflow](docs/contribution-management-workflow.md) — complete Job Card-centred Contribution, payment, bulk collection, FIFO, reports and responsive UI decisions.
+- [Contribution Management Workflow](docs/contribution-management-workflow.md) — complete Job Card-centred Contribution, payment, bulk collection, FIFO, reports, responsive UI decisions and shipped Batch Operations behavior.
 - [Financial Decision Log](docs/decision-log.md) — Confirmed financial workflow decisions and amendments.
 
 ## Contribution guidelines

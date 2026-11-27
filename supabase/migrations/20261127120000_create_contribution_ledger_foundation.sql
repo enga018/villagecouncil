@@ -31,17 +31,18 @@ create table public.council_contribution_charges (
     foreign key (village_council_id, job_card_number)
     references public.council_job_cards(village_council_id, job_card_number) on delete restrict,
   constraint council_contribution_charges_transaction_fk
-    foreign key (fto_transaction_id, village_council_id)
-    references public.council_fto_transactions(id, village_council_id) on delete restrict,
+    foreign key (fto_transaction_id, village_council_id, job_card_number)
+    references public.council_fto_transactions(id, village_council_id, job_card_number) on delete restrict,
   constraint council_contribution_charges_calculation_fk
-    foreign key (source_calculation_id, village_council_id)
-    references public.council_fto_co_calculations(id, village_council_id) on delete restrict,
+    foreign key (source_calculation_id, fto_transaction_id, village_council_id)
+    references public.council_fto_co_calculation_items(calculation_id, fto_transaction_id, village_council_id) on delete restrict,
   constraint council_contribution_charges_source_shape_check check (
     (charge_type = 'regular_co' and fto_transaction_id is not null and source_calculation_id is not null and description is null)
     or
     (charge_type = 'manual_extra' and fto_transaction_id is null and source_calculation_id is null and length(btrim(coalesce(description, ''))) > 0)
   ),
-  constraint council_contribution_charges_id_tenant_unique unique (id, village_council_id),\n  constraint council_contribution_charges_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
+  constraint council_contribution_charges_id_tenant_unique unique (id, village_council_id),
+  constraint council_contribution_charges_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
 );
 
 create unique index council_contribution_charges_regular_transaction_unique
@@ -120,7 +121,8 @@ create table public.council_payments (
   constraint council_payments_batch_fk
     foreign key (batch_id, village_council_id)
     references public.council_payment_batches(id, village_council_id) on delete restrict,
-  constraint council_payments_id_tenant_unique unique (id, village_council_id),\n  constraint council_payments_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
+  constraint council_payments_id_tenant_unique unique (id, village_council_id),
+  constraint council_payments_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
 );
 
 create index council_payments_job_card_date_idx
@@ -158,11 +160,11 @@ create table public.council_payment_allocations (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint council_allocations_payment_fk
-    foreign key (payment_id, village_council_id)
-    references public.council_payments(id, village_council_id) on delete restrict,
+    foreign key (payment_id, village_council_id, job_card_number)
+    references public.council_payments(id, village_council_id, job_card_number) on delete restrict,
   constraint council_allocations_charge_fk
-    foreign key (charge_id, village_council_id)
-    references public.council_contribution_charges(id, village_council_id) on delete restrict,
+    foreign key (charge_id, village_council_id, job_card_number)
+    references public.council_contribution_charges(id, village_council_id, job_card_number) on delete restrict,
   constraint council_allocations_job_card_fk
     foreign key (village_council_id, job_card_number)
     references public.council_job_cards(village_council_id, job_card_number) on delete restrict,
@@ -217,11 +219,11 @@ create table public.council_allocation_events (
     foreign key (allocation_id, village_council_id)
     references public.council_payment_allocations(id, village_council_id) on delete restrict,
   constraint council_allocation_events_payment_fk
-    foreign key (payment_id, village_council_id)
-    references public.council_payments(id, village_council_id) on delete restrict,
+    foreign key (payment_id, village_council_id, job_card_number)
+    references public.council_payments(id, village_council_id, job_card_number) on delete restrict,
   constraint council_allocation_events_charge_fk
-    foreign key (charge_id, village_council_id)
-    references public.council_contribution_charges(id, village_council_id) on delete restrict,
+    foreign key (charge_id, village_council_id, job_card_number)
+    references public.council_contribution_charges(id, village_council_id, job_card_number) on delete restrict,
   constraint council_allocation_events_job_card_fk
     foreign key (village_council_id, job_card_number)
     references public.council_job_cards(village_council_id, job_card_number) on delete restrict

@@ -39,7 +39,7 @@ begin
     select
       ordinality::integer as line_number,
       btrim(line_text) as original_line
-    from regexp_split_to_table(p_pasted_lines, E'\\\\r?\\\\n') with ordinality as t(line_text, ordinality)
+    from regexp_split_to_table(p_pasted_lines, E'\\r?\\n') with ordinality as t(line_text, ordinality)
     where length(btrim(line_text)) > 0
   ),
   parsed as (

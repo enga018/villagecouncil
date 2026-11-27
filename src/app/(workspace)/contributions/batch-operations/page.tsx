@@ -59,6 +59,7 @@ export default function BatchOperationsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [idempotencyKey, setIdempotencyKey] = useState("");
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -116,6 +117,7 @@ export default function BatchOperationsPage() {
   function resetPreview() {
     setPreview(null);
     setNotice("");
+    setIdempotencyKey("");
   }
 
   async function runPreview() {
@@ -154,6 +156,8 @@ export default function BatchOperationsPage() {
     setSaving(true);
     setError("");
     setNotice("");
+    const requestKey = idempotencyKey || crypto.randomUUID();
+    setIdempotencyKey(requestKey);
     try {
       const lines = preview.lines.map(line => operation === "payment"
         ? { job_card_number: line.job_card_number, amount: Number(line.amount).toFixed(2) }
@@ -167,7 +171,7 @@ export default function BatchOperationsPage() {
             p_payment_method: method,
             p_tag_id: tagId,
             p_lines: lines,
-            p_idempotency_key: crypto.randomUUID(),
+            p_idempotency_key: requestKey,
           }
         : {
             p_village_council_id: councilId,
@@ -181,6 +185,7 @@ export default function BatchOperationsPage() {
       setNotice(`Batch ${result.batch_reference || "recorded"} saved: ${result.line_count || lines.length} record(s), ${money(result.total_amount || preview.valid_total)}.`);
       setPasted("");
       setPreview(null);
+      setIdempotencyKey("");
       await loadHistory(councilId);
     } catch (err) {
       setError(errorMessage(err));

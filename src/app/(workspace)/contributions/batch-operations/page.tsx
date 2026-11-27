@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase";
 
 type Operation = "payment" | "manual_charge";
+
+const subscribeToLocation = () => () => {};
+const getOperationFromLocation = (): Operation =>
+  new URLSearchParams(window.location.search).get("operation") === "manual_charge" ? "manual_charge" : "payment";
+const getServerOperation = (): Operation => "payment";
 type Tag = { id: string; name: string };
 type PreviewLine = {
   line_number: number;
@@ -33,7 +38,7 @@ type HistoryItem = {
   total_amount: number | string;
   kind: Operation;
   payment_method?: string;
-  tag_id: string;
+  tag_id?: string;
   recorded_by: string;
 };
 
@@ -48,7 +53,9 @@ function errorMessage(error: unknown) {
 }
 
 export default function BatchOperationsPage() {
-  const [operation, setOperation] = useState<Operation>("payment");
+  const requestedOperation = useSyncExternalStore(subscribeToLocation, getOperationFromLocation, getServerOperation);
+  const [selectedOperation, setSelectedOperation] = useState<Operation | null>(null);
+  const operation = selectedOperation ?? requestedOperation;
   const [councilId, setCouncilId] = useState("");
   const [currentUserId, setCurrentUserId] = useState("");
   const [tags, setTags] = useState<Tag[]>([]);
@@ -73,7 +80,7 @@ export default function BatchOperationsPage() {
   async function loadHistory(id: string) {
     const [payments, charges] = await Promise.all([
       supabase.from("council_payment_batches")
-        .select("id,batch_reference,recorded_at,line_count,total_amount,payment_method,tag_id,recorded_by")
+        .select("id,batch_reference,recorded_at,line_count,total_amount,payment_method,recorded_by")
         .eq("village_council_id", id).order("recorded_at", { ascending: false }).limit(30),
       supabase.from("council_manual_charge_batches")
         .select("id,batch_reference,recorded_at,line_count,total_amount,tag_id,recorded_by")
@@ -88,11 +95,6 @@ export default function BatchOperationsPage() {
     combined.sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
     setHistory(combined.slice(0, 30));
   }
-
-  useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get("operation");
-    if (requested === "manual_charge") setOperation("manual_charge");
-  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -135,8 +137,8 @@ export default function BatchOperationsPage() {
   }
 
   async function runPreview() {
-    if (!councilId || !tagId || !pasted.trim()) {
-      setError("Choose a Tag and paste at least one line.");
+    if (!councilId || (operation === "manual_charge" && !tagId) || !pasted.trim()) {
+      setError(operation === "manual_charge" ? "Choose a Tag and paste at least one line." : "Paste at least one line.");
       return;
     }
     setPreviewing(true);
@@ -146,11 +148,10 @@ export default function BatchOperationsPage() {
       const rpc = operation === "payment"
         ? "preview_council_bulk_payment_batch"
         : "preview_council_bulk_manual_charge_batch";
-      const { data, error: rpcError } = await supabase.rpc(rpc, {
-        p_village_council_id: councilId,
-        p_tag_id: tagId,
-        p_pasted_lines: pasted,
-      });
+      const args = operation === "payment"
+        ? { p_village_council_id: councilId, p_pasted_lines: pasted }
+        : { p_village_council_id: councilId, p_tag_id: tagId, p_pasted_lines: pasted };
+      const { data, error: rpcError } = await supabase.rpc(rpc, args);
       if (rpcError) throw rpcError;
       setPreview(data as Preview);
     } catch (err) {
@@ -183,7 +184,6 @@ export default function BatchOperationsPage() {
         ? {
             p_village_council_id: councilId,
             p_payment_method: method,
-            p_tag_id: tagId,
             p_lines: lines,
             p_idempotency_key: requestKey,
           }
@@ -336,21 +336,23 @@ export default function BatchOperationsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-xs font-semibold text-slate-700">Operation</span>
-            <select value={operation} onChange={event => { setOperation(event.target.value as Operation); resetPreview(); }}
+            <select value={operation} onChange={event => { setSelectedOperation(event.target.value as Operation); resetPreview(); }}
               className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
               <option value="payment">Payments</option>
               <option value="manual_charge">Manual/Extra Charges</option>
             </select>
           </label>
-          <label className="block">
-            <span className="mb-2 block text-xs font-semibold text-slate-700">Tag</span>
-            <select value={tagId} onChange={event => { setTagId(event.target.value); resetPreview(); }}
-              disabled={loading || tags.length === 0}
-              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-50">
-              <option value="">Select a Tag</option>
-              {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
-            </select>
-          </label>
+          {operation === "manual_charge" && (
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold text-slate-700">Tag</span>
+              <select value={tagId} onChange={event => { setTagId(event.target.value); resetPreview(); }}
+                disabled={loading || tags.length === 0}
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-50">
+                <option value="">Select a Tag</option>
+                {tags.map(tag => <option key={tag.id} value={tag.id}>{tag.name}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         {operation === "payment" && (
@@ -380,7 +382,7 @@ export default function BatchOperationsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || !tagId || !pasted.trim()}
+          <button type="button" onClick={() => void runPreview()} disabled={loading || previewing || saving || (operation === "manual_charge" && !tagId) || !pasted.trim()}
             className="min-h-11 rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">
             {previewing ? "Validating…" : "Preview batch"}
           </button>
@@ -392,7 +394,7 @@ export default function BatchOperationsPage() {
       {preview && (
         <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">Tag: {selectedTag}{operation === "payment" ? ` · ${method.toUpperCase()}` : ""}</p></div>
+            <div><h2 className="text-base font-bold text-slate-950">Validation preview</h2><p className="mt-1 text-xs text-slate-500">{operation === "payment" ? `Payment method: ${method.toUpperCase()}` : `Tag: ${selectedTag}`}</p></div>
             <div className="text-right"><p className="text-xl font-bold tabular-nums text-slate-950">{money(preview.valid_total)}</p><p className="text-[10px] text-slate-500">Valid line total</p></div>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -435,7 +437,7 @@ export default function BatchOperationsPage() {
           : <div className="mt-4 divide-y divide-slate-100">
             {history.map(item => <div key={item.id} className="border-b border-slate-100 py-3 last:border-0">
               <button type="button" onClick={() => void toggleBatchDetails(item)} className="flex w-full flex-col gap-2 text-left sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · Recorded by {item.recorded_by === currentUserId ? "You" : "Council admin"} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""} · {tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}</p></div>
+                <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-900">{item.batch_reference}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${item.kind === "payment" ? "bg-blue-50 text-blue-700" : "bg-violet-50 text-violet-700"}`}>{item.kind === "payment" ? "PAYMENT" : "MANUAL CHARGE"}</span></div><p className="mt-1 text-[10px] text-slate-500">{prettyDate(item.recorded_at)} · Recorded by {item.recorded_by === currentUserId ? "You" : "Council admin"} · {item.line_count} record(s){item.payment_method ? ` · ${item.payment_method.toUpperCase()}` : ""}{item.kind === "manual_charge" ? ` · ${tags.find(tag => tag.id === item.tag_id)?.name || "Tag"}` : ""}</p></div>
                 <span className="flex items-center justify-between gap-4 sm:justify-end"><span className="text-sm font-bold tabular-nums text-slate-900">{money(item.total_amount)}</span><span className="text-[10px] font-semibold text-blue-700">{detailLoading === item.id ? "Loading…" : expandedBatch === item.id ? "Hide details ↑" : "View details ↓"}</span></span>
               </button>
               {expandedBatch === item.id && <div className="mt-3 overflow-x-auto rounded-xl border border-slate-200">

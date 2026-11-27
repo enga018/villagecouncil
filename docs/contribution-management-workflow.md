@@ -198,7 +198,7 @@ Before saving, show a review/confirmation preview:
 - Number of valid entries and total collection amount.
 - Selected CASH/BANK method.
 
-Do not silently accept invalid lines. The administrator reviews the preview before confirming the batch. A batch is validated as a whole and must be corrected and resubmitted if any line is invalid; do not partially save a batch.
+Do not silently accept invalid lines. The administrator reviews the preview before confirming the batch. The whole-batch versus valid-lines-only behavior for a batch containing invalid lines remains unresolved and must be decided before bulk-payment implementation.
 
 Amounts greater than a Job Card's current outstanding balance are allowed. The excess remains as unallocated/overpaid credit for that Job Card.
 

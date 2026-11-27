@@ -63,7 +63,8 @@ create table public.council_contribution_charge_revisions (
   new_is_active boolean not null,
   source_calculation_id uuid,
   reason text,
-  actor_id uuid not null references auth.users(id) on delete restrict,
+  actor_id uuid references auth.users(id) on delete restrict,
+  change_source text not null default 'administrator' check (change_source in ('co_recalculation', 'government_status', 'manual_correction', 'reversal', 'reinstatement')),
   created_at timestamptz not null default now(),
   constraint council_charge_revisions_charge_fk
     foreign key (charge_id, village_council_id)

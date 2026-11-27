@@ -1,22 +1,25 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type Accent = "blue" | "indigo";
+type Accent = "blue" | "indigo" | "emerald";
 type Tone = "neutral" | "blue" | "indigo" | "success" | "warning" | "danger";
 
 const accentStyles: Record<Accent, string> = {
   blue: "border-blue-200 hover:border-blue-300",
   indigo: "border-indigo-200 hover:border-indigo-300",
+  emerald: "border-emerald-200 hover:border-emerald-300",
 };
 
 const iconStyles: Record<Accent, string> = {
   blue: "bg-blue-50 text-blue-700",
   indigo: "bg-indigo-50 text-indigo-700",
+  emerald: "bg-emerald-50 text-emerald-700",
 };
 
 const actionStyles: Record<Accent, string> = {
   blue: "text-blue-700 focus-visible:outline-blue-600",
   indigo: "text-indigo-700 focus-visible:outline-indigo-600",
+  emerald: "text-emerald-700 focus-visible:outline-emerald-600",
 };
 
 const toneStyles: Record<Tone, string> = {
@@ -43,7 +46,7 @@ export function StatusBadge({ status }: { status: "Available" | "Active" | "Proc
 
 export function MiniKpi({ label, value, context, tone = "neutral" }: {
   label: string;
-  value: number | null;
+  value: number | string | null;
   context: string;
   tone?: Tone;
 }) {
@@ -51,7 +54,7 @@ export function MiniKpi({ label, value, context, tone = "neutral" }: {
     <div className="min-w-0 rounded-xl border border-[var(--vc-border-subtle)] bg-slate-50 p-3">
       <p className="truncate text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">{label}</p>
       <p className={`mt-1.5 text-xl font-bold tracking-tight tabular-nums ${toneStyles[tone]}`}>
-        {value === null ? "—" : value.toLocaleString("en-IN")}
+        {value === null ? "—" : typeof value === "number" ? value.toLocaleString("en-IN") : value}
       </p>
       <p className="mt-1 truncate text-[10px] leading-4 text-slate-500">{context}</p>
     </div>

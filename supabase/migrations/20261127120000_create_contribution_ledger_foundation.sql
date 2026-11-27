@@ -4,6 +4,16 @@
 
 begin;
 
+-- Add tenant/account-aware candidate keys so ledger references cannot cross
+-- Job Cards even when all referenced rows belong to the same Council.
+alter table public.council_fto_transactions
+  add constraint council_fto_transactions_id_tenant_job_card_unique
+  unique (id, village_council_id, job_card_number);
+
+alter table public.council_fto_co_calculation_items
+  add constraint council_calculation_items_calculation_transaction_tenant_unique
+  unique (calculation_id, fto_transaction_id, village_council_id);
+
 create table public.council_contribution_charges (
   id uuid primary key default gen_random_uuid(),
   village_council_id uuid not null references public.council_tenants(id) on delete restrict,
@@ -31,7 +41,7 @@ create table public.council_contribution_charges (
     or
     (charge_type = 'manual_extra' and fto_transaction_id is null and source_calculation_id is null and length(btrim(coalesce(description, ''))) > 0)
   ),
-  constraint council_contribution_charges_id_tenant_unique unique (id, village_council_id)
+  constraint council_contribution_charges_id_tenant_unique unique (id, village_council_id),\n  constraint council_contribution_charges_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
 );
 
 create unique index council_contribution_charges_regular_transaction_unique
@@ -110,7 +120,7 @@ create table public.council_payments (
   constraint council_payments_batch_fk
     foreign key (batch_id, village_council_id)
     references public.council_payment_batches(id, village_council_id) on delete restrict,
-  constraint council_payments_id_tenant_unique unique (id, village_council_id)
+  constraint council_payments_id_tenant_unique unique (id, village_council_id),\n  constraint council_payments_id_tenant_job_card_unique unique (id, village_council_id, job_card_number)
 );
 
 create index council_payments_job_card_date_idx

@@ -178,7 +178,7 @@ export default function ContributionsPage() {
       </section>
 
       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
-        This first release shows eligible CO charges from each FTO's latest saved calculation. Payment entry, allocation and net outstanding balances are not active yet. Deferred, Rejected and Exempt transactions are excluded.
+        This first release shows eligible CO charges from each FTO&apos;s latest saved calculation. Payment entry, allocation and net outstanding balances are not active yet. Deferred, Rejected and Exempt transactions are excluded.
       </div>
 
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</p>}
@@ -190,7 +190,7 @@ export default function ContributionsPage() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "hidden lg:block" : "block"}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-bold text-slate-950">Job Card accounts</h2>
             <span className="text-[10px] text-slate-500">{filtered.length.toLocaleString("en-IN")} shown</span>
@@ -219,10 +219,11 @@ export default function ContributionsPage() {
           </div>
         </div>
 
-        <div className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+        <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden lg:block"}`}>
           {!selected ? <div className="flex min-h-64 items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-500">Its eligible Regular CO Charges will appear here.</p></div></div>
             : <div>
               <div className="border-b border-slate-100 pb-4">
+                <button type="button" onClick={() => setSelectedId("")} className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 lg:hidden">← Back to Job Card accounts</button>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Job Card contribution detail</p>
                 <h2 className="mt-1 break-all text-lg font-bold text-slate-950">{selected.job_card_number}</h2>
                 <p className="mt-1 text-xs text-slate-500">{selected.head_of_household}</p>

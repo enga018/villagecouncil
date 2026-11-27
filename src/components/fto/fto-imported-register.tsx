@@ -108,16 +108,6 @@ function statusSummaryClasses(transactions: Transaction[]) {
   return counts;
 }
 
-function statusSummary(transactions: Transaction[]) {
-  const counts = statusSummaryClasses(transactions);
-  const items = [
-    counts.processed > 0 && <span key="processed" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700">Processed {number(counts.processed)}</span>,
-    counts.deferred > 0 && <span key="deferred" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700">Deferred {number(counts.deferred)}</span>,
-    counts.rejected > 0 && <span key="rejected" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700">Rejected {number(counts.rejected)}</span>,
-    counts.other > 0 && <span key="other" className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-slate-200 bg-slate-100 text-slate-600">Other {number(counts.other)}</span>,
-  ].filter(Boolean) as React.ReactNode[];
-  return items.length ? <div className="mt-2 flex flex-wrap items-center gap-2">{items}</div> : <div className="mt-2 text-[11px] text-slate-500">No transactions</div>;
-}
 
 export type FtoAutoIncrement = { newFtos: number; newTransactions: number } | null;
 

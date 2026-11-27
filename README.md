@@ -31,7 +31,7 @@ The deployed application is a single web application. Council data is scoped to 
 | Reports | Planned | `/reports/` |
 | Settings | Available | `/settings/` |
 
-The Dashboard is the workspace entry point. It presents the available modules as clickable cards, with relevant summary KPIs embedded inside each card. CO calculation is an operation within each imported FTO card in FTO Monitoring; it is not a separate management page. Formula settings are maintained in Settings. Contributions currently provides a read-only Job Card view of eligible Regular CO Charges from each FTO\u2019s latest saved calculation. Payment entry, allocation and net balances are not yet enabled.
+The Dashboard is the workspace entry point. It presents the available modules as clickable cards, with relevant summary KPIs embedded inside each card. CO calculation is an operation within each imported FTO card in FTO Monitoring; it is not a separate management page. Formula settings are maintained in Settings. Batch Operations supports bulk BANK payments and Manual/Extra Charges. The Contributions ledger itself remains an initial Job Card view of eligible Regular CO Charges from each FTO's latest saved calculation; canonical payment allocations and net balances are not yet displayed there.
 
 ## Repository structure
 

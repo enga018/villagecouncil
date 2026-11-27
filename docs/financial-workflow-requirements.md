@@ -149,7 +149,7 @@ The final placement of any separate exemption-management entry point is not spec
 
 ### 4.1 Tag meaning and ownership
 
-An Tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
+A Tag is a grouping label for FTOs. It is not a separate financial ledger, a Job Card attribute, or a prerequisite Contribution Period.
 
 - Each FTO has exactly one current tag.
 - Multiple FTOs can share the same tag.

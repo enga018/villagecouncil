@@ -459,11 +459,15 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Record the administrator, action (add or remove), reason and timestamp automatically for every change.
 - Preserve every exemption interval and every add/remove event permanently in audit history. Never overwrite or delete a previous interval when a Job Card is exempted again.
 - Exemption management is administrator-only.
-- The initial exemption data setup is to import the **20 already identified active exemptions**. This is a bootstrap requirement; it does not mean the management UI has been implemented.
+- The initial data setup must include the **20 already identified active exemptions**. These records must be represented in the dedicated management page after the data is brought into the new application's exemption records.
 
-### 7.4 Exemption list UI — deferred details
+### 7.4 Exemption Management page — agreed UI requirement
 
-- A dedicated exemption list/management capability is required so administrators can review current exemptions and manage additions/removals.
-- The exemption-list UI and add/remove management were explicitly deferred while the initial 20 active exemptions are imported.
-- The exact navigation entry point, list columns, filters, search behavior and add/remove screen design remain open. Do not invent or implement these UI details until they are agreed.
-- When designed, the list must make the per-Job-Card effective start date and current exemption state reviewable, while preserving access to the permanent interval/audit history.
+- Build a dedicated **Exemptions** page inside the **Contribution** module. This is a normal navigable page, not a modal, inline form, or separate top-level application module.
+- Provide a clear **Exemptions** entry alongside the other Contribution module destinations.
+- The page must list currently exempt Job Cards and provide administrator actions to add an exemption and remove an active exemption.
+- The page must expose the Job Card Number and effective start date, and provide access to the exemption interval and add/remove audit history. Do not discard prior intervals when an exemption is removed or later added again.
+- Adding or removing an exemption requires a non-empty reason. Actor and timestamp are system-recorded.
+- Include the 20 already identified active exemptions in the initial data setup and ensure they appear in the page's active list.
+- Do not add exemption badges, indicators or management controls to the general Job Cards list or ordinary Contributions list/detail views. Exemption management belongs on this dedicated page; CO calculation and transaction eligibility must still enforce the exemption rules.
+- Exact visual layout and any additional list filters/search controls can be decided during implementation, provided the required list, add/remove actions and history access are present.

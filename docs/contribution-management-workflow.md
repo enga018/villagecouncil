@@ -112,8 +112,10 @@ The administrator can review payment and charge history here. New payments and M
 
 ### 4.3 Actions and visibility
 
-**New payments**
-- Created through Batch Operations, including when recording a payment for only one Job Card.
+**Record Payment**
+- Keep a clearly visible **Record Payment** button/action on the Contributions page.
+- It opens the shared Batch Operations workspace with **Payments** preselected.
+- The same workflow supports a single Job Card line or multiple Job Card lines; do not create a separate single-payment form.
 - Select CASH or BANK and select a Tag for classification/reporting.
 - Payment date/time and the creating administrator are recorded automatically.
 - A payment can be recorded even when the current outstanding balance is zero or negative. Excess remains as unallocated/overpaid credit on the Job Card.
@@ -170,7 +172,8 @@ The administrator can review payment and charge history here. New payments and M
 
 ### 5.4 Atomic payment operations (implementation detail)
 
-- Payment creation, whether one line or multiple lines, uses the shared Batch Operations payment workflow. The administrator selects CASH or BANK and a Tag for the batch. The database records the batch, separate payment records, creation events and FIFO allocations atomically.\n- Paid in Full remains a separate CASH action inside Job Card Contribution Detail.
+- Payment creation, whether one line or multiple lines, uses the shared Batch Operations payment workflow. The administrator selects CASH or BANK and a Tag for the batch. The database records the batch, separate payment records, creation events and FIFO allocations atomically.
+- Paid in Full remains a separate CASH action inside Job Card Contribution Detail.
 - Payment creation requires a client-generated idempotency key. Retrying the same request returns the original payment; reusing the key with different payment details is rejected.
 - Paid in Full calculates the positive outstanding amount under the Job Card lock, then records the resulting CASH payment and runs FIFO in the same transaction. It must not create a payment when no positive outstanding amount exists.
 - Payment correction updates the existing payment, appends a before/after audit event with the mandatory reason, and reruns FIFO in the same transaction. The original `paid_at` and `recorded_by` fields remain unchanged.

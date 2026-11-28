@@ -48,6 +48,7 @@ jobs:
           deno check supabase/functions/create-village-council/index.ts
           deno check --node-modules-dir=auto supabase/functions/council-fto-source/index.ts
           deno check --node-modules-dir=auto supabase/functions/council-fto-details/index.ts
+          deno check --node-modules-dir=auto supabase/functions/council-co-calculation/index.ts
 
       - name: ESLint
         run: npm run lint

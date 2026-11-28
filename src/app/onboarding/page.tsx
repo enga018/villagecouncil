@@ -325,7 +325,7 @@ export default function OnboardingPage() {
             ? { label: saving ? "Completing onboarding…" : "Complete onboarding", onClick: () => void completeSavedLocation(), disabled: saving }
             : { label: saving ? "Saving location…" : "Save & Complete", type: "submit", form: "location-form", disabled: saving || !councilId || !stateUrl || !districtUrl || !blockUrl || !panchayatUrl || loadingDistricts || loadingBlocks || loadingPanchayats }
         }
-        note="Saving your Government location completes onboarding. You can import Job Cards and FTOs later from their respective modules."
+        note="Saving your Government location completes onboarding. You can import Job Cards and FTOs later from the Register module."
       />
     </div>
   </OnboardingShell>;

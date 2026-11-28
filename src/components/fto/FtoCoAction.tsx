@@ -372,7 +372,7 @@ export default function FtoCoAction({
 
                     {/* Desktop: full transaction table */}
                     <div className="hidden overflow-x-auto md:block">
-                      <table className="min-w-[760px] w-full divide-y divide-slate-200 text-xs">
+                      <table className="min-w-[860px] w-full divide-y divide-slate-200 text-xs">
                         <thead className="bg-white text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
                           <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Processed Date</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
                         </tr></thead>
@@ -426,6 +426,7 @@ export default function FtoCoAction({
                             <div className="min-w-0">
                               <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
                               <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                              <p className="mt-1 text-[10px] text-slate-400">Processed: {date(row.processed_date)}</p>
                             </div>
                             <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
                           </div>

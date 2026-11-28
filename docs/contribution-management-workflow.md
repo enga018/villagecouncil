@@ -441,7 +441,7 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Exemptions are temporary and repeatable. A Job Card may have multiple exemption intervals over time; removing an exemption ends the current interval and does not erase its history.
 - A Job Card exemption blocks the creation of new eligible Regular CO Charges during its effective interval. It does not cancel, waive or invalidate charges that were created before the interval.
 - Exempt Job Cards remain in FTO monitoring and retain their FTO history, imported transactions, historical ledger, payments and allocations. Exemption does not remove source history.
-- Exemption is Job Card-level, while the permanent exemption decision for an individual imported transaction is retained with that transaction/ledger record. Both levels must be respected when determining Contribution eligibility.
+- Exemption is managed at Job Card level. Each confirmed CO calculation stores the Processed Date-based exemption decision in its immutable calculation snapshot for audit and charge synchronization.
 
 ### 7.2 Effective dates and transaction eligibility
 

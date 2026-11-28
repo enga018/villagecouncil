@@ -296,7 +296,7 @@ export default function JobCardsPage() {
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Council records</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">Job Cards</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Browse household records and review the applicants linked to each Job Card.</p>
-          {lastFetched && <p className="mt-2 text-[11px] text-slate-400">Last successfully fetched {lastFetched}</p>}
+          {lastFetched && <p className="mt-2 text-[11px] text-slate-600">Last successfully fetched {lastFetched}</p>}
         </div>
         <button
           type="button"
@@ -327,25 +327,29 @@ export default function JobCardsPage() {
         <div className="border-b border-slate-100 p-4 sm:p-5">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div><h2 className="text-base font-bold tracking-tight text-slate-950">Household register</h2><p className="mt-1 text-xs text-slate-500">Select a Job Card to review its applicants and wage transactions</p></div>
-            <span className="text-[11px] font-medium text-slate-400">{jobCards.length.toLocaleString("en-IN")} records loaded</span>
+            <span className="text-[11px] font-medium text-slate-600">{jobCards.length.toLocaleString("en-IN")} records loaded</span>
           </div>
-          <div className="mt-4 flex flex-col gap-3 md:flex-row">
-            <label className="relative min-w-0 flex-1">
+          <div className="mt-4">
+            <label className="relative block w-full min-w-0">
               <span className="sr-only">Search Job Cards and applicants</span>
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-              <input value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder="Search Job Card No., household or applicant" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+              <input value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder="Search Job Card No., household or applicant" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
             </label>
-            <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
               {(["active", "inactive", "all"] as const).map(value => (
                 <button key={value} type="button" onClick={() => { setStatus(value); setPage(1); }} aria-pressed={status === value} className={`min-h-9 flex-1 rounded-lg px-3 text-xs font-semibold capitalize transition sm:flex-none ${status === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
                   {value === "all" ? "All" : value}
                 </button>
               ))}
             </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
+              <span>{applicants.length.toLocaleString("en-IN")} applicants in register</span>
+            </div>
           </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
             <span>{loading ? "Loading records…" : `Showing ${filteredCards.length ? (page - 1) * pageSize + 1 : 0}–${Math.min(page * pageSize, filteredCards.length)} of ${filteredCards.length.toLocaleString("en-IN")} matching Job Cards`}</span>
-            <span>{applicants.length.toLocaleString("en-IN")} applicants in register</span>
           </div>
         </div>
 
@@ -366,14 +370,14 @@ export default function JobCardsPage() {
                         <div className="min-w-0">
                           <p className="break-all text-[13px] font-bold text-slate-950">{card.job_card_number}</p>
                           <p className="mt-1 truncate text-xs font-medium text-slate-600">{card.head_of_household}</p>
-                          <p className="mt-2 text-[10px] text-slate-400">{people.length} applicants · {activePeople} active</p>
+                          <p className="mt-2 text-[10px] text-slate-600">{people.length} applicants · {activePeople} active</p>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
                       </div>
                     </button>
                   );
                 })}
-                {visibleCards.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
+                {visibleCards.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-600">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
               </div>
               <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
@@ -381,7 +385,7 @@ export default function JobCardsPage() {
             <div className={`${selectedCardId ? "block" : "hidden md:block"} ${SPLIT_DETAIL}`}>
               {(() => {
                 const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
-                if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-400">Household and applicant details will appear here.</p></div></div>;
+                if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-600">Household and applicant details will appear here.</p></div></div>;
                 const people = applicantsByCard.get(card.id) || [];
                 return <div>
                   <div className="mb-5 flex items-start gap-3">
@@ -397,7 +401,7 @@ export default function JobCardsPage() {
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Total applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.length}</p></div>
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Active applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.filter(person => person.status === "active").length}</p></div>
                   </div>
-                  <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Applicants</h4><span className="text-[10px] text-slate-400">{people.length} total</span></div>
+                  <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Applicants</h4><span className="text-[10px] text-slate-600">{people.length} total</span></div>
                   {people.length > 0 ? <>
                     <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
                       <table className="w-full min-w-[700px] text-left">
@@ -407,10 +411,10 @@ export default function JobCardsPage() {
                     </div>
                     <div className="divide-y divide-slate-100 md:hidden">{people.map(person => <article key={person.id} className="py-3 first:pt-1">
                       <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-slate-900">{person.applicant_name}</p><p className="mt-1 text-[10px] text-slate-500">Applicant No. {person.applicant_number}</p></div><span className={`rounded-full px-2 py-1 text-[9px] font-bold uppercase ${person.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{person.status}</span></div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><div><span className="text-slate-400">Gender / Age</span><p>{person.gender || "—"} / {person.age || "—"}</p></div><div><span className="text-slate-400">Caste</span><p>{person.caste || "—"}</p></div><div><span className="text-slate-400">Father / Husband</span><p>{person.father_husband_name || "—"}</p></div></div>
-                      {person.official_unique_id && <p className="mt-2 break-all font-mono text-[10px] text-slate-400">Official ID: {person.official_unique_id}</p>}
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]"><div><span className="text-slate-600">Gender / Age</span><p>{person.gender || "—"} / {person.age || "—"}</p></div><div><span className="text-slate-600">Caste</span><p>{person.caste || "—"}</p></div><div><span className="text-slate-600">Father / Husband</span><p>{person.father_husband_name || "—"}</p></div></div>
+                      {person.official_unique_id && <p className="mt-2 break-all font-mono text-[10px] text-slate-600">Official ID: {person.official_unique_id}</p>}
                     </article>)}</div>
-                  </> : <p className="rounded-xl bg-slate-50 p-5 text-center text-xs text-slate-400">No applicants linked to this Job Card.</p>}
+                  </> : <p className="rounded-xl bg-slate-50 p-5 text-center text-xs text-slate-600">No applicants linked to this Job Card.</p>}
                   {councilId && <WageTransactions councilId={councilId} jobCardNumber={card.job_card_number} />}
                 </div>;
               })()}

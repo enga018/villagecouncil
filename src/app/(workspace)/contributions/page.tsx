@@ -244,9 +244,11 @@ export default function ContributionsPage() {
             <h2 className="text-sm font-bold text-slate-950">Job Card accounts</h2>
             <span className="text-[10px] text-slate-500">{filtered.length.toLocaleString("en-IN")} Job Cards</span>
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-3">
             <input value={query} onChange={event => { setQuery(event.target.value); setContribPage(1); }} placeholder="Search Job Card or household"
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
+              className="min-h-11 w-full min-w-0 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex rounded-xl border border-slate-200 p-1">
               <button type="button" onClick={() => { setView("outstanding"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "outstanding" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>Outstanding</button>
               <button type="button" onClick={() => { setView("all"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "all" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>All</button>

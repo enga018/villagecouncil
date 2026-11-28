@@ -279,7 +279,7 @@ export default function FtoMonitoringPage() {
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">FTO Monitoring</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Fetching imports this Council&apos;s FTOs automatically. Only rows without a Panchayat name on the Government page need a manual decision.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Automatically imports this Council&apos;s FTOs...</p>
         </div>
         <button
           type="button"

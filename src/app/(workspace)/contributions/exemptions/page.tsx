@@ -52,7 +52,7 @@ export default function ExemptionsPage() {
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [jobCardNumber, setJobCardNumber] = useState("");
-  const [startDate, setStartDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [startDate, setStartDate] = useState("");
   const [addReason, setAddReason] = useState("");
   const [removingId, setRemovingId] = useState("");
   const [removeReason, setRemoveReason] = useState("");
@@ -78,6 +78,9 @@ export default function ExemptionsPage() {
   useEffect(() => {
     let current = true;
     async function initialLoad() {
+      await Promise.resolve();
+      if (!current) return;
+      setStartDate(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
       try {
         const { data, error: requestError } = await createClient().functions.invoke("council-co-calculation", {
           body: { action: "exemptions" },

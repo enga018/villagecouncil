@@ -1,15 +1,12 @@
 begin;
 
--- Use Government Processed Date for exemption eligibility in CO calculations.
+-- Use Government transaction_date for exemption eligibility in CO calculations.
 -- This supersedes permanent first-import exemption marks as an eligibility rule.
 -- The legacy transaction-mark trigger is no longer part of eligibility.
 -- Keep historical mark rows intact, but do not let new mark inserts affect charges.
 drop trigger if exists council_fto_transaction_sync_regular_charge_after_exempt_mark
   on public.council_co_exempt_transactions;
 drop function if exists public.sync_council_regular_co_charge_after_exempt_mark();
-
-alter table public.council_fto_co_calculation_items
-  add column if not exists processed_date date;
 
 create or replace function public.apply_council_fto_co_calculation(
   p_actor_id uuid,
@@ -120,9 +117,9 @@ begin
     from public.council_co_exemption_intervals x
     where x.village_council_id = t.village_council_id
       and x.job_card_number = t.job_card_number
-      and t.processed_date is not null
-      and t.processed_date >= x.started_at::date
-      and (x.ended_at is null or t.processed_date < x.ended_at::date)
+      and t.transaction_date is not null
+      and t.transaction_date >= x.started_at::date
+      and (x.ended_at is null or t.transaction_date < x.ended_at::date)
     order by x.started_at desc
     limit 1
   ) e on true
@@ -138,21 +135,21 @@ begin
 
   insert into public.council_fto_co_calculation_items (
     village_council_id, calculation_id, fto_transaction_id, job_card_number, applicant_name,
-    credit_amount, co_amount, is_exempt, exemption_interval_id, first_imported_at, transaction_date, processed_date
+    credit_amount, co_amount, is_exempt, exemption_interval_id, first_imported_at, transaction_date
   )
   select t.village_council_id, v_calculation_id, t.id, t.job_card_number,
     coalesce(nullif(btrim(t.applicant_name), ''), nullif(btrim(t.primary_account_holder), '')),
     t.credit_amount, round((t.credit_amount / p_divisor::numeric) * p_multiplier, 2),
-    (e.id is not null), e.id, t.first_imported_at, t.transaction_date, t.processed_date
+    (e.id is not null), e.id, t.first_imported_at, t.transaction_date
   from public.council_fto_transactions t
   left join lateral (
     select x.id
     from public.council_co_exemption_intervals x
     where x.village_council_id = t.village_council_id
       and x.job_card_number = t.job_card_number
-      and t.processed_date is not null
-      and t.processed_date >= x.started_at::date
-      and (x.ended_at is null or t.processed_date < x.ended_at::date)
+      and t.transaction_date is not null
+      and t.transaction_date >= x.started_at::date
+      and (x.ended_at is null or t.transaction_date < x.ended_at::date)
     order by x.started_at desc
     limit 1
   ) e on true

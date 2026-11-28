@@ -34,12 +34,19 @@ export default function WaivePage() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const requestedNumber = new URLSearchParams(window.location.search).get("jobCardNumber")?.trim() || "";
-    setJobCardNumber(requestedNumber);
-    if (!requestedNumber) {
-      setError("No Job Card was supplied. Return to Contributions and select a Job Card.");
-      setLoading(false);
+    let alive = true;
+    async function initialiseJobCardNumber() {
+      await Promise.resolve();
+      if (!alive) return;
+      const requestedNumber = new URLSearchParams(window.location.search).get("jobCardNumber")?.trim() || "";
+      setJobCardNumber(requestedNumber);
+      if (!requestedNumber) {
+        setError("No Job Card was supplied. Return to Contributions and select a Job Card.");
+        setLoading(false);
+      }
     }
+    void initialiseJobCardNumber();
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {

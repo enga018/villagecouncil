@@ -310,7 +310,7 @@ The detailed rules are maintained in [Contribution and Payment Workflow](contrib
 
 ## 2026-11-28 — CO exemption eligibility uses Government Transaction Date
 
-This clarification supersedes earlier exemption rules that referred to `first_imported_at` or `transaction_date`:
+This clarification supersedes earlier exemption rules that referred to `first_imported_at` or permanent transaction marks:
 
 1. The exemption interval starts on the effective date the Job Card is added to the Exemptions list.
 2. The interval ends on the date the active exemption is removed. The interval is start-inclusive and end-exclusive.

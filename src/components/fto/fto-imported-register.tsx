@@ -191,7 +191,6 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     return b.fto_number.localeCompare(a.fto_number);
   }), [filtered, inspections]);
 
-  const transactionCount = records.reduce((sum, item) => sum + item.council_fto_transactions.length, 0);
   const ftoPageCount = Math.max(1, Math.ceil(sortedFiltered.length / FTO_PAGE_SIZE));
   const visibleFtos = sortedFiltered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
 

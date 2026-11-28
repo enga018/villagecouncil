@@ -239,7 +239,7 @@ export default function ContributionsPage() {
       {!loading && <p className="text-[11px] text-slate-500">Payments recorded: {money(paymentTotal)} · Refunds: {money(refundTotal)} · Unallocated credit: {money(creditTotal)} · Job Cards with outstanding balance: {cardsWithOutstanding.toLocaleString("en-IN")}</p>}
 
       <section className={`grid min-w-0 gap-4 ${SPLIT_GRID}`}>
-        <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selected ? "hidden md:block" : "block"}`}>
+        <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selected ? "hidden lg:block" : "block"}`}>
           <div className="space-y-3 border-b border-slate-200 p-4">
             <label className="relative block w-full min-w-0">
               <span className="sr-only">Search Job Card or household</span>
@@ -273,11 +273,11 @@ export default function ContributionsPage() {
           <ListPagination page={contribPage} total={filtered.length} onPage={setContribPage} label="Job Cards" className="border-t border-slate-100 px-4 py-3" />
         </div>
 
-        <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden md:block"}`}>
+        <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden lg:block"}`}>
           {!selected ? <div className="flex min-h-64 items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-500">Its charges, payments and balance history will appear here.</p></div></div>
             : <div>
               <div className="border-b border-slate-100 pb-4">
-                <button type="button" onClick={() => setSelectedId("")} className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 md:hidden">← Back to Job Card accounts</button>
+                <button type="button" onClick={() => setSelectedId("")} className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-xs font-semibold text-blue-700 hover:bg-blue-50 lg:hidden">← Back to Job Card accounts</button>
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Job Card contribution detail</p>
                 <h2 className="mt-1 break-all text-lg font-bold text-slate-950">{selected.job_card_number}</h2>
                 <p className="mt-1 text-xs text-slate-500">{selected.head_of_household}</p>

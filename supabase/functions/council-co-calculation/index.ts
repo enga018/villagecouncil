@@ -112,6 +112,14 @@ Deno.serve(async (req: Request) => {
         .is("ended_at", null).maybeSingle();
       if (existingError) throw existingError;
       if (existing) return reply({ error: "This Job Card already has an active exemption." }, 409, origin);
+      const { data: previousIntervals, error: previousError } = await admin.from("council_co_exemption_intervals")
+        .select("ended_at").eq("village_council_id", tenantId).eq("job_card_number", jobCardNumber)
+        .not("ended_at", "is", null).order("ended_at", { ascending: false }).limit(1);
+      if (previousError) throw previousError;
+      const previousEndDate = previousIntervals?.[0]?.ended_at?.slice(0, 10);
+      if (previousEndDate && startDate < previousEndDate) {
+        return reply({ error: `The new exemption cannot start before the previous interval ended on ${previousEndDate}.` }, 409, origin);
+      }
       const { data: interval, error } = await admin.from("council_co_exemption_intervals").insert({
         village_council_id: tenantId, job_card_number: jobCardNumber,
         started_at: `${startDate}T00:00:00.000Z`, add_reason: reason, added_by: actorId,

@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://villagecouncil-git-feat-fto-co-calculation-enga018s-projects.vercel.app", "https://enga018.github.io"]);
+const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://villagecouncil-git-feat-fto-co-calculation-enga018s-projects.vercel.app", "https://villagecouncil-git-feat-contribution-e-3dbac8-enga018s-projects.vercel.app", "https://enga018.github.io"]);
 function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://villagecouncil.enga.in",

@@ -66,17 +66,20 @@ Deno.serve(async (req: Request) => {
 
   try {
     if (action === "exemptions") {
-      const [{ data: intervals, error: intervalsError }, { data: jobCards, error: jobCardsError }] = await Promise.all([
-        admin.from("council_co_exemption_intervals")
-          .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at")
-          .eq("village_council_id", tenantId).order("started_at", { ascending: false }),
-        admin.from("council_job_cards")
-          .select("job_card_number,head_of_household,status")
-          .eq("village_council_id", tenantId).order("job_card_number"),
-      ]);
+      const { data: intervals, error: intervalsError } = await admin.from("council_co_exemption_intervals")
+        .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at")
+        .eq("village_council_id", tenantId).order("started_at", { ascending: false });
       if (intervalsError) throw intervalsError;
-      if (jobCardsError) throw jobCardsError;
-      const cardMap = new Map((jobCards || []).map(card => [card.job_card_number, card]));
+      const jobCards: Array<{ job_card_number: string; head_of_household: string; status: string }> = [];
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error: jobCardsError } = await admin.from("council_job_cards")
+          .select("job_card_number,head_of_household,status")
+          .eq("village_council_id", tenantId).order("job_card_number").range(from, from + 999);
+        if (jobCardsError) throw jobCardsError;
+        jobCards.push(...(page || []));
+        if (!page || page.length < 1000) break;
+      }
+      const cardMap = new Map(jobCards.map(card => [card.job_card_number, card]));
       const actorIds = [...new Set((intervals || []).flatMap(interval => [interval.added_by, interval.removed_by]).filter((id): id is string => Boolean(id)))];
       const actorEntries = await Promise.all(actorIds.map(async id => {
         const { data } = await admin.auth.admin.getUserById(id);
@@ -90,7 +93,7 @@ Deno.serve(async (req: Request) => {
           head_of_household: cardMap.get(interval.job_card_number)?.head_of_household || null,
           job_card_status: cardMap.get(interval.job_card_number)?.status || null,
         })),
-        job_cards: jobCards || [],
+        job_cards: jobCards,
         actor_labels: Object.fromEntries(actorEntries),
       }, 200, origin);
     }

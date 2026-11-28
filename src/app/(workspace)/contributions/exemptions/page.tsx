@@ -186,13 +186,13 @@ export default function ExemptionsPage() {
         <form onSubmit={addExemption} className="grid gap-4 lg:grid-cols-[minmax(14rem,1.2fr)_12rem_minmax(16rem,2fr)_auto] lg:items-end">
           <label className="block text-sm font-medium text-slate-700">
             Job Card
-            <select required value={jobCardNumber} onChange={event => setJobCardNumber(event.target.value)}
-              className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
-              <option value="">Select Job Card</option>
-              {availableCards.map(card => <option key={card.job_card_number} value={card.job_card_number}>
-                {card.job_card_number}{card.head_of_household ? ` — ${card.head_of_household}` : ""}
-              </option>)}
-            </select>
+            <input required list="exemption-job-cards" value={jobCardNumber} onChange={event => setJobCardNumber(event.target.value)}
+              placeholder="Type Job Card Number or select a suggestion"
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+            <datalist id="exemption-job-cards">
+              {availableCards.map(card => <option key={card.job_card_number} value={card.job_card_number}
+                label={card.head_of_household || ""} />)}
+            </datalist>
           </label>
           <label className="block text-sm font-medium text-slate-700">
             Effective start date

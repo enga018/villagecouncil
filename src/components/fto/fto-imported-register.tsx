@@ -48,7 +48,7 @@ type Fto = {
 };
 
 
-const FTO_PAGE_SIZE = 5;
+const FTO_PAGE_SIZE = 20;
 
 function number(value: number | null | undefined) {
   return value == null ? "—" : new Intl.NumberFormat("en-IN").format(value);
@@ -258,7 +258,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
               })}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
-              <span className="text-[10px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 5 FTOs per page</span>
+              <span className="text-[10px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 20 FTOs per page</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setFtoPage(page => Math.max(1, page - 1))} disabled={ftoPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 disabled:opacity-40">Previous</button>
                 <button type="button" onClick={() => setFtoPage(page => Math.min(ftoPageCount, page + 1))} disabled={ftoPage >= ftoPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 disabled:opacity-40">Next</button>

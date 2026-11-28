@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { MiniKpi } from "@/components/app/ModuleCard";
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/app/ListPagination";
 
 type JobCard = { id: string; job_card_number: string; head_of_household: string; status: string };
 type Charge = {
@@ -208,6 +209,8 @@ export default function ContributionsPage() {
     sum(account.allocations.filter(row => row.charge_id === chargeId), row => Number(row.allocated_amount));
   const refundsByPayment = (account: Account, paymentId: string) =>
     sum(account.refunds.filter(row => row.payment_id === paymentId), row => Number(row.amount));
+  const [contribPage, setContribPage] = useState(1);
+  const visibleAccounts = filtered.slice((contribPage - 1) * LIST_PAGE_SIZE, contribPage * LIST_PAGE_SIZE);
   const selectedJobCardQuery = selected ? `?jobCardNumber=${encodeURIComponent(selected.job_card_number)}` : "";
 
   return (
@@ -238,20 +241,20 @@ export default function ContributionsPage() {
         <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "hidden lg:block" : "block"}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-bold text-slate-950">Job Card accounts</h2>
-            <span className="text-[10px] text-slate-500">{filtered.length.toLocaleString("en-IN")} shown</span>
+            <span className="text-[10px] text-slate-500">{filtered.length.toLocaleString("en-IN")} Job Cards</span>
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search Job Card or household"
+            <input value={query} onChange={event => { setQuery(event.target.value); setContribPage(1); }} placeholder="Search Job Card or household"
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
             <div className="flex rounded-xl border border-slate-200 p-1">
-              <button type="button" onClick={() => setView("outstanding")} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "outstanding" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>Outstanding</button>
-              <button type="button" onClick={() => setView("all")} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "all" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>All</button>
+              <button type="button" onClick={() => { setView("outstanding"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "outstanding" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>Outstanding</button>
+              <button type="button" onClick={() => { setView("all"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "all" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>All</button>
             </div>
           </div>
           <div className="mt-3 max-h-[65vh] space-y-2 overflow-y-auto">
             {loading ? <p className="py-10 text-center text-xs text-slate-500">Loading Job Card accounts…</p>
               : filtered.length === 0 ? <p className="py-10 text-center text-xs text-slate-500">No matching Job Cards.</p>
-              : filtered.map(account => (
+              : visibleAccounts.map(account => (
                 <button type="button" key={account.id} onClick={() => setSelectedId(account.id)}
                   className={`w-full rounded-xl border p-3 text-left transition ${selectedId === account.id ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
                   <div className="flex items-start justify-between gap-3">
@@ -262,6 +265,7 @@ export default function ContributionsPage() {
                 </button>
               ))}
           </div>
+          <ListPagination page={contribPage} total={filtered.length} onPage={setContribPage} label="Job Cards" className="-mx-4 -mb-4 mt-3 rounded-b-2xl sm:-mx-5 sm:-mb-5" />
         </div>
 
         <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden lg:block"}`}>

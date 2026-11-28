@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import WageTransactions from "@/components/job-cards/WageTransactions";
 import { MiniKpi } from "@/components/app/ModuleCard";
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/app/ListPagination";
 
 type StatusFilter = "all" | "active" | "inactive";
 type JobCard = {
@@ -40,7 +41,7 @@ export default function JobCardsPage() {
   const [lastFetched, setLastFetched] = useState<string | null>(null);
   const [kpiChanges, setKpiChanges] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
   const [previousCounts, setPreviousCounts] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
-  const pageSize = 20;
+  const pageSize = LIST_PAGE_SIZE;
 
   useEffect(() => {
     let active = true;
@@ -285,7 +286,6 @@ export default function JobCardsPage() {
     });
   }, [jobCards, applicantsByCard, query, status]);
 
-  const pageCount = Math.max(1, Math.ceil(filteredCards.length / pageSize));
   const visibleCards = filteredCards.slice((page - 1) * pageSize, page * pageSize);
 
     return (
@@ -374,13 +374,7 @@ export default function JobCardsPage() {
                 })}
                 {visibleCards.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{jobCards.length ? "No matching Job Cards" : "No Job Card records found"}</p><p className="mt-1 text-xs text-slate-400">{jobCards.length ? "Try a different search term or status filter." : "There are currently no records for this Village Council."}</p></div>}
               </div>
-              {pageCount > 1 && <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-3">
-                <span className="text-[10px] text-slate-400">Page {page} of {pageCount}</span>
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold disabled:opacity-40">Previous</button>
-                  <button type="button" onClick={() => setPage(current => Math.min(pageCount, current + 1))} disabled={page >= pageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold disabled:opacity-40">Next</button>
-                </div>
-              </div>}
+              <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
 
             <div className={`${selectedCardId ? "block" : "hidden md:block"} min-w-0 p-4 sm:p-5`}>

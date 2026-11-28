@@ -85,7 +85,7 @@ Exemptions are temporary, repeatable intervals managed per Job Card. Determine w
 
 Adding an exemption:
 
-- Blocks new CO charges for transactions first imported during the exemption interval.
+- Blocks creation of new Regular CO Charges when the transaction Government `processed_date` falls within the exemption interval.
 - Does not cancel or reverse existing charges.
 - Does not remove existing outstanding balances.
 - Does not block payment of existing charges.
@@ -401,7 +401,7 @@ All financial, exemption, tag, batch, charge, payment and allocation records are
 
 - Council CO formula settings and settings history.
 - Exemption current state and interval history.
-- Transaction-level eligibility decisions, including permanent Exempt marks.
+- Processed Date-based eligibility decisions retained in immutable CO calculation snapshots.
 - FTO-level tags and tag audit history.
 - CO calculation Preview and atomic Apply.
 - Idempotent recalculation/reconciliation.

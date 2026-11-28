@@ -442,3 +442,8 @@ The financial modules are part of the existing multi-Council Village Council Pla
 - Do not change existing FTO import behavior as part of the financial schema work unless a specific dependency is identified and approved.
 
 See [Architecture](architecture.md) and [FTO Monitoring](fto-monitoring.md).
+
+
+## 2026-11-28 clarification — Processed Date controls exemption eligibility
+
+The effective exemption interval is compared with the FTO transaction's Government `processed_date`, not `transaction_date` or `first_imported_at`. The start date is the effective date added; the removal date is the exclusive end of the interval. Preview and Apply must produce the same eligibility result. Missing Processed Date does not qualify as exempt.

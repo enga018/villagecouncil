@@ -210,11 +210,8 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         <div className="p-8 text-center text-xs text-slate-500">Loading imported FTO records…</div>
       ) : error ? (
         <div role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</div>
-      ) : filtered.length === 0 ? (
-        <div className="p-8 text-center">
-          <p className="text-sm font-semibold text-slate-800">{records.length ? "No matching FTO records" : "No imported FTOs yet"}</p>
-          <p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term." : "After you confirm an FTO import, the activated records will appear here."}</p>
-        </div>
+      ) : false ? (
+        <div className="p-8 text-center">No FTOs</div>
       ) : (
         <div className={`grid min-h-[560px] ${SPLIT_GRID}`}>
           <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedId ? "hidden md:block" : "block"}`}>
@@ -234,6 +231,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
               {autoIncrement && (autoIncrement.newFtos > 0 || autoIncrement.newTransactions > 0) && <p className="text-[10px] font-semibold text-emerald-700">+{number(autoIncrement.newFtos)} FTOs · +{number(autoIncrement.newTransactions)} transactions this fetch</p>}
             </div>
             <div className="divide-y divide-slate-100">
+              {visibleFtos.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{records.length ? "No matching FTO records" : "No imported FTOs yet"}</p><p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term or choose All." : "After you confirm an FTO import, activated records will appear here."}</p></div>}
               {visibleFtos.map(item => {
                 const counts = statusSummaryClasses(item.council_fto_transactions);
                 const selected = selectedId === item.id;

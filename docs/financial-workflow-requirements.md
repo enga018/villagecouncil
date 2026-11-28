@@ -71,19 +71,15 @@ Rules:
 
 ### 2.3 Exemption eligibility
 
-Exemptions are temporary intervals on a Job Card, but the effect on an FTO transaction is determined by the transaction's immutable first-import time.
+Exemptions are temporary, repeatable intervals managed per Job Card. Determine whether each FTO transaction falls within an interval using the Government `processed_date`.
 
-- During calculation, check the Job Card's exemption history for each FTO transaction.
-- Use the transaction-date rule implemented by the current CO calculation workflow to determine whether the transaction falls within an exemption interval. Do not substitute a mutable re-import timestamp.
-- A transaction first imported **during** an exemption interval is marked **Exempt** in the CO ledger/eligibility record and must not generate a payable CO charge.
-- That Exempt mark is permanent for that transaction. Removing the Job Card from the active exemption list does not clear the historical mark or make that transaction chargeable later.
-- A transaction first imported **before** an exemption interval is not made exempt merely because the Job Card is later exempted. Existing charges remain valid and visible.
-- A transaction first imported **after** the exemption interval has ended can be considered for a new CO charge, subject to the other eligibility rules.
-- Removing an exemption does not automatically create charges. A new Preview → Apply cycle is required.
-- An exempt transaction remains excluded from the Contribution page permanently, even after the Job Card's exemption is removed.
-- A Job Card may be exempted, have the exemption removed, and be exempted again. Each interval is retained separately.
-
-This is a transaction-level decision. Do not hide every transaction for a Job Card merely because another transaction on the same Job Card is exempt.
+- The interval start is the effective date the Job Card is added to the Exemptions list.
+- The interval end is the date the active exemption is removed; the start is inclusive and the end is exclusive.
+- Compare `processed_date` with the interval dates. Do not use `first_imported_at` or `transaction_date` to determine exemption eligibility.
+- A missing `processed_date` does not qualify as exempt.
+- CO Calculation Preview, Apply and Regular CO Charge synchronization must enforce the same rule.
+- Removing an exemption does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions against the updated interval.
+- Existing exemption intervals, add/remove reasons, actor and timestamp audit history must be retained. Existing charges created before the exemption interval remain valid and payable.
 
 ### 2.4 Exemption effect on existing financial records
 

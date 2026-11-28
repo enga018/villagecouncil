@@ -446,11 +446,11 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 ### 7.2 Effective dates and transaction eligibility
 
 - Each Job Card exemption interval has an effective start date. The start date is configurable per Job Card; the accepted default for initial setup is **1 July 2026**.
-- Future imported transactions must automatically be evaluated against the stored exemption interval for that Job Card. Do not require administrators to mark each future transaction manually.
-- Transactions first imported while the Job Card is exempt receive a permanent Exempt mark and remain ineligible for Regular CO Charges even if the Job Card exemption is later removed.
-- Transactions imported before the exemption interval remain eligible according to their saved calculation/status and any charges already created remain valid and payable.
-- Removing an exemption ends the current interval. It does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions imported after the exemption ends.
-- Transactions that become eligible after removal may be charged through that new calculation cycle. Transactions first imported during the exemption interval remain permanently excluded.
+- Future imported transactions must automatically be evaluated against the stored exemption interval for that Job Card. Do not require administrators to mark each transaction manually.
+- Determine exemption eligibility by comparing the Government `processed_date` with the interval. The start date is inclusive; the removal date is the exclusive end.
+- Do not use `first_imported_at` or `transaction_date` to determine exemption eligibility. A missing `processed_date` does not qualify as exempt.
+- A Regular CO Charge created before the effective exemption start remains valid and payable. The exemption blocks creation of new Regular CO Charges for transactions processed within the interval.
+- Removing an exemption ends the current interval but does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions against the updated interval.
 - Exemption does not block recording payments against the Job Card. Existing outstanding charges remain payable, and payments continue to allocate through the normal Job Card-level FIFO process, including for Inactive or Deleted Job Cards.
 
 ### 7.3 Add/remove controls and audit history

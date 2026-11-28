@@ -65,6 +65,69 @@ Deno.serve(async (req: Request) => {
   const action = String(body.action || "");
 
   try {
+    if (action === "exemptions") {
+      const [{ data: intervals, error: intervalsError }, { data: jobCards, error: jobCardsError }] = await Promise.all([
+        admin.from("council_co_exemption_intervals")
+          .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at")
+          .eq("village_council_id", tenantId).order("started_at", { ascending: false }),
+        admin.from("council_job_cards")
+          .select("job_card_number,head_of_household,status")
+          .eq("village_council_id", tenantId).order("job_card_number"),
+      ]);
+      if (intervalsError) throw intervalsError;
+      if (jobCardsError) throw jobCardsError;
+      const cardMap = new Map((jobCards || []).map(card => [card.job_card_number, card]));
+      return reply({
+        intervals: (intervals || []).map(interval => ({
+          ...interval,
+          head_of_household: cardMap.get(interval.job_card_number)?.head_of_household || null,
+          job_card_status: cardMap.get(interval.job_card_number)?.status || null,
+        })),
+        job_cards: jobCards || [],
+      }, 200, origin);
+    }
+
+    if (action === "add_exemption") {
+      const jobCardNumber = String(body.jobCardNumber || "").trim();
+      const startDate = String(body.startDate || "").trim();
+      const reason = String(body.reason || "").trim();
+      if (!jobCardNumber || !/^\\d{4}-\\d{2}-\\d{2}$/.test(startDate) || reason.length < 3 || reason.length > 1000) {
+        return reply({ error: "Select a Job Card, provide a valid start date, and enter a reason of 3–1000 characters." }, 400, origin);
+      }
+      const { data: jobCard, error: jobCardError } = await admin.from("council_job_cards")
+        .select("job_card_number").eq("village_council_id", tenantId)
+        .eq("job_card_number", jobCardNumber).maybeSingle();
+      if (jobCardError) throw jobCardError;
+      if (!jobCard) return reply({ error: "The selected Job Card does not belong to this Village Council." }, 404, origin);
+      const { data: existing, error: existingError } = await admin.from("council_co_exemption_intervals")
+        .select("id").eq("village_council_id", tenantId).eq("job_card_number", jobCardNumber)
+        .is("ended_at", null).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return reply({ error: "This Job Card already has an active exemption." }, 409, origin);
+      const { data: interval, error } = await admin.from("council_co_exemption_intervals").insert({
+        village_council_id: tenantId, job_card_number: jobCardNumber,
+        started_at: `${startDate}T00:00:00.000Z`, add_reason: reason, added_by: actorId,
+      }).select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").single();
+      if (error) throw error;
+      return reply({ interval }, 201, origin);
+    }
+
+    if (action === "remove_exemption") {
+      const intervalId = String(body.intervalId || "").trim();
+      const reason = String(body.reason || "").trim();
+      if (!intervalId || reason.length < 3 || reason.length > 1000) {
+        return reply({ error: "A valid exemption and a removal reason of 3–1000 characters are required." }, 400, origin);
+      }
+      const removalDate = new Date().toISOString().slice(0, 10);
+      const { data: interval, error } = await admin.from("council_co_exemption_intervals").update({
+        ended_at: `${removalDate}T00:00:00.000Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
+      }).eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null)
+        .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").maybeSingle();
+      if (error) throw error;
+      if (!interval) return reply({ error: "The active exemption was not found or has already been removed." }, 404, origin);
+      return reply({ interval }, 200, origin);
+    }
+
     if (action === "settings") {
       const { error: seedError } = await admin.from("council_co_settings")
         .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });

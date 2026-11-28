@@ -165,7 +165,16 @@ export default function ContributionsPage() {
           setAccounts(nextAccounts);
           setTransactionLookup(transactionById);
           setTagLookup(tagById);
-          setSelectedId(previous => previous && nextAccounts.some(account => account.id === previous) ? previous : "");
+          const requestedJobCardNumber = new URLSearchParams(window.location.search).get("jobCardNumber");
+          const requestedAccount = requestedJobCardNumber
+            ? nextAccounts.find(account => account.job_card_number === requestedJobCardNumber)
+            : null;
+          if (requestedAccount) {
+            setSelectedId(requestedAccount.id);
+            setView("all");
+          } else {
+            setSelectedId(previous => previous && nextAccounts.some(account => account.id === previous) ? previous : "");
+          }
         }
       } catch (err) {
         if (current) setError(err instanceof Error ? err.message : "Unable to load the Contribution ledger.");

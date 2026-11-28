@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase";
 import WageTransactions from "@/components/job-cards/WageTransactions";
 import { MiniKpi } from "@/components/app/ModuleCard";
 import { LIST_PAGE_SIZE, ListPagination } from "@/components/app/ListPagination";
-import { SPLIT_DETAIL, SPLIT_GRID } from "@/lib/layout";
+import { SPLIT_GRID } from "@/lib/layout";
 
 type StatusFilter = "all" | "active" | "inactive";
 type JobCard = {

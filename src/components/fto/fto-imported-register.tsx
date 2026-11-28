@@ -209,7 +209,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         <div role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</div>
       ) : (
         <div className={`grid min-h-[560px] ${SPLIT_GRID}`}>
-          <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedId ? "hidden md:block" : "block"}`}>
+          <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedId ? "hidden lg:block" : "block"}`}>
             <div className="space-y-3 border-b border-slate-200 p-4">
               <label htmlFor="fto-register-search" className="relative block w-full min-w-0">
                 <span className="sr-only">Search imported FTOs</span>
@@ -258,14 +258,14 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             </div>
           </div>
 
-          <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedId ? "block" : "hidden md:block"}`}>
+          <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedId ? "block" : "hidden lg:block"}`}>
             {(() => {
               const item = visibleFtos.find(row => row.id === selectedId) || sortedFiltered.find(row => row.id === selectedId);
               if (!item) return <div className="flex min-h-[420px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select an FTO</p><p className="mt-1 text-xs text-slate-600">FTO transaction details and CO actions will appear here.</p></div></div>;
               const counts = statusSummaryClasses(item.council_fto_transactions);
               return <div>
                 <div className="mb-4 flex items-start gap-3">
-                  <button type="button" onClick={() => setSelectedId("")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 md:hidden">← Back</button>
+                  <button type="button" onClick={() => setSelectedId("")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 lg:hidden">← Back</button>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-[.13em] text-blue-700">Selected FTO</p>
                     <h3 className="mt-1 break-all text-lg font-bold text-slate-950">{item.fto_number}</h3>

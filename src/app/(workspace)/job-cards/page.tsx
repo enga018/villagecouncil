@@ -329,7 +329,7 @@ export default function JobCardsPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
         ) : (
-          <div className={`grid min-h-[520px] ${SPLIT_GRID}`}>
+          <div className={`grid min-h-[520px] ${selectedCardId ? SPLIT_GRID : "grid-cols-1"}`}>
             <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedCardId ? "hidden lg:block" : "block"}`}>
               <div className="space-y-3 border-b border-slate-200 p-4">
                 <label className="relative block w-full min-w-0">
@@ -372,7 +372,7 @@ export default function JobCardsPage() {
               <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
 
-            <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedCardId ? "block" : "hidden lg:block"}`}>
+            <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedCardId ? "block" : "hidden"}`}>
               {(() => {
                 const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
                 if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-medium text-slate-600">Select a Job Card to review its applicants and wage transactions</p></div></div>;

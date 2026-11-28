@@ -313,18 +313,32 @@ export default function ExemptionsPage() {
           <p className="text-sm text-slate-500">Every previous interval and its add/remove reasons remains available for audit.</p>
         </div>
         {filteredHistory.length === 0 ? <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">No previous exemption intervals.</div>
-          : <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {filteredHistory.map(item => <article key={item.id} className="border-b border-slate-100 p-4 last:border-0 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-semibold text-slate-950">{item.job_card_number} <span className="font-normal text-slate-500">· {item.head_of_household || "Household name not available"}</span></p>
-                <span className="text-xs text-slate-500">{displayDate(item.started_at)} – {displayDate(item.ended_at)}</span>
-              </div>
-              <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Added</p><p className="mt-1 text-slate-700">{item.add_reason}</p><p className="mt-1 text-xs text-slate-400">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p></div>
-                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Removed</p><p className="mt-1 text-slate-700">{item.remove_reason || "—"}</p><p className="mt-1 text-xs text-slate-400">{item.removed_by ? (actorLabels[item.removed_by] || shortActor(item.removed_by)) : "—"} · {item.ended_at ? displayDateTime(item.updated_at) : "—"}</p></div>
-              </div>
-            </article>)}
-          </div>}
+          : <>
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
+              <table className="w-full text-left text-xs">
+                <thead><tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Household</th><th className="px-3 py-3">Interval</th><th className="px-3 py-3">Added</th><th className="px-3 py-3">Removed</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">{filteredHistory.map(item => <tr key={item.id} className="text-slate-700">
+                  <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-950">{item.job_card_number}</td>
+                  <td className="px-3 py-3 text-slate-600">{item.head_of_household || "Household name not available"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{displayDate(item.started_at)} – {displayDate(item.ended_at)}</td>
+                  <td className="max-w-[240px] px-3 py-3 text-slate-700"><p>{item.add_reason}</p><p className="mt-1 text-slate-400">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p></td>
+                  <td className="max-w-[240px] px-3 py-3 text-slate-700"><p>{item.remove_reason || "—"}</p><p className="mt-1 text-slate-400">{item.removed_by ? (actorLabels[item.removed_by] || shortActor(item.removed_by)) : "—"} · {item.ended_at ? displayDateTime(item.updated_at) : "—"}</p></td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white md:hidden">
+              {filteredHistory.map(item => <article key={item.id} className="border-b border-slate-100 p-4 last:border-0 sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-950">{item.job_card_number} <span className="font-normal text-slate-500">· {item.head_of_household || "Household name not available"}</span></p>
+                  <span className="text-xs text-slate-500">{displayDate(item.started_at)} – {displayDate(item.ended_at)}</span>
+                </div>
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Added</p><p className="mt-1 text-slate-700">{item.add_reason}</p><p className="mt-1 text-xs text-slate-400">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p></div>
+                  <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Removed</p><p className="mt-1 text-slate-700">{item.remove_reason || "—"}</p><p className="mt-1 text-xs text-slate-400">{item.removed_by ? (actorLabels[item.removed_by] || shortActor(item.removed_by)) : "—"} · {item.ended_at ? displayDateTime(item.updated_at) : "—"}</p></div>
+                </div>
+              </article>)}
+            </div>
+          </>}
       </section>
     </main>
   );

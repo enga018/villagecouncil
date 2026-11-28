@@ -4,7 +4,7 @@
 **Status:** Agreed product requirements; implementation not yet started  
 **Decision baseline:** 2026-11-27
 
-This document records the CO Calculation foundation and its original detailed rules. For the current Job Card-centred Contribution and Payment workflow, use [Contribution and Payment Workflow](contribution-and-payment-workflow.md), which supersedes conflicting older wording in sections 7 and 8.
+This document records the CO Calculation foundation and its original detailed rules. **Current exemption clarification (2026-11-28):** exemption eligibility is determined by Government `transaction_date` within the Job Card interval (start-inclusive, removal-date-exclusive), not `first_imported_at` or permanent transaction marks. For the current Job Card-centred Contribution and Payment workflow, use [Contribution and Payment Workflow](contribution-and-payment-workflow.md), which supersedes conflicting older wording in sections 7 and 8.
 
 If a future product decision changes a rule, update this document and record the change in [Decision Log](decision-log.md). Do not silently reinterpret an earlier decision.
 

@@ -203,9 +203,6 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     <section className="min-w-0">
 
 
-      {inspectionError && !loading && <div role="status" className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-[10px] text-amber-900">{inspectionError} Imported FTO data is still available; last-checked timestamps are hidden until the inspection service responds.</div>}
-
-
       {loading ? (
         <div className="p-8 text-center text-xs text-slate-500">Loading imported FTO records…</div>
       ) : error ? (
@@ -227,6 +224,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                 <span className="shrink-0 text-[11px] text-slate-600">{number(filtered.length)} FTOs</span>
               </div>
               {autoIncrement && (autoIncrement.newFtos > 0 || autoIncrement.newTransactions > 0) && <p className="text-[10px] font-semibold text-emerald-700">+{number(autoIncrement.newFtos)} FTOs · +{number(autoIncrement.newTransactions)} transactions this fetch</p>}
+              {inspectionError && !loading && <p role="status" className="rounded-lg bg-amber-50 px-2 py-1.5 text-[10px] text-amber-900">{inspectionError} Imported FTO data is still available; last-checked timestamps are hidden until the inspection service responds.</p>}
             </div>
             <div className="divide-y divide-slate-100">
               {visibleFtos.length === 0 && <div className="px-4 py-12 text-center"><p className="text-sm font-semibold text-slate-700">{records.length ? "No matching FTO records" : "No imported FTOs yet"}</p><p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term or choose All." : "After you confirm an FTO import, activated records will appear here."}</p></div>}

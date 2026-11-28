@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoCoAction from "@/components/fto/FtoCoAction";
-import { SPLIT_DETAIL, SPLIT_GRID } from "@/lib/layout";
+import { SPLIT_GRID } from "@/lib/layout";
 
 type Transaction = {
   id: string;

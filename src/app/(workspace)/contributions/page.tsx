@@ -241,8 +241,12 @@ export default function ContributionsPage() {
       <section className={`grid min-w-0 gap-4 ${SPLIT_GRID}`}>
         <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selected ? "hidden md:block" : "block"}`}>
           <div className="space-y-3 border-b border-slate-200 p-4">
-            <input value={query} onChange={event => { setQuery(event.target.value); setContribPage(1); }} placeholder="Search Job Card or household"
-              className="min-h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+            <label className="relative block w-full min-w-0">
+              <span className="sr-only">Search Job Card or household</span>
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+              <input value={query} onChange={event => { setQuery(event.target.value); setContribPage(1); }} placeholder="Search Job Card or household"
+                className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+            </label>
             <div className="flex items-center justify-between gap-2">
               <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
                 <button type="button" onClick={() => { setView("outstanding"); setContribPage(1); }} aria-pressed={view === "outstanding"} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${view === "outstanding" ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Outstanding</button>
@@ -257,14 +261,11 @@ export default function ContributionsPage() {
               : visibleAccounts.map(account => (
                 <button type="button" key={account.id} onClick={() => setSelectedId(account.id)} aria-pressed={selectedId === account.id}
                   className={`block min-h-[88px] w-full border-l-[3px] px-4 py-4 text-left transition-colors cursor-pointer ${selectedId === account.id ? "border-l-blue-600 bg-blue-50/60" : "border-l-transparent bg-white hover:bg-slate-50/80"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="break-all text-[13px] font-bold text-slate-950">{account.job_card_number}</p>
-                    <p className="shrink-0 text-xs font-bold tabular-nums text-slate-950">{money(account.outstanding)}</p>
-                  </div>
+                  <p className="break-all text-[13px] font-bold text-slate-950">{account.job_card_number}</p>
                   <p className="mt-1 truncate text-xs font-medium text-slate-600">{account.head_of_household}</p>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyle(account.status)}`}>{account.status}</span>
-                    <span className="text-[10px] text-slate-600">Outstanding balance</span>
+                    <span className="text-[10px] font-medium tabular-nums text-slate-600">Outstanding {money(account.outstanding)}</span>
                   </div>
                 </button>
               ))}

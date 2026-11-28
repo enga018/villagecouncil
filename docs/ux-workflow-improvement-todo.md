@@ -111,9 +111,6 @@ Conduct a module-by-module review. Do not assume every module needs the same cha
 - [ ] Dashboard — prioritise important information and work requiring attention.
 - [ ] Job Cards — make finding records and understanding their status straightforward.
 - [ ] Contributions — simplify balances, charge/payment history and financial actions while preserving accounting detail.
-- [ ] Meetings — reduce repetitive setup and data entry while preserving meeting controls and records.
-- [ ] Members — reuse member information and simplify routine member management.
-- [ ] Periods — simplify creation, management and closure while preserving workflow rules.
 - [ ] Review every other existing module using the same principles.
 - [ ] Record issues and proposed changes before implementing them.
 

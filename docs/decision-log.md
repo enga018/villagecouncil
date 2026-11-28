@@ -304,3 +304,15 @@ The single-Job-Card financial actions are launched from Job Card Contribution De
 13. **Implementation flexibility:** The exact visual layout and additional filters/search can be decided during implementation, provided the required list, add/remove actions and history access are delivered.
 
 The detailed rules are maintained in [Contribution and Payment Workflow](contribution-management-workflow.md). This documentation decision does not authorize database changes, production migration or deployment.
+
+
+## 2026-11-28 — CO exemption eligibility uses Government Processed Date
+
+This clarification supersedes earlier exemption rules that referred to `first_imported_at` or `transaction_date`:
+
+1. The exemption interval starts on the effective date the Job Card is added to the Exemptions list.
+2. The interval ends on the date the active exemption is removed. The interval is start-inclusive and end-exclusive.
+3. Determine whether an FTO transaction is exempt by comparing its Government `processed_date` with that interval.
+4. Do not use `first_imported_at` or `transaction_date` to determine exemption eligibility. A missing `processed_date` does not qualify as exempt.
+5. CO Calculation Preview and Apply, including Regular CO Charge synchronization, must use this same rule.
+6. Existing exemption intervals and audit history remain intact. This clarification does not authorize applying migrations to production, merging the feature branch or deploying the application.

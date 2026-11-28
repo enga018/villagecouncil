@@ -323,41 +323,31 @@ export default function JobCardsPage() {
       </section>
 
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
-        <div className="border-b border-slate-100 p-4 sm:p-5">
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div><h2 className="text-base font-bold tracking-tight text-slate-950">Household register</h2><p className="mt-1 text-xs text-slate-500">Select a Job Card to review its applicants and wage transactions</p></div>
-            <span className="text-[11px] font-medium text-slate-600">{jobCards.length.toLocaleString("en-IN")} records loaded</span>
-          </div>
-          <div className="mt-4">
-            <label className="relative block w-full min-w-0">
-              <span className="sr-only">Search Job Cards and applicants</span>
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-              <input value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder="Search Job Card No., household or applicant" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
-            </label>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
-              {(["active", "inactive", "all"] as const).map(value => (
-                <button key={value} type="button" onClick={() => { setStatus(value); setPage(1); }} aria-pressed={status === value} className={`min-h-9 flex-1 rounded-lg px-3 text-xs font-semibold capitalize transition sm:flex-none ${status === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
-                  {value === "all" ? "All" : value}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
-              <span>{applicants.length.toLocaleString("en-IN")} applicants in register</span>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
-            <span>{loading ? "Loading records…" : `Showing ${filteredCards.length ? (page - 1) * pageSize + 1 : 0}–${Math.min(page * pageSize, filteredCards.length)} of ${filteredCards.length.toLocaleString("en-IN")} matching Job Cards`}</span>
-          </div>
-        </div>
+      <section className="min-w-0">
+  
 
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
         ) : (
           <div className={`grid min-h-[520px] ${SPLIT_GRID}`}>
-            <div className={`${selectedCardId ? "hidden md:block" : "block"} border-r-0 md:border-r md:border-slate-100`}>
+            <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedCardId ? "hidden md:block" : "block"}`}>
+              <div className="space-y-3 border-b border-slate-200 p-4">
+                <label className="relative block w-full min-w-0">
+                  <span className="sr-only">Search Job Cards and applicants</span>
+                  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+                  <input value={query} onChange={event => { setQuery(event.target.value); setPage(1); }} placeholder="Search Job Card No., household or applicant" className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                    {(["active", "inactive", "all"] as const).map(value => (
+                      <button key={value} type="button" onClick={() => { setStatus(value); setPage(1); }} aria-pressed={status === value} className={`min-h-9 rounded-lg px-3 text-xs font-semibold capitalize transition ${status === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>
+                        {value === "all" ? "All" : value}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="shrink-0 text-right text-[11px] text-slate-600">{loading ? "Loading…" : `Showing ${filteredCards.length ? (page - 1) * pageSize + 1 : 0}–${Math.min(page * pageSize, filteredCards.length)} of ${filteredCards.length.toLocaleString("en-IN")}`}</span>
+                </div>
+              </div>
               <div className="divide-y divide-slate-100">
                 {visibleCards.map(card => {
                   const people = applicantsByCard.get(card.id) || [];
@@ -365,7 +355,7 @@ export default function JobCardsPage() {
                   const selected = selectedCardId === card.id;
                   return (
                     <button key={card.id} type="button" onClick={() => setSelectedCardId(card.id)} aria-pressed={selected}
-                      className={`block min-h-[88px] w-full px-4 py-4 text-left transition hover:bg-slate-50 ${selected ? "bg-blue-50/70 md:border-l-4 md:border-l-blue-600" : "border-l-4 border-l-transparent"}`}>
+                      className={`block min-h-[88px] w-full border-l-[3px] px-4 py-4 text-left transition-colors cursor-pointer ${selected ? "border-l-blue-600 bg-blue-50/60" : "border-l-transparent bg-white hover:bg-slate-50/80"}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="break-all text-[13px] font-bold text-slate-950">{card.job_card_number}</p>
@@ -382,10 +372,10 @@ export default function JobCardsPage() {
               <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
 
-            <div className={`${selectedCardId ? "block" : "hidden md:block"} ${SPLIT_DETAIL}`}>
+            <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedCardId ? "block" : "hidden md:block"}`}>
               {(() => {
                 const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
-                if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-600">Household and applicant details will appear here.</p></div></div>;
+                if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-medium text-slate-600">Select a Job Card to review its applicants and wage transactions</p></div></div>;
                 const people = applicantsByCard.get(card.id) || [];
                 return <div>
                   <div className="mb-5 flex items-start gap-3">

@@ -71,12 +71,12 @@ Rules:
 
 ### 2.3 Exemption eligibility
 
-Exemptions are temporary, repeatable intervals managed per Job Card. Determine whether each FTO transaction falls within an interval using the Government `processed_date`.
+Exemptions are temporary, repeatable intervals managed per Job Card. Determine whether each FTO transaction falls within an interval using the Government `transaction_date`.
 
 - The interval start is the effective date the Job Card is added to the Exemptions list.
 - The interval end is the date the active exemption is removed; the start is inclusive and the end is exclusive.
-- Compare `processed_date` with the interval dates. Do not use `first_imported_at` or `transaction_date` to determine exemption eligibility.
-- A missing `processed_date` does not qualify as exempt.
+- Compare `transaction_date` with the interval dates. Do not use `first_imported_at` to determine exemption eligibility.
+- A missing `transaction_date` does not qualify as exempt.
 - CO Calculation Preview, Apply and Regular CO Charge synchronization must enforce the same rule.
 - Removing an exemption does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions against the updated interval.
 - Existing exemption intervals, add/remove reasons, actor and timestamp audit history must be retained. Existing charges created before the exemption interval remain valid and payable.
@@ -85,7 +85,7 @@ Exemptions are temporary, repeatable intervals managed per Job Card. Determine w
 
 Adding an exemption:
 
-- Blocks creation of new Regular CO Charges when the transaction Government `processed_date` falls within the exemption interval.
+- Blocks creation of new Regular CO Charges when the transaction Government `transaction_date` falls within the exemption interval.
 - Does not cancel or reverse existing charges.
 - Does not remove existing outstanding balances.
 - Does not block payment of existing charges.
@@ -401,7 +401,7 @@ All financial, exemption, tag, batch, charge, payment and allocation records are
 
 - Council CO formula settings and settings history.
 - Exemption current state and interval history.
-- Processed Date-based eligibility decisions retained in immutable CO calculation snapshots.
+- Transaction Date-based eligibility decisions retained in immutable CO calculation snapshots.
 - FTO-level tags and tag audit history.
 - CO calculation Preview and atomic Apply.
 - Idempotent recalculation/reconciliation.
@@ -440,6 +440,6 @@ The financial modules are part of the existing multi-Council Village Council Pla
 See [Architecture](architecture.md) and [FTO Monitoring](fto-monitoring.md).
 
 
-## 2026-11-28 clarification — Processed Date controls exemption eligibility
+## 2026-11-28 clarification — Transaction Date controls exemption eligibility
 
-The effective exemption interval is compared with the FTO transaction's Government `processed_date`, not `transaction_date` or `first_imported_at`. The start date is the effective date added; the removal date is the exclusive end of the interval. Preview and Apply must produce the same eligibility result. Missing Processed Date does not qualify as exempt.
+The effective exemption interval is compared with the FTO transaction's Government `transaction_date`, not `first_imported_at`. The start date is the effective date added; the removal date is the exclusive end of the interval. Preview and Apply must produce the same eligibility result. Missing Transaction Date does not qualify as exempt.

@@ -238,40 +238,41 @@ export default function ContributionsPage() {
       </section>
       {!loading && <p className="text-[11px] text-slate-500">Payments recorded: {money(paymentTotal)} · Refunds: {money(refundTotal)} · Unallocated credit: {money(creditTotal)} · Job Cards with outstanding balance: {cardsWithOutstanding.toLocaleString("en-IN")}</p>}
 
-      <section className={`grid gap-4 ${SPLIT_GRID}`}>
-        <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "hidden md:block" : "block"}`}>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-slate-950">Job Card accounts</h2>
-            <span className="text-[10px] text-slate-500">{filtered.length.toLocaleString("en-IN")} Job Cards</span>
-          </div>
-          <div className="mt-3">
+      <section className={`grid min-w-0 gap-4 ${SPLIT_GRID}`}>
+        <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selected ? "hidden md:block" : "block"}`}>
+          <div className="space-y-3 border-b border-slate-200 p-4">
             <input value={query} onChange={event => { setQuery(event.target.value); setContribPage(1); }} placeholder="Search Job Card or household"
-              className="min-h-11 w-full min-w-0 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50" />
-          </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex rounded-xl border border-slate-200 p-1">
-              <button type="button" onClick={() => { setView("outstanding"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "outstanding" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>Outstanding</button>
-              <button type="button" onClick={() => { setView("all"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "all" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>All</button>
+              className="min-h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                <button type="button" onClick={() => { setView("outstanding"); setContribPage(1); }} aria-pressed={view === "outstanding"} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${view === "outstanding" ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>Outstanding</button>
+                <button type="button" onClick={() => { setView("all"); setContribPage(1); }} aria-pressed={view === "all"} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${view === "all" ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>All</button>
+              </div>
+              <span className="shrink-0 text-[11px] text-slate-600">{filtered.length.toLocaleString("en-IN")} Job Cards</span>
             </div>
           </div>
-          <div className="mt-3 space-y-2">
+          <div className="divide-y divide-slate-100">
             {loading ? <p className="py-10 text-center text-xs text-slate-500">Loading Job Card accounts…</p>
               : filtered.length === 0 ? <p className="py-10 text-center text-xs text-slate-500">No matching Job Cards.</p>
               : visibleAccounts.map(account => (
-                <button type="button" key={account.id} onClick={() => setSelectedId(account.id)}
-                  className={`w-full rounded-xl border p-3 text-left transition ${selectedId === account.id ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
+                <button type="button" key={account.id} onClick={() => setSelectedId(account.id)} aria-pressed={selectedId === account.id}
+                  className={`block min-h-[88px] w-full border-l-[3px] px-4 py-4 text-left transition-colors cursor-pointer ${selectedId === account.id ? "border-l-blue-600 bg-blue-50/60" : "border-l-transparent bg-white hover:bg-slate-50/80"}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0"><p className="break-all text-xs font-bold text-slate-950">{account.job_card_number}</p><p className="mt-1 truncate text-[11px] text-slate-500">{account.head_of_household}</p></div>
-                    <div className="shrink-0 text-right"><p className="text-xs font-bold tabular-nums text-slate-950">{money(account.outstanding)}</p><p className="mt-1 text-[10px] text-slate-500">Outstanding</p></div>
+                    <p className="break-all text-[13px] font-bold text-slate-950">{account.job_card_number}</p>
+                    <p className="shrink-0 text-xs font-bold tabular-nums text-slate-950">{money(account.outstanding)}</p>
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-2"><span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyle(account.status)}`}>{account.status}</span><span className="text-[10px] font-semibold text-blue-700">View details →</span></div>
+                  <p className="mt-1 truncate text-xs font-medium text-slate-600">{account.head_of_household}</p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold ${statusStyle(account.status)}`}>{account.status}</span>
+                    <span className="text-[10px] text-slate-600">Outstanding balance</span>
+                  </div>
                 </button>
               ))}
           </div>
-          <ListPagination page={contribPage} total={filtered.length} onPage={setContribPage} label="Job Cards" className="-mx-4 -mb-4 mt-3 rounded-b-2xl sm:-mx-5 sm:-mb-5" />
+          <ListPagination page={contribPage} total={filtered.length} onPage={setContribPage} label="Job Cards" className="border-t border-slate-100 px-4 py-3" />
         </div>
 
-        <div className={`min-w-0 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden md:block"}`}>
+        <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden md:block"}`}>
           {!selected ? <div className="flex min-h-64 items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-500">Its charges, payments and balance history will appear here.</p></div></div>
             : <div>
               <div className="border-b border-slate-100 pb-4">

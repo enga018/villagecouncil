@@ -201,30 +201,8 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   };
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--vc-shadow-card)]">
-      <div className="border-b border-slate-100 p-4 sm:p-5">
-        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <h2 className="text-base font-bold tracking-tight text-slate-950">Imported FTO register</h2>
-            <p className="mt-1 text-xs text-slate-500">FTOs activated for this Village Council and their imported transaction details</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-[11px]">
-            {autoIncrement && (autoIncrement.newFtos > 0 || autoIncrement.newTransactions > 0) && (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">+{number(autoIncrement.newFtos)} FTOs · +{number(autoIncrement.newTransactions)} transactions (this fetch)</span>
-            )}
-            <span className="font-medium text-slate-600">{number(records.length)} FTOs · {number(transactionCount)} transactions</span>
-          </div>
-        </div>
-        <div className="mt-4 w-full">
-          <label htmlFor="fto-register-search" className="relative block">
-            <span className="sr-only">Search imported FTOs</span>
-            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
-            <input id="fto-register-search" value={search} onChange={event => handleSearchChange(event.target.value)}
-              placeholder="Search FTO No., Job Card, reference number or applicant"
-              className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-base text-slate-900 outline-none transition placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
-          </label>
-        </div>
-      </div>
+    <section className="min-w-0">
+
 
       {inspectionError && !loading && <div role="status" className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-[10px] text-amber-900">{inspectionError} Imported FTO data is still available; last-checked timestamps are hidden until the inspection service responds.</div>}
 
@@ -240,26 +218,40 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         </div>
       ) : (
         <div className={`grid min-h-[560px] ${SPLIT_GRID}`}>
-          <div className={`${selectedId ? "hidden md:block" : "block"} border-r-0 md:border-r md:border-slate-100`}>
+          <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedId ? "hidden md:block" : "block"}`}>
+            <div className="space-y-3 border-b border-slate-200 p-4">
+              <label htmlFor="fto-register-search" className="relative block w-full min-w-0">
+                <span className="sr-only">Search imported FTOs</span>
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" stroke="currentColor" strokeWidth="1.6"><circle cx="8.8" cy="8.8" r="5.8"/><path d="m13.2 13.2 4 4" strokeLinecap="round"/></svg>
+                <input id="fto-register-search" value={search} onChange={event => handleSearchChange(event.target.value)} placeholder="Search FTO No., Job Card, or applicant"
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-600 focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50"/>
+              </label>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+                  {(["pending", "all"] as const).map(value => <button key={value} type="button" onClick={() => { setCoFilter(value); setFtoPage(1); }} aria-pressed={coFilter === value} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${coFilter === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "pending" ? "CO Pending" : "All"}</button>)}
+                </div>
+                <span className="shrink-0 text-[11px] text-slate-600">{number(filtered.length)} FTOs</span>
+              </div>
+              {autoIncrement && (autoIncrement.newFtos > 0 || autoIncrement.newTransactions > 0) && <p className="text-[10px] font-semibold text-emerald-700">+{number(autoIncrement.newFtos)} FTOs · +{number(autoIncrement.newTransactions)} transactions this fetch</p>}
+            </div>
             <div className="divide-y divide-slate-100">
               {visibleFtos.map(item => {
                 const counts = statusSummaryClasses(item.council_fto_transactions);
                 const selected = selectedId === item.id;
                 return (
                   <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setSelectedTab("details"); }} aria-pressed={selected}
-                    className={`block w-full px-4 py-4 text-left transition hover:bg-slate-50 ${selected ? "border-l-4 border-l-blue-600 bg-blue-50/70" : "border-l-4 border-l-transparent"}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
-                      {item.co_calculation_version > 0 && <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">CO Done</span>}
+                    className={`block min-h-[88px] w-full border-l-[3px] px-4 py-4 text-left transition-colors cursor-pointer ${selected ? "border-l-blue-600 bg-blue-50/60" : "border-l-transparent bg-white hover:bg-slate-50/80"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="break-all text-[13px] font-bold text-slate-950">{item.fto_number}</p>
+                      {coFilter === "all" && item.co_calculation_version <= 0 && <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-800">CO Pending</span>}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-1 flex flex-wrap gap-1.5">
                       {counts.processed > 0 && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Processed {number(counts.processed)}</span>}
                       {counts.deferred > 0 && <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Deferred {number(counts.deferred)}</span>}
                       {counts.rejected > 0 && <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700">Rejected {number(counts.rejected)}</span>}
                       {counts.other > 0 && <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Other {number(counts.other)}</span>}
                     </div>
-                    <p className="mt-2 text-[10px] text-slate-600">Last checked: {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
-                    <p className="mt-1 text-[10px] text-slate-600">{number(item.council_fto_transactions.length)} transactions</p>
+                    <p className="mt-2 text-[10px] text-slate-600">Checked {dateTime(inspections[item.fto_number]?.last_inspected_at)}</p>
                   </button>
                 );
               })}
@@ -273,7 +265,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             </div>
           </div>
 
-          <div className={`${selectedId ? "block" : "hidden md:block"} ${SPLIT_DETAIL}`}>
+          <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedId ? "block" : "hidden md:block"}`}>
             {(() => {
               const item = visibleFtos.find(row => row.id === selectedId) || sortedFiltered.find(row => row.id === selectedId);
               if (!item) return <div className="flex min-h-[420px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select an FTO</p><p className="mt-1 text-xs text-slate-600">FTO transaction details and CO actions will appear here.</p></div></div>;
@@ -300,8 +292,8 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-xs font-bold text-slate-900">Transaction details</h4><span className="text-[10px] text-slate-600">{number(item.council_fto_transactions.length)} imported</span></div>
                     {item.council_fto_transactions.length === 0 ? <p className="mt-3 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500">No transaction details are linked to this FTO.</p> : <>
-                      <div className="mt-3 hidden overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
-                        <table className="min-w-[760px] divide-y divide-slate-200 text-xs">
+                      <div className="mt-3 hidden min-w-0 overflow-x-auto rounded-xl border border-slate-200 bg-white md:block">
+                        <table className="min-w-[1000px] divide-y divide-slate-200 text-xs">
                           <thead className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Reference</th><th className="px-3 py-3">Applicant</th><th className="px-3 py-3">Transaction date</th><th className="px-3 py-3">Amount</th><th className="px-3 py-3">Government status</th><th className="px-3 py-3">Rejection reason</th></tr></thead>
                           <tbody className="divide-y divide-slate-100">{item.council_fto_transactions.map(tx => <tr key={tx.id}><td className="whitespace-nowrap px-3 py-3 font-bold text-slate-900">{tx.job_card_number}</td><td className="whitespace-nowrap px-3 py-3 text-slate-600">{tx.reference_number}</td><td className="px-3 py-3 text-slate-700">{tx.applicant_name || tx.primary_account_holder || "—"}</td><td className="whitespace-nowrap px-3 py-3 text-slate-600">{date(tx.transaction_date)}</td><td className="whitespace-nowrap px-3 py-3 tabular-nums text-slate-700">{money(tx.amount_to_be_credited)}</td><td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${governmentStatusClasses(tx.government_status)}`}>{normalizedStatusLabel(tx)}</span></td><td className="max-w-[220px] whitespace-normal px-3 py-3 text-slate-600">{tx.rejection_reason || "—"}</td></tr>)}</tbody>
                         </table>

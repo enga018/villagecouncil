@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
       if (intervalsError) throw intervalsError;
       if (jobCardsError) throw jobCardsError;
       const cardMap = new Map((jobCards || []).map(card => [card.job_card_number, card]));
-      const actorIds = [...new Set((intervals || []).flatMap(interval => [interval.added_by, interval.removed_by]).filter(Boolean))];
+      const actorIds = [...new Set((intervals || []).flatMap(interval => [interval.added_by, interval.removed_by]).filter((id): id is string => Boolean(id)))];
       const actorEntries = await Promise.all(actorIds.map(async id => {
         const { data } = await admin.auth.admin.getUserById(id);
         const user = data?.user;

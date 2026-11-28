@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoCoAction from "@/components/fto/FtoCoAction";
+import { ListPagination } from "@/components/app/ListPagination";
 import { SPLIT_GRID } from "@/lib/layout";
 
 type Transaction = {
@@ -191,7 +192,6 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
     return b.fto_number.localeCompare(a.fto_number);
   }), [filtered, inspections]);
 
-  const ftoPageCount = Math.max(1, Math.ceil(sortedFiltered.length / FTO_PAGE_SIZE));
   const visibleFtos = sortedFiltered.slice((ftoPage - 1) * FTO_PAGE_SIZE, ftoPage * FTO_PAGE_SIZE);
 
   const handleSearchChange = (value: string) => {
@@ -249,13 +249,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                 );
               })}
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
-              <span className="text-[10px] text-slate-500">Page {ftoPage} of {ftoPageCount} · 20 FTOs per page</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setFtoPage(page => Math.max(1, page - 1))} disabled={ftoPage <= 1} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 disabled:opacity-40">Previous</button>
-                <button type="button" onClick={() => setFtoPage(page => Math.min(ftoPageCount, page + 1))} disabled={ftoPage >= ftoPageCount} className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600 disabled:opacity-40">Next</button>
-              </div>
-            </div>
+            <ListPagination page={ftoPage} total={sortedFiltered.length} onPage={setFtoPage} label="FTOs" />
           </div>
 
           <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedId ? "block" : "hidden"}`}>

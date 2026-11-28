@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 
@@ -93,7 +93,7 @@ export default function ExemptionsPage() {
     );
   }, [history, query]);
 
-  async function addExemption(event: React.FormEvent<HTMLFormElement>) {
+  async function addExemption(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!jobCardNumber || addReason.trim().length < 3) return;
     setSaving(true);

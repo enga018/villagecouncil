@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoCoAction from "@/components/fto/FtoCoAction";
+import { SPLIT_DETAIL, SPLIT_GRID } from "@/lib/layout";
 
 type Transaction = {
   id: string;
@@ -235,7 +236,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
           <p className="mt-1 text-xs text-slate-500">{records.length ? "Try a different search term." : "After you confirm an FTO import, the activated records will appear here."}</p>
         </div>
       ) : (
-        <div className="grid min-h-[560px] grid-cols-1 md:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.5fr)]">
+        <div className={`grid min-h-[560px] ${SPLIT_GRID}`}>
           <div className={`${selectedId ? "hidden md:block" : "block"} border-r-0 md:border-r md:border-slate-100`}>
             <div className="divide-y divide-slate-100">
               {visibleFtos.map(item => {
@@ -244,7 +245,10 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                 return (
                   <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setSelectedTab("details"); }} aria-pressed={selected}
                     className={`block w-full px-4 py-4 text-left transition hover:bg-slate-50 ${selected ? "border-l-4 border-l-blue-600 bg-blue-50/70" : "border-l-4 border-l-transparent"}`}>
-                    <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="break-all text-sm font-bold text-slate-950">{item.fto_number}</p>
+                      {item.co_calculation_version > 0 && <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">CO Done</span>}
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {counts.processed > 0 && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Processed {number(counts.processed)}</span>}
                       {counts.deferred > 0 && <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Deferred {number(counts.deferred)}</span>}
@@ -266,7 +270,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
             </div>
           </div>
 
-          <div className={`${selectedId ? "block" : "hidden md:block"} min-w-0 p-4 sm:p-5`}>
+          <div className={`${selectedId ? "block" : "hidden md:block"} ${SPLIT_DETAIL}`}>
             {(() => {
               const item = visibleFtos.find(row => row.id === selectedId) || sortedFiltered.find(row => row.id === selectedId);
               if (!item) return <div className="flex min-h-[420px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select an FTO</p><p className="mt-1 text-xs text-slate-400">FTO transaction details and CO actions will appear here.</p></div></div>;
@@ -285,7 +289,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                 </div>
                 <div className="mb-4 flex gap-2 border-b border-slate-200">
                   <button type="button" onClick={() => setSelectedTab("details")} className={`border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "details" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>Details</button>
-                  <button type="button" onClick={() => setSelectedTab("co")} className={`border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "co" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>{item.co_calculation_version > 0 ? "View CO" : "Calculate CO"}</button>
+                  <button type="button" onClick={() => setSelectedTab("co")} className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "co" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>{item.co_calculation_version > 0 ? "View CO" : "Calculate CO"}{item.co_calculation_version > 0 && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">CO Done</span>}</button>
                 </div>
                 {selectedTab === "co" ? (
                   <FtoCoAction key={item.id} ftoId={item.id} ftoNumber={item.fto_number} initialVersion={item.co_calculation_version || 0} embedded />

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase";
 import WageTransactions from "@/components/job-cards/WageTransactions";
 import { MiniKpi } from "@/components/app/ModuleCard";
 import { LIST_PAGE_SIZE, ListPagination } from "@/components/app/ListPagination";
+import { SPLIT_DETAIL, SPLIT_GRID } from "@/lib/layout";
 
 type StatusFilter = "all" | "active" | "inactive";
 type JobCard = {
@@ -351,7 +352,7 @@ export default function JobCardsPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
         ) : (
-          <div className="grid min-h-[520px] grid-cols-1 md:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.5fr)]">
+          <div className={`grid min-h-[520px] ${SPLIT_GRID}`}>
             <div className={`${selectedCardId ? "hidden md:block" : "block"} border-r-0 md:border-r md:border-slate-100`}>
               <div className="divide-y divide-slate-100">
                 {visibleCards.map(card => {
@@ -377,7 +378,7 @@ export default function JobCardsPage() {
               <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
 
-            <div className={`${selectedCardId ? "block" : "hidden md:block"} min-w-0 p-4 sm:p-5`}>
+            <div className={`${selectedCardId ? "block" : "hidden md:block"} ${SPLIT_DETAIL}`}>
               {(() => {
                 const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
                 if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-400">Household and applicant details will appear here.</p></div></div>;

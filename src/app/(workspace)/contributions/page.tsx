@@ -238,7 +238,7 @@ export default function ContributionsPage() {
       </section>
       {!loading && <p className="text-[11px] text-slate-500">Payments recorded: {money(paymentTotal)} · Refunds: {money(refundTotal)} · Unallocated credit: {money(creditTotal)} · Job Cards with outstanding balance: {cardsWithOutstanding.toLocaleString("en-IN")}</p>}
 
-      <section className={`grid min-w-0 gap-4 ${SPLIT_GRID}`}>
+      <section className={`grid min-w-0 gap-4 ${selected ? SPLIT_GRID : "grid-cols-1"}`}>
         <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selected ? "hidden lg:block" : "block"}`}>
           <div className="space-y-3 border-b border-slate-200 p-4">
             <label className="relative block w-full min-w-0">

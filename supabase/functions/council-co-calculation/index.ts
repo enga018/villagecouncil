@@ -126,9 +126,9 @@ Deno.serve(async (req: Request) => {
       if (!intervalId || reason.length < 3 || reason.length > 1000) {
         return reply({ error: "A valid exemption and a removal reason of 3–1000 characters are required." }, 400, origin);
       }
-      const removalDate = new Date().toISOString().slice(0, 10);
+      const removalDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
       const { data: interval, error } = await admin.from("council_co_exemption_intervals").update({
-        ended_at: `${removalDate}T00:00:00.000Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
+        ended_at: `${removalDate}T23:59:59.999Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
       }).eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null)
         .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").maybeSingle();
       if (error) throw error;

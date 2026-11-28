@@ -451,6 +451,7 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Do not use `first_imported_at` to determine exemption eligibility. A missing `transaction_date` does not qualify as exempt.
 - A Regular CO Charge created before the effective exemption start remains valid and payable. The exemption blocks creation of new Regular CO Charges for transactions whose Government `transaction_date` falls within the interval.
 - Removing an exemption ends the current interval but does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions against the updated interval.
+- CO calculations saved under the previous first-import exemption rule are treated as legacy. They must be recalculated and applied before they can create new Regular CO Charges under the Transaction Date rule.
 - Exemption does not block recording payments against the Job Card. Existing outstanding charges remain payable, and payments continue to allocate through the normal Job Card-level FIFO process, including for Inactive or Deleted Job Cards.
 
 ### 7.3 Add/remove controls and audit history

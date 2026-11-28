@@ -135,6 +135,13 @@ Deno.serve(async (req: Request) => {
         return reply({ error: "A valid exemption and a removal reason of 3–1000 characters are required." }, 400, origin);
       }
       const removalDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const { data: activeInterval, error: activeIntervalError } = await admin.from("council_co_exemption_intervals")
+        .select("started_at").eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null).maybeSingle();
+      if (activeIntervalError) throw activeIntervalError;
+      if (!activeInterval) return reply({ error: "The active exemption was not found or has already been removed." }, 404, origin);
+      if (removalDate < activeInterval.started_at.slice(0, 10)) {
+        return reply({ error: "An exemption cannot be removed before its effective start date." }, 409, origin);
+      }
       const { data: interval, error } = await admin.from("council_co_exemption_intervals").update({
         ended_at: `${removalDate}T23:59:59.999Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
       }).eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null)

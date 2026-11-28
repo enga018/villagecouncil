@@ -273,7 +273,7 @@ export default function ContributionsPage() {
           <ListPagination page={contribPage} total={filtered.length} onPage={setContribPage} label="Job Cards" className="border-t border-slate-100 px-4 py-3" />
         </div>
 
-        <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden lg:block"}`}>
+        <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selected ? "block" : "hidden"}`}>
           {!selected ? <div className="flex min-h-64 items-center justify-center text-center"><div><p className="text-sm font-semibold text-slate-700">Select a Job Card</p><p className="mt-1 text-xs text-slate-500">Its charges, payments and balance history will appear here.</p></div></div>
             : <div>
               <div className="border-b border-slate-100 pb-4">

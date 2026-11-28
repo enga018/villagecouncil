@@ -77,6 +77,13 @@ Deno.serve(async (req: Request) => {
       if (intervalsError) throw intervalsError;
       if (jobCardsError) throw jobCardsError;
       const cardMap = new Map((jobCards || []).map(card => [card.job_card_number, card]));
+      const actorIds = [...new Set((intervals || []).flatMap(interval => [interval.added_by, interval.removed_by]).filter(Boolean))];
+      const actorEntries = await Promise.all(actorIds.map(async id => {
+        const { data } = await admin.auth.admin.getUserById(id);
+        const user = data?.user;
+        const label = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || id);
+        return [id, label] as const;
+      }));
       return reply({
         intervals: (intervals || []).map(interval => ({
           ...interval,
@@ -84,6 +91,7 @@ Deno.serve(async (req: Request) => {
           job_card_status: cardMap.get(interval.job_card_number)?.status || null,
         })),
         job_cards: jobCards || [],
+        actor_labels: Object.fromEntries(actorEntries),
       }, 200, origin);
     }
 

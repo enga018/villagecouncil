@@ -8,6 +8,12 @@ drop trigger if exists council_fto_transaction_sync_regular_charge_after_exempt_
   on public.council_co_exempt_transactions;
 drop function if exists public.sync_council_regular_co_charge_after_exempt_mark();
 
+-- Existing calculation snapshots were produced under the previous first-import rule.
+-- New Apply operations explicitly identify snapshots using Transaction Date rules.
+alter table public.council_fto_co_calculations
+  add column exemption_rule_version smallint not null default 1
+  check (exemption_rule_version in (1, 2));
+
 create or replace function public.apply_council_fto_co_calculation(
   p_actor_id uuid,
   p_fto_id uuid,
@@ -127,10 +133,12 @@ begin
 
   insert into public.council_fto_co_calculations (
     village_council_id, fto_id, version, tag_id, tag_name_snapshot, divisor, multiplier,
-    transaction_count, total_credit_amount, total_co_amount, exempt_count, chargeable_count, idempotency_key, created_by
+    transaction_count, total_credit_amount, total_co_amount, exempt_count, chargeable_count, idempotency_key, created_by,
+    exemption_rule_version
   ) values (
     v_tenant_id, p_fto_id, v_version, v_tag.id, v_tag.name, p_divisor, p_multiplier,
-    v_transaction_count, v_total_credit, v_total_co, v_exempt_count, v_transaction_count - v_exempt_count, p_idempotency_key, v_actor
+    v_transaction_count, v_total_credit, v_total_co, v_exempt_count, v_transaction_count - v_exempt_count, p_idempotency_key, v_actor,
+    2
   ) returning id into v_calculation_id;
 
   insert into public.council_fto_co_calculation_items (

@@ -43,7 +43,7 @@ Do not combine the two categories into one indistinguishable charge type. Both c
 - Calculation snapshots include all source transactions in the FTO, regardless of current Government status, as specified in the CO calculation requirements.
 - A transaction contributes a visible Regular CO Charge only when its latest FTO Monitoring status is **Processed** and its Government `transaction_date` is outside the Job Card's effective exemption interval.
 - Deferred and Rejected transactions remain hidden from Contribution.
-- If a previously Deferred transaction becomes Processed, its saved CO amount becomes eligible without requiring another calculation, provided its Transaction Date is outside the exemption interval.
+- If a previously Deferred transaction becomes Processed, its saved CO amount becomes eligible without another calculation, provided its Transaction Date is outside the exemption interval and no exemption interval has changed since that calculation. If an interval has changed, run a new Preview → Apply cycle.
 - A missing `transaction_date` does not qualify as exempt.
 - A Regular CO Charge created before the effective exemption start remains valid and payable.
 - Removing an exemption does not automatically create charges. Transactions outside the updated interval may be considered through a new Preview → Apply cycle.

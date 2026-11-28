@@ -210,8 +210,6 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
         <div className="p-8 text-center text-xs text-slate-500">Loading imported FTO records…</div>
       ) : error ? (
         <div role="alert" className="m-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">{error}</div>
-      ) : false ? (
-        <div className="p-8 text-center">No FTOs</div>
       ) : (
         <div className={`grid min-h-[560px] ${SPLIT_GRID}`}>
           <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedId ? "hidden md:block" : "block"}`}>

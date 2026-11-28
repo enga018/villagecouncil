@@ -39,7 +39,7 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
           <h2 className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{group.label}</h2>
           <div className="space-y-1">
             {group.items.map(item => {
-              const active = item.href === "/dashboard" ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
+              const active = item.href === "/dashboard" || item.href === "/contributions" ? pathname === item.href : pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined}
                   className={`group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-[13px] transition-colors ${active ? "bg-blue-50 font-semibold text-blue-800" : "font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}>

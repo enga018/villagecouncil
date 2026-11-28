@@ -37,11 +37,6 @@ export default function JobCardsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [refetching, setRefetching] = useState(false);
-  const [fetchError, setFetchError] = useState("");
-  const [lastFetched, setLastFetched] = useState<string | null>(null);
-  const [kpiChanges, setKpiChanges] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
-  const [previousCounts, setPreviousCounts] = useState<{ totalCards: number; activeCards: number; totalApplicants: number; activeApplicants: number } | null>(null);
   const pageSize = LIST_PAGE_SIZE;
 
   useEffect(() => {
@@ -108,159 +103,6 @@ export default function JobCardsPage() {
     return () => { active = false; };
   }, []);
 
-  async function refetchJobCards() {
-    if (refetching) return;
-    setRefetching(true);
-    setFetchError("");
-    try {
-      const supabase = createClient();
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!user) throw new Error("Your session has expired. Please sign in again.");
-
-      const { data: membership, error: membershipError } = await supabase
-        .from("council_memberships")
-        .select("village_council_id")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (membershipError) throw membershipError;
-      if (!membership) throw new Error("This account has no active Village Council assignment.");
-
-      const { data, error: invokeError } = await supabase.functions.invoke<{
-        success?: boolean;
-        reportInspection?: { preview?: {
-          batchId: string;
-          stagedRows: number;
-          validation?: {
-            passed: boolean;
-            stagedRowsMatch: boolean;
-            checkedRows: number;
-            activeJobCards: number;
-            inactiveJobCards: number;
-          };
-          activeJobCards: number;
-          inactiveJobCards: number;
-          activeApplicants: number;
-          deletedApplicants: number;
-        }; error?: string };
-        error?: string;
-      }>("council-register-source", { body: { action: "prepare-preview" } });
-      if (invokeError) {
-        let message = invokeError.message || "Could not fetch the official Job Card register.";
-        const context = invokeError.context as Response | undefined;
-        if (context && typeof context.json === "function") {
-          try {
-            const detail = await context.json() as { error?: string };
-            if (detail.error) message = detail.error;
-          } catch {}
-        }
-        throw new Error(message);
-      }
-      const preview = data?.reportInspection?.preview;
-      if (!data?.success || !preview?.batchId) {
-        throw new Error(data?.reportInspection?.error || data?.error || "The official register could not be prepared.");
-      }
-      if (!preview.validation?.passed || !preview.validation.stagedRowsMatch) {
-        throw new Error("The official register did not pass validation. Existing records were not changed.");
-      }
-
-      // Validate the complete result summary before activating the staged import.
-      // Job Card counts are returned inside preview.validation by the Edge Function.
-      const validation = preview.validation;
-      const summaryValues = [
-        validation.activeJobCards,
-        validation.inactiveJobCards,
-        validation.checkedRows,
-        preview.activeApplicants,
-      ];
-      if (summaryValues.some(value => typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
-        throw new Error("The official register returned incomplete summary counts. Existing records were not changed.");
-      }
-
-      let stagedCount = 0;
-      for (let offset = 0; ; offset += 1000) {
-        const { data: rows, error: rowsError } = await supabase
-          .from("council_register_import_rows")
-          .select("row_number")
-          .eq("import_batch_id", preview.batchId)
-          .order("row_number", { ascending: true })
-          .range(offset, offset + 999);
-        if (rowsError) throw rowsError;
-        stagedCount += rows?.length || 0;
-        if (!rows || rows.length < 1000) break;
-      }
-      if (stagedCount !== preview.stagedRows) {
-        throw new Error("Register verification was incomplete. Existing records were not changed.");
-      }
-
-      const { data: activation, error: activationError } = await supabase
-        .rpc("activate_council_register_import", { p_batch_id: preview.batchId });
-      if (activationError) throw activationError;
-      if (!activation?.success) throw new Error("The Job Card refetch did not complete successfully.");
-
-      const councilId = membership.village_council_id;
-      setCouncilId(councilId);
-      const cards: JobCard[] = [];
-      for (let offset = 0; ; offset += 1000) {
-        const { data: rows, error } = await supabase
-          .from("council_job_cards")
-          .select("id,job_card_number,head_of_household,status")
-          .eq("village_council_id", councilId)
-          .order("job_card_number", { ascending: true })
-          .range(offset, offset + 999);
-        if (error) throw error;
-        cards.push(...(rows || []));
-        if (!rows || rows.length < 1000) break;
-      }
-
-      const people: Applicant[] = [];
-      for (let offset = 0; ; offset += 1000) {
-        const { data: rows, error } = await supabase
-          .from("council_applicants")
-          .select("id,job_card_id,applicant_number,applicant_name,official_unique_id,status,caste,father_husband_name,gender,age")
-          .eq("village_council_id", councilId)
-          .order("job_card_id", { ascending: true })
-          .order("source_sequence", { ascending: true })
-          .order("id", { ascending: true })
-          .range(offset, offset + 999);
-        if (error) throw error;
-        people.push(...(rows || []));
-        if (!rows || rows.length < 1000) break;
-      }
-
-      const previous = previousCounts
-        ?? {
-          totalCards: jobCards.length,
-          activeCards: jobCards.filter(card => card.status === "active").length,
-          totalApplicants: applicants.length,
-          activeApplicants: applicants.filter(person => person.status === "active").length,
-        };
-      const nextKpis = {
-        totalCards: cards.length,
-        activeCards: cards.filter(card => card.status === "active").length,
-        totalApplicants: people.length,
-        activeApplicants: people.filter(person => person.status === "active").length,
-      };
-      setKpiChanges({
-        totalCards: nextKpis.totalCards - previous.totalCards,
-        activeCards: nextKpis.activeCards - previous.activeCards,
-        totalApplicants: nextKpis.totalApplicants - previous.totalApplicants,
-        activeApplicants: nextKpis.activeApplicants - previous.activeApplicants,
-      });
-      setPreviousCounts(nextKpis);
-      setJobCards(cards);
-      setApplicants(people);
-      setPage(1);
-      setSelectedCardId("");
-      setLastFetched(new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : "Unable to refetch the Job Card register.");
-    } finally {
-      setRefetching(false);
-    }
-  }
-
   const applicantsByCard = useMemo(() => {
     const groups = new Map<string, Applicant[]>();
     for (const person of applicants) {
@@ -296,30 +138,16 @@ export default function JobCardsPage() {
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Council records</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-[34px]">Job Cards</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Browse household records and review the applicants linked to each Job Card.</p>
-          {lastFetched && <p className="mt-2 text-[11px] text-slate-600">Last successfully fetched {lastFetched}</p>}
         </div>
-        <button
-          type="button"
-          onClick={() => void refetchJobCards()}
-          disabled={refetching || loading}
-          aria-busy={refetching}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className={`h-4 w-4 ${refetching ? "animate-spin" : ""}`} stroke="currentColor" strokeWidth="1.7">
-            <path d="M16.5 7.5A6.8 6.8 0 0 0 4.2 5.2L2.5 7M2.5 7V3.8M2.5 7h3.2M3.5 12.5a6.8 6.8 0 0 0 12.3 2.3l1.7-1.8m0 0v3.2m0-3.2h-3.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {refetching ? "Fetching…" : "Fetch Job Cards"}
-        </button>
       </section>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
-      {fetchError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><p className="font-semibold">Register refetch failed</p><p className="mt-1">{fetchError}</p></div>}
 
       <section aria-label="Job Card register summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <MiniKpi label="Total Job Cards" value={loading ? null : jobCards.length} context="All household records" change={!loading && kpiChanges ? kpiChanges.totalCards : undefined} />
-        <MiniKpi label="Active Job Cards" value={loading ? null : activeCards} context="Currently active records" change={!loading && kpiChanges ? kpiChanges.activeCards : undefined} tone="blue" />
-        <MiniKpi label="Total Applicants" value={loading ? null : applicants.length} context="People in the register" change={!loading && kpiChanges ? kpiChanges.totalApplicants : undefined} />
-        <MiniKpi label="Active Applicants" value={loading ? null : activeApplicants} context="Currently active applicants" change={!loading && kpiChanges ? kpiChanges.activeApplicants : undefined} tone="blue" />
+        <MiniKpi label="Total Job Cards" value={loading ? null : jobCards.length} context="All household records"  />
+        <MiniKpi label="Active Job Cards" value={loading ? null : activeCards} context="Currently active records"  tone="blue" />
+        <MiniKpi label="Total Applicants" value={loading ? null : applicants.length} context="People in the register"  />
+        <MiniKpi label="Active Applicants" value={loading ? null : activeApplicants} context="Currently active applicants"  tone="blue" />
       </section>
 
 

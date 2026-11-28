@@ -19,12 +19,12 @@ function reply(body: Record<string, unknown>, status: number, origin: string | n
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
-function isExempt(transactionDate: string | null, intervals: Array<{ id: string; started_at: string; ended_at: string | null }>) {
-  if (!transactionDate) return null;
+function isExempt(processedDate: string | null, intervals: Array<{ id: string; started_at: string; ended_at: string | null }>) {
+  if (!processedDate) return null;
   return intervals.find(interval => {
     const start = interval.started_at.slice(0, 10);
     const end = interval.ended_at ? interval.ended_at.slice(0, 10) : null;
-    return transactionDate >= start && (!end || transactionDate < end);
+    return processedDate >= start && (!end || processedDate < end);
   }) || null;
 }
 
@@ -157,7 +157,7 @@ Deno.serve(async (req: Request) => {
         if (calcError) throw calcError;
         latestCalculation = calculation;
         const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
-          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at,transaction_date")
+          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at,transaction_date,processed_date")
           .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
         if (itemsError) throw itemsError;
         latestItems = items || [];
@@ -179,10 +179,9 @@ Deno.serve(async (req: Request) => {
       }
       const markMap = new Map((marks || []).map(mark => [mark.fto_transaction_id, mark]));
       const rows = (transactions || []).map(tx => {
-        const interval = isExempt(tx.transaction_date, intervalsByCard.get(tx.job_card_number) || []);
-        const existingMark = markMap.get(tx.id);
-        const exemptionIntervalId = existingMark?.exemption_interval_id || interval?.id || null;
-        const exempt = Boolean(existingMark || interval);
+        const interval = isExempt(tx.processed_date, intervalsByCard.get(tx.job_card_number) || []);
+        const exemptionIntervalId = interval?.id || null;
+        const exempt = Boolean(interval);
         const creditAmount = Number(tx.credit_amount);
         const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {

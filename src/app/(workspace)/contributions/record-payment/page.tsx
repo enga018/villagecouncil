@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type JobCard = { job_card_number: string; head_of_household: string; status: string };
@@ -17,8 +17,7 @@ function errorMessage(error: unknown) {
 
 export default function RecordPaymentPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const jobCardNumber = searchParams.get("jobCardNumber")?.trim() || "";
+  const [jobCardNumber, setJobCardNumber] = useState("");
   const supabase = useMemo(() => createClient(), []);
   const [councilId, setCouncilId] = useState("");
   const [jobCard, setJobCard] = useState<JobCard | null>(null);
@@ -32,6 +31,16 @@ export default function RecordPaymentPage() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    const requestedNumber = new URLSearchParams(window.location.search).get("jobCardNumber")?.trim() || "";
+    setJobCardNumber(requestedNumber);
+    if (!requestedNumber) {
+      setError("No Job Card was supplied. Return to Contributions and select a Job Card.");
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!jobCardNumber) return;
     let alive = true;
     async function initialise() {
       setLoading(true);

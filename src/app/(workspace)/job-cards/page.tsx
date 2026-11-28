@@ -330,7 +330,7 @@ export default function JobCardsPage() {
           <div className="flex flex-col items-center justify-center gap-3 py-16 text-center"><span className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-blue-700"/><p className="text-sm text-slate-500">Loading Job Cards and applicants…</p></div>
         ) : (
           <div className={`grid min-h-[520px] ${SPLIT_GRID}`}>
-            <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedCardId ? "hidden md:block" : "block"}`}>
+            <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white ${selectedCardId ? "hidden lg:block" : "block"}`}>
               <div className="space-y-3 border-b border-slate-200 p-4">
                 <label className="relative block w-full min-w-0">
                   <span className="sr-only">Search Job Cards and applicants</span>
@@ -372,14 +372,14 @@ export default function JobCardsPage() {
               <ListPagination page={page} total={filteredCards.length} onPage={setPage} label="Job Cards" />
             </div>
 
-            <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedCardId ? "block" : "hidden md:block"}`}>
+            <div className={`min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 ${selectedCardId ? "block" : "hidden lg:block"}`}>
               {(() => {
                 const card = visibleCards.find(item => item.id === selectedCardId) || filteredCards.find(item => item.id === selectedCardId);
                 if (!card) return <div className="flex h-full min-h-[360px] items-center justify-center text-center"><div><p className="text-sm font-medium text-slate-600">Select a Job Card to review its applicants and wage transactions</p></div></div>;
                 const people = applicantsByCard.get(card.id) || [];
                 return <div>
                   <div className="mb-5 flex items-start gap-3">
-                    <button type="button" onClick={() => setSelectedCardId("")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 md:hidden">← Back</button>
+                    <button type="button" onClick={() => setSelectedCardId("")} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 lg:hidden">← Back</button>
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-semibold uppercase tracking-[.13em] text-blue-700">Selected Job Card</p>
                       <h3 className="mt-1 break-all text-lg font-bold text-slate-950">{card.job_card_number}</h3>

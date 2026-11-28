@@ -19,12 +19,12 @@ function reply(body: Record<string, unknown>, status: number, origin: string | n
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
-function isExempt(processedDate: string | null, intervals: Array<{ id: string; started_at: string; ended_at: string | null }>) {
-  if (!processedDate) return null;
+function isExempt(transactionDate: string | null, intervals: Array<{ id: string; started_at: string; ended_at: string | null }>) {
+  if (!transactionDate) return null;
   return intervals.find(interval => {
     const start = interval.started_at.slice(0, 10);
     const end = interval.ended_at ? interval.ended_at.slice(0, 10) : null;
-    return processedDate >= start && (!end || processedDate < end);
+    return transactionDate >= start && (!end || transactionDate < end);
   }) || null;
 }
 
@@ -202,7 +202,7 @@ Deno.serve(async (req: Request) => {
       const [{ data: transactions, error: txError }, { data: tags, error: tagsError },
         { data: intervals, error: intervalsError }, { data: marks, error: marksError }, { data: lastTagEvent, error: lastTagError }] = await Promise.all([
         admin.from("council_fto_transactions")
-          .select("id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
+          .select("id,job_card_number,reference_number,transaction_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
           .eq("village_council_id", tenantId).eq("fto_id", ftoId).order("transaction_date", { ascending: true }),
         admin.from("council_co_tags").select("id,name,is_archived,created_at")
           .eq("village_council_id", tenantId).order("created_at", { ascending: false }),
@@ -228,7 +228,7 @@ Deno.serve(async (req: Request) => {
         if (calcError) throw calcError;
         latestCalculation = calculation;
         const { data: items, error: itemsError } = await admin.from("council_fto_co_calculation_items")
-          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at,transaction_date,processed_date")
+          .select("fto_transaction_id,job_card_number,applicant_name,credit_amount,co_amount,is_exempt,first_imported_at,transaction_date")
           .eq("calculation_id", fto.latest_co_calculation_id).eq("village_council_id", tenantId);
         if (itemsError) throw itemsError;
         latestItems = items || [];
@@ -249,14 +249,14 @@ Deno.serve(async (req: Request) => {
         intervalsByCard.set(interval.job_card_number, current);
       }
       const rows = (transactions || []).map(tx => {
-        const interval = isExempt(tx.processed_date, intervalsByCard.get(tx.job_card_number) || []);
+        const interval = isExempt(tx.transaction_date, intervalsByCard.get(tx.job_card_number) || []);
         const exemptionIntervalId = interval?.id || null;
         const exempt = Boolean(interval);
         const creditAmount = Number(tx.credit_amount);
         const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {
           id: tx.id, job_card_number: tx.job_card_number, reference_number: tx.reference_number,
-          transaction_date: tx.transaction_date, processed_date: tx.processed_date,
+          transaction_date: tx.transaction_date,
           applicant_name: tx.applicant_name || tx.primary_account_holder,
           amount_to_be_credited: tx.amount_to_be_credited, credit_amount: tx.credit_amount,
           government_status: tx.government_status, normalized_status: tx.normalized_status,

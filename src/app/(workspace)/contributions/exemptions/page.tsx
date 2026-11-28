@@ -52,7 +52,7 @@ export default function ExemptionsPage() {
   const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [jobCardNumber, setJobCardNumber] = useState("");
-  const [startDate, setStartDate] = useState("2026-07-01");
+  const [startDate, setStartDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
   const [addReason, setAddReason] = useState("");
   const [removingId, setRemovingId] = useState("");
   const [removeReason, setRemoveReason] = useState("");

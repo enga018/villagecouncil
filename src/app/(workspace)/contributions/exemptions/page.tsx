@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { MiniKpi } from "@/components/app/ModuleCard";
@@ -238,18 +238,20 @@ export default function ExemptionsPage() {
         </div>
         {loading ? <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">Loading exemption records…</div>
           : filteredActive.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">No active exemptions match this search.</div>
-          : <div className="grid gap-3">
-            {filteredActive.map(item => <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-semibold text-slate-950">{item.job_card_number}</p>
-                  <p className="mt-0.5 text-sm text-slate-600">{item.head_of_household || "Household name not available"}</p>
-                  <p className="mt-2 text-xs text-slate-500">Effective from <strong className="font-semibold text-slate-700">{displayDate(item.started_at)}</strong></p>
-                  <p className="mt-2 text-sm text-slate-700">{item.add_reason}</p>
-                  <p className="mt-2 text-xs text-slate-400">Added by {actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p>
-                </div>
-                {removingId === item.id ? (
-                  <form onSubmit={removeExemption} className="w-full space-y-2 sm:max-w-sm">
+          : <>
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
+              <table className="w-full text-left text-xs">
+                <thead><tr className="border-b border-slate-100 bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500"><th className="px-3 py-3">Job Card</th><th className="px-3 py-3">Household</th><th className="px-3 py-3">Effective from</th><th className="px-3 py-3">Reason</th><th className="px-3 py-3">Added by</th><th className="px-3 py-3">Action</th></tr></thead>
+                <tbody className="divide-y divide-slate-100">{filteredActive.map(item => <Fragment key={item.id}><tr className="text-slate-700">
+                  <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-950">{item.job_card_number}</td>
+                  <td className="px-3 py-3 text-slate-600">{item.head_of_household || "Household name not available"}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{displayDate(item.started_at)}</td>
+                  <td className="max-w-[260px] px-3 py-3 text-slate-700">{item.add_reason}</td>
+                  <td className="px-3 py-3 text-slate-500">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</td>
+                  <td className="px-3 py-3"><button type="button" onClick={() => { setRemovingId(item.id); setRemoveReason(""); }} className="min-h-9 shrink-0 rounded-xl border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50">Remove exemption</button></td>
+                </tr>
+                {removingId === item.id && <tr><td colSpan={6} className="bg-slate-50 px-3 py-3">
+                  <form onSubmit={removeExemption} className="max-w-md space-y-2">
                     <label className="block text-xs font-semibold text-slate-700">Reason for removal
                       <textarea required minLength={3} maxLength={1000} rows={2} value={removeReason}
                         onChange={event => setRemoveReason(event.target.value)}
@@ -264,15 +266,45 @@ export default function ExemptionsPage() {
                       </button>
                     </div>
                   </form>
-                ) : (
-                  <button type="button" onClick={() => { setRemovingId(item.id); setRemoveReason(""); }}
-                    className="min-h-10 shrink-0 rounded-xl border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
-                    Remove exemption
-                  </button>
-                )}
-              </div>
-            </article>)}
-          </div>}
+                </td></tr>}</Fragment>)}</tbody>
+              </table>
+            </div>
+            <div className="grid gap-3 md:hidden">
+              {filteredActive.map(item => <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-950">{item.job_card_number}</p>
+                    <p className="mt-0.5 text-sm text-slate-600">{item.head_of_household || "Household name not available"}</p>
+                    <p className="mt-2 text-xs text-slate-500">Effective from <strong className="font-semibold text-slate-700">{displayDate(item.started_at)}</strong></p>
+                    <p className="mt-2 text-sm text-slate-700">{item.add_reason}</p>
+                    <p className="mt-2 text-xs text-slate-400">Added by {actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p>
+                  </div>
+                  {removingId === item.id ? (
+                    <form onSubmit={removeExemption} className="w-full space-y-2 sm:max-w-sm">
+                      <label className="block text-xs font-semibold text-slate-700">Reason for removal
+                        <textarea required minLength={3} maxLength={1000} rows={2} value={removeReason}
+                          onChange={event => setRemoveReason(event.target.value)}
+                          className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm" />
+                      </label>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => { setRemovingId(""); setRemoveReason(""); }}
+                          className="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700">Cancel</button>
+                        <button type="submit" disabled={saving || removeReason.trim().length < 3}
+                          className="min-h-9 rounded-lg bg-rose-700 px-3 text-xs font-semibold text-white disabled:opacity-50">
+                          {saving ? "Saving…" : "Confirm removal"}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <button type="button" onClick={() => { setRemovingId(item.id); setRemoveReason(""); }}
+                      className="min-h-10 shrink-0 rounded-xl border border-rose-200 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-50">
+                      Remove exemption
+                    </button>
+                  )}
+                </div>
+              </article>)}
+            </div>
+          </>}
       </section>
 
       <section className="space-y-3">

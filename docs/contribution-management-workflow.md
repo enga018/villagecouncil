@@ -471,3 +471,8 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Include the 20 already identified active exemptions in the initial data setup and ensure they appear in the page's active list.
 - Do not add exemption badges, indicators or management controls to the general Job Cards list or ordinary Contributions list/detail views. Exemption management belongs on this dedicated page; CO calculation and transaction eligibility must still enforce the exemption rules.
 - Exact visual layout and any additional list filters/search controls can be decided during implementation, provided the required list, add/remove actions and history access are present.
+
+
+## 2026-11-28 clarification — Processed Date controls exemption eligibility
+
+The effective exemption interval is compared with the FTO transaction's Government `processed_date`, not `transaction_date` or `first_imported_at`. The start date is the effective date added; the removal date is the exclusive end of the interval. Preview and Apply must produce the same eligibility result. Missing Processed Date does not qualify as exempt.

@@ -65,9 +65,9 @@ export default function DashboardPage() {
           importedFtos, transactions, processed, deferred, rejected,
         ] = await Promise.all([
           supabase.from("council_job_cards").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
-          supabase.from("council_job_cards").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+          supabase.from("council_job_cards").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).neq("status", "deleted"),
           supabase.from("council_applicants").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
-          supabase.from("council_applicants").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
+          supabase.from("council_applicants").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).neq("status", "deleted"),
           supabase.from("council_ftos").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("status", "active"),
           supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId),
           supabase.from("council_fto_transactions").select("id", { count: "exact", head: true }).eq("village_council_id", councilId).eq("normalized_status", "processed"),

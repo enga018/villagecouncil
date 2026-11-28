@@ -26,7 +26,6 @@ export function ListPagination({ page, total, onPage, label, pageSize = LIST_PAG
   return (
     <div className={`flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 p-3 ${className}`}>
       <div className="min-w-0 text-[10px] leading-4 text-slate-400">
-        <span className="block">Page {page} of {count} · {pageSize} {label} per page</span>
         <span className="block">Showing {from}–{to} of {total}</span>
       </div>
       <div className="flex shrink-0 gap-2">

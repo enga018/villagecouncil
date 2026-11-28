@@ -116,7 +116,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   const [inspections, setInspections] = useState<Record<string, Inspection>>({});
   const [inspectionError, setInspectionError] = useState("");
   const [search, setSearch] = useState("");
-  const [coFilter, setCoFilter] = useState<"pending" | "all">("pending");
+  const [coFilter, setCoFilter] = useState<"done" | "pending" | "all">("done");
   const [selectedId, setSelectedId] = useState("");
   const [selectedTab, setSelectedTab] = useState<"details" | "co">("details");
   const [loading, setLoading] = useState(true);
@@ -164,7 +164,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
     return records.filter(item => {
-      const matchesCo = coFilter === "all" || item.co_calculation_version <= 0;
+      const matchesCo = coFilter === "all" || (coFilter === "done" ? item.co_calculation_version > 0 : item.co_calculation_version <= 0);
       const matchesSearch = !term ||
         [item.fto_number, item.fto_status, item.block, item.first_signatory]
           .some(value => String(value || "").toLocaleLowerCase().includes(term))
@@ -219,7 +219,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
               </label>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
-                  {(["pending", "all"] as const).map(value => <button key={value} type="button" onClick={() => { setCoFilter(value); setFtoPage(1); }} aria-pressed={coFilter === value} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${coFilter === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "pending" ? "CO Pending" : "All"}</button>)}
+                  {(["done", "pending", "all"] as const).map(value => <button key={value} type="button" onClick={() => { setCoFilter(value); setFtoPage(1); }} aria-pressed={coFilter === value} className={`min-h-9 rounded-lg px-3 text-xs font-semibold transition ${coFilter === value ? "bg-white text-blue-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "done" ? "CO Done" : value === "pending" ? "CO Pending" : "All"}</button>)}
                 </div>
                 <span className="shrink-0 text-[11px] text-slate-600">{number(filtered.length)} FTOs</span>
               </div>
@@ -277,7 +277,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
                 </div>
                 <div className="mb-4 flex gap-2 border-b border-slate-200">
                   <button type="button" onClick={() => setSelectedTab("details")} className={`border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "details" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>Details</button>
-                  <button type="button" onClick={() => setSelectedTab("co")} className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "co" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>{item.co_calculation_version > 0 ? "View CO" : "Calculate CO"}{item.co_calculation_version > 0 && <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-700">CO Done</span>}</button>
+                  <button type="button" onClick={() => setSelectedTab("co")} className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold ${selectedTab === "co" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>{item.co_calculation_version > 0 ? "View CO" : "Calculate CO"}</button>
                 </div>
                 {selectedTab === "co" ? (
                   <FtoCoAction key={item.id} ftoId={item.id} ftoNumber={item.fto_number} initialVersion={item.co_calculation_version || 0} embedded />

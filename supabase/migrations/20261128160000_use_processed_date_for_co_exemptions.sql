@@ -197,6 +197,7 @@ declare
   v_revision integer;
   v_actor uuid;
   v_exemption_started_at timestamptz;
+  v_charge_found boolean;
 begin
   if p_change_source not in ('co_recalculation', 'government_status') then
     raise exception 'Unsupported Regular CO charge synchronization source.';
@@ -246,8 +247,9 @@ begin
     and ch.fto_transaction_id = p_fto_transaction_id
     and ch.charge_type = 'regular_co'
   for update;
+  v_charge_found := found;
 
-  if found and v_item.is_exempt and v_item.exemption_interval_id is not null then
+  if v_charge_found and v_item.is_exempt and v_item.exemption_interval_id is not null then
     select e.started_at into v_exemption_started_at
     from public.council_co_exemption_intervals e
     where e.id = v_item.exemption_interval_id
@@ -263,7 +265,7 @@ begin
   v_new_amount := case when v_eligible then v_item.co_amount else 0 end;
   v_new_active := v_eligible;
 
-  if not found then
+  if not v_charge_found then
     if not v_eligible then
       return;
     end if;

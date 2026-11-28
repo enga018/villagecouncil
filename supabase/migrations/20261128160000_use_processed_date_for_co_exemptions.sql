@@ -196,6 +196,7 @@ declare
   v_new_active boolean;
   v_revision integer;
   v_actor uuid;
+  v_exemption_started_at timestamptz;
 begin
   if p_change_source not in ('co_recalculation', 'government_status') then
     raise exception 'Unsupported Regular CO charge synchronization source.';
@@ -223,7 +224,7 @@ begin
     return;
   end if;
 
-  select i.calculation_id, i.co_amount, i.is_exempt, c.created_by
+  select i.calculation_id, i.co_amount, i.is_exempt, i.exemption_interval_id, c.created_by
   into v_item
   from public.council_fto_co_calculation_items i
   join public.council_fto_co_calculations c
@@ -237,9 +238,6 @@ begin
   end if;
 
   v_eligible := v_tx.normalized_status = 'processed' and not v_item.is_exempt;
-
-  v_new_amount := case when v_eligible then v_item.co_amount else 0 end;
-  v_new_active := v_eligible;
   v_actor := coalesce(p_actor_id, v_item.created_by);
 
   select * into v_charge
@@ -248,6 +246,22 @@ begin
     and ch.fto_transaction_id = p_fto_transaction_id
     and ch.charge_type = 'regular_co'
   for update;
+
+  if found and v_item.is_exempt and v_item.exemption_interval_id is not null then
+    select e.started_at into v_exemption_started_at
+    from public.council_co_exemption_intervals e
+    where e.id = v_item.exemption_interval_id
+      and e.village_council_id = p_village_council_id;
+
+    -- A charge created before the effective interval remains payable.
+    if v_exemption_started_at is not null
+       and v_charge.original_created_at < v_exemption_started_at then
+      v_eligible := v_tx.normalized_status = 'processed';
+    end if;
+  end if;
+
+  v_new_amount := case when v_eligible then v_item.co_amount else 0 end;
+  v_new_active := v_eligible;
 
   if not found then
     if not v_eligible then

@@ -1,5 +1,7 @@
 # Financial Workflow Decision Log
 
+> **Current exemption rule (2026-11-28):** Determine whether an FTO transaction falls within a Job Card exemption interval by comparing Government `transaction_date` with the interval start and removal dates. Start is inclusive; removal date is exclusive. Do not use `first_imported_at` or a permanent transaction mark to determine exemption eligibility. This latest clarification supersedes earlier exemption timing decisions below.
+
 **Project:** Village Council Platform  
 **Decision baseline:** 2026-11-26  
 **Status:** Agreed decisions captured; open technical details listed at the end
@@ -17,12 +19,12 @@ The following decisions were confirmed after the original financial requirements
 
 1. **CO calculation location:** CO calculation is an operational action on each FTO card in the existing FTO Monitoring → Imported FTO register. The card offers **Calculate CO** before the first calculation and **View CO** afterward. Recalculation is available from the View CO workflow. There is no separate CO Calculation management page. Contribution remains a separate module/page.
 2. **Calculation scope:** Calculate every transaction in the selected FTO, including Processed, Deferred and Rejected transactions. Government status is shown read-only in preview and is never stored in the CO calculation header or item records.
-3. **Contribution visibility:** Contribution later displays only transactions whose latest FTO Monitoring status is Processed and whose saved exemption mark is false. Deferred and Rejected transactions remain calculated but hidden. If status later changes to Processed, the existing saved amount becomes visible without recalculation.
+3. **Contribution visibility:** Contribution displays transactions whose latest FTO Monitoring status is Processed and whose latest CO calculation item is non-exempt under the Job Card's Transaction Date interval. Deferred and Rejected transactions remain calculated but hidden. If status later changes to Processed, the saved amount becomes visible without recalculation, provided the exemption interval has not changed since that calculation.
 4. **Recalculation:** Administrators may recalculate an FTO at any time. Each confirmation creates a new immutable version; earlier versions remain retained for audit. Do not build a version-comparison screen. Show the divisor and multiplier used for the latest calculation, and retain both values in every historical version.
 5. **Recalculation and payments:** When payment records and FIFO allocation exist, a confirmed recalculation must atomically update the active charge values, release affected allocations and run FIFO allocation again. Payment records themselves are never changed or duplicated. Allocation changes are append-only events. The payment module is a later implementation phase; the CO schema must preserve the versioned charge identity needed for this integration.
 6. **FTO tags:** Each FTO has one current tag. The tag can be changed after calculation, independently of recalculation. Tag changes update Contribution grouping but do not change CO amounts, formula snapshots or payment records. The tag at calculation time is retained as a historical snapshot.
 7. **Formula settings:** Divisor and multiplier are configured only in Settings, defaulting to 300 and 100. Both are positive whole numbers. Every calculation version snapshots the values used. Formula changes require a reason and audit history; they do not alter existing versions.
-8. **Exempt transactions:** Exempt transactions are still calculated and saved with their CO amounts, but their permanent Exempt mark prevents them from appearing in Contribution.
+8. **Exempt transactions:** Exempt transactions are still calculated and saved with their CO amounts, but the latest calculation's Transaction Date-based exemption decision keeps them out of Contribution. Legacy permanent transaction marks are not used to determine eligibility.
 9. **Preview and confirmation:** Preview lists every FTO transaction and shows its current Government status read-only, Credit Amount, calculated CO amount and exemption marker. Apply revalidates the source transaction set and formula settings, then saves the new version atomically.
 
 
@@ -304,3 +306,15 @@ The single-Job-Card financial actions are launched from Job Card Contribution De
 13. **Implementation flexibility:** The exact visual layout and additional filters/search can be decided during implementation, provided the required list, add/remove actions and history access are delivered.
 
 The detailed rules are maintained in [Contribution and Payment Workflow](contribution-management-workflow.md). This documentation decision does not authorize database changes, production migration or deployment.
+
+
+## 2026-11-28 — CO exemption eligibility uses Government Transaction Date
+
+This clarification supersedes earlier exemption rules that referred to `first_imported_at` or permanent transaction marks:
+
+1. The exemption interval starts on the effective date the Job Card is added to the Exemptions list.
+2. The interval ends on the date the active exemption is removed. The interval is start-inclusive and end-exclusive.
+3. Determine whether an FTO transaction is exempt by comparing its Government `transaction_date` with that interval.
+4. Do not use `first_imported_at` to determine exemption eligibility. A missing `transaction_date` does not qualify as exempt.
+5. CO Calculation Preview and Apply, including Regular CO Charge synchronization, must use this same rule.
+6. Existing exemption intervals and audit history remain intact. This clarification does not authorize applying migrations to production, merging the feature branch or deploying the application.

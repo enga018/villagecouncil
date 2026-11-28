@@ -41,12 +41,12 @@ Do not combine the two categories into one indistinguishable charge type. Both c
 
 - CO calculation remains an action on each FTO in FTO Monitoring.
 - Calculation snapshots include all source transactions in the FTO, regardless of current Government status, as specified in the CO calculation requirements.
-- A transaction contributes a visible Regular CO Charge only when its latest FTO Monitoring status is **Processed** and its saved permanent Exempt mark is false.
+- A transaction contributes a visible Regular CO Charge only when its latest FTO Monitoring status is **Processed** and its Government `transaction_date` is outside the Job Card's effective exemption interval.
 - Deferred and Rejected transactions remain hidden from Contribution.
-- If a previously Deferred transaction becomes Processed, its saved CO amount becomes eligible without requiring another calculation.
-- A transaction with a permanent Exempt mark remains excluded, even if the Job Card exemption is later removed.
-- Charges calculated before a later exemption interval remain visible and payable.
-- Transactions first imported after an exemption interval ends may be considered through a new Preview → Apply cycle.
+- If a previously Deferred transaction becomes Processed, its saved CO amount becomes eligible without another calculation, provided its Transaction Date is outside the exemption interval and no exemption interval has changed since that calculation. If an interval has changed, run a new Preview → Apply cycle.
+- A missing `transaction_date` does not qualify as exempt.
+- A Regular CO Charge created before the effective exemption start remains valid and payable.
+- Removing an exemption does not automatically create charges. Transactions outside the updated interval may be considered through a new Preview → Apply cycle.
 - The calculation formula, exemption timing and immutable calculation-version rules remain governed by [Financial Workflow Requirements](financial-workflow-requirements.md).
 
 ### 2.2 Recalculation review and confirmation
@@ -441,16 +441,17 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Exemptions are temporary and repeatable. A Job Card may have multiple exemption intervals over time; removing an exemption ends the current interval and does not erase its history.
 - A Job Card exemption blocks the creation of new eligible Regular CO Charges during its effective interval. It does not cancel, waive or invalidate charges that were created before the interval.
 - Exempt Job Cards remain in FTO monitoring and retain their FTO history, imported transactions, historical ledger, payments and allocations. Exemption does not remove source history.
-- Exemption is Job Card-level, while the permanent exemption decision for an individual imported transaction is retained with that transaction/ledger record. Both levels must be respected when determining Contribution eligibility.
+- Exemption is managed at Job Card level. Each confirmed CO calculation stores the Transaction Date-based exemption decision in its immutable calculation snapshot for audit and charge synchronization.
 
 ### 7.2 Effective dates and transaction eligibility
 
 - Each Job Card exemption interval has an effective start date. The start date is configurable per Job Card; the accepted default for initial setup is **1 July 2026**.
-- Future imported transactions must automatically be evaluated against the stored exemption interval for that Job Card. Do not require administrators to mark each future transaction manually.
-- Transactions first imported while the Job Card is exempt receive a permanent Exempt mark and remain ineligible for Regular CO Charges even if the Job Card exemption is later removed.
-- Transactions imported before the exemption interval remain eligible according to their saved calculation/status and any charges already created remain valid and payable.
-- Removing an exemption ends the current interval. It does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions imported after the exemption ends.
-- Transactions that become eligible after removal may be charged through that new calculation cycle. Transactions first imported during the exemption interval remain permanently excluded.
+- Future imported transactions must automatically be evaluated against the stored exemption interval for that Job Card. Do not require administrators to mark each transaction manually.
+- Determine exemption eligibility by comparing the Government `transaction_date` with the interval. The start date is inclusive; the removal date is the exclusive end.
+- Do not use `first_imported_at` to determine exemption eligibility. A missing `transaction_date` does not qualify as exempt.
+- A Regular CO Charge created before the effective exemption start remains valid and payable. The exemption blocks creation of new Regular CO Charges for transactions whose Government `transaction_date` falls within the interval.
+- Removing an exemption ends the current interval but does not automatically create charges. A new CO Calculation Preview → Apply cycle is required to evaluate transactions against the updated interval.
+- CO calculations saved under the previous first-import exemption rule are treated as legacy. They must be recalculated and applied before they can create new Regular CO Charges under the Transaction Date rule.
 - Exemption does not block recording payments against the Job Card. Existing outstanding charges remain payable, and payments continue to allocate through the normal Job Card-level FIFO process, including for Inactive or Deleted Job Cards.
 
 ### 7.3 Add/remove controls and audit history
@@ -471,3 +472,8 @@ The five single-Job-Card financial actions are separate dedicated pages launched
 - Include the 20 already identified active exemptions in the initial data setup and ensure they appear in the page's active list.
 - Do not add exemption badges, indicators or management controls to the general Job Cards list or ordinary Contributions list/detail views. Exemption management belongs on this dedicated page; CO calculation and transaction eligibility must still enforce the exemption rules.
 - Exact visual layout and any additional list filters/search controls can be decided during implementation, provided the required list, add/remove actions and history access are present.
+
+
+## 2026-11-28 clarification — Transaction Date controls exemption eligibility
+
+The effective exemption interval is compared with the FTO transaction's Government `transaction_date`, not `first_imported_at`. The start date is the effective date added; the removal date is the exclusive end of the interval. Preview and Apply must produce the same eligibility result. Missing Transaction Date does not qualify as exempt.

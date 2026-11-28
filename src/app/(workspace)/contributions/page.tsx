@@ -217,7 +217,10 @@ export default function ContributionsPage() {
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Contributions</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Job Card contribution accounts, charges, payments and outstanding balances.</p>
         </div>
-        <Link href="/contributions/batch-operations" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800">Batch Operations</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/contributions/exemptions" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-xs font-semibold text-slate-700 hover:bg-slate-50">Exemptions</Link>
+          <Link href="/contributions/batch-operations" className="inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-700 px-5 text-xs font-semibold text-white hover:bg-blue-800">Batch Operations</Link>
+        </div>
       </section>
 
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</p>}

@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://villagecouncil-git-feat-fto-co-calculation-enga018s-projects.vercel.app", "https://enga018.github.io"]);
+const ALLOWED_ORIGINS = new Set(["https://villagecouncil.enga.in", "https://villagecouncil-git-feat-fto-co-calculation-enga018s-projects.vercel.app", "https://villagecouncil-git-feat-contribution-e-3dbac8-enga018s-projects.vercel.app", "https://enga018.github.io"]);
 function cors(origin: string | null) {
   return {
     "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://villagecouncil.enga.in",
@@ -65,6 +65,95 @@ Deno.serve(async (req: Request) => {
   const action = String(body.action || "");
 
   try {
+    if (action === "exemptions") {
+      const { data: intervals, error: intervalsError } = await admin.from("council_co_exemption_intervals")
+        .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at")
+        .eq("village_council_id", tenantId).order("started_at", { ascending: false });
+      if (intervalsError) throw intervalsError;
+      const jobCards: Array<{ job_card_number: string; head_of_household: string; status: string }> = [];
+      for (let from = 0; ; from += 1000) {
+        const { data: page, error: jobCardsError } = await admin.from("council_job_cards")
+          .select("job_card_number,head_of_household,status")
+          .eq("village_council_id", tenantId).order("job_card_number").range(from, from + 999);
+        if (jobCardsError) throw jobCardsError;
+        jobCards.push(...(page || []));
+        if (!page || page.length < 1000) break;
+      }
+      const cardMap = new Map(jobCards.map(card => [card.job_card_number, card]));
+      const actorIds = [...new Set((intervals || []).flatMap(interval => [interval.added_by, interval.removed_by]).filter((id): id is string => Boolean(id)))];
+      const actorEntries = await Promise.all(actorIds.map(async id => {
+        const { data } = await admin.auth.admin.getUserById(id);
+        const user = data?.user;
+        const label = String(user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || id);
+        return [id, label] as const;
+      }));
+      return reply({
+        intervals: (intervals || []).map(interval => ({
+          ...interval,
+          head_of_household: cardMap.get(interval.job_card_number)?.head_of_household || null,
+          job_card_status: cardMap.get(interval.job_card_number)?.status || null,
+        })),
+        job_cards: jobCards,
+        actor_labels: Object.fromEntries(actorEntries),
+      }, 200, origin);
+    }
+
+    if (action === "add_exemption") {
+      const jobCardNumber = String(body.jobCardNumber || "").trim();
+      const startDate = String(body.startDate || "").trim();
+      const reason = String(body.reason || "").trim();
+      if (!jobCardNumber || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(`${startDate}T00:00:00.000Z`).getTime()) || new Date(`${startDate}T00:00:00.000Z`).toISOString().slice(0, 10) !== startDate || reason.length < 3 || reason.length > 1000) {
+        return reply({ error: "Select a Job Card, provide a valid start date, and enter a reason of 3–1000 characters." }, 400, origin);
+      }
+      const { data: jobCard, error: jobCardError } = await admin.from("council_job_cards")
+        .select("job_card_number").eq("village_council_id", tenantId)
+        .eq("job_card_number", jobCardNumber).maybeSingle();
+      if (jobCardError) throw jobCardError;
+      if (!jobCard) return reply({ error: "The selected Job Card does not belong to this Village Council." }, 404, origin);
+      const { data: existing, error: existingError } = await admin.from("council_co_exemption_intervals")
+        .select("id").eq("village_council_id", tenantId).eq("job_card_number", jobCardNumber)
+        .is("ended_at", null).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return reply({ error: "This Job Card already has an active exemption." }, 409, origin);
+      const { data: previousIntervals, error: previousError } = await admin.from("council_co_exemption_intervals")
+        .select("ended_at").eq("village_council_id", tenantId).eq("job_card_number", jobCardNumber)
+        .not("ended_at", "is", null).order("ended_at", { ascending: false }).limit(1);
+      if (previousError) throw previousError;
+      const previousEndDate = previousIntervals?.[0]?.ended_at?.slice(0, 10);
+      if (previousEndDate && startDate < previousEndDate) {
+        return reply({ error: `The new exemption cannot start before the previous interval ended on ${previousEndDate}.` }, 409, origin);
+      }
+      const { data: interval, error } = await admin.from("council_co_exemption_intervals").insert({
+        village_council_id: tenantId, job_card_number: jobCardNumber,
+        started_at: `${startDate}T00:00:00.000Z`, add_reason: reason, added_by: actorId,
+      }).select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").single();
+      if (error) throw error;
+      return reply({ interval }, 201, origin);
+    }
+
+    if (action === "remove_exemption") {
+      const intervalId = String(body.intervalId || "").trim();
+      const reason = String(body.reason || "").trim();
+      if (!intervalId || reason.length < 3 || reason.length > 1000) {
+        return reply({ error: "A valid exemption and a removal reason of 3–1000 characters are required." }, 400, origin);
+      }
+      const removalDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      const { data: activeInterval, error: activeIntervalError } = await admin.from("council_co_exemption_intervals")
+        .select("started_at").eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null).maybeSingle();
+      if (activeIntervalError) throw activeIntervalError;
+      if (!activeInterval) return reply({ error: "The active exemption was not found or has already been removed." }, 404, origin);
+      if (removalDate < activeInterval.started_at.slice(0, 10)) {
+        return reply({ error: "An exemption cannot be removed before its effective start date." }, 409, origin);
+      }
+      const { data: interval, error } = await admin.from("council_co_exemption_intervals").update({
+        ended_at: `${removalDate}T23:59:59.999Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
+      }).eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null)
+        .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").maybeSingle();
+      if (error) throw error;
+      if (!interval) return reply({ error: "The active exemption was not found or has already been removed." }, 404, origin);
+      return reply({ interval }, 200, origin);
+    }
+
     if (action === "settings") {
       const { error: seedError } = await admin.from("council_co_settings")
         .upsert({ village_council_id: tenantId }, { onConflict: "village_council_id", ignoreDuplicates: true });
@@ -131,7 +220,7 @@ Deno.serve(async (req: Request) => {
       const [{ data: transactions, error: txError }, { data: tags, error: tagsError },
         { data: intervals, error: intervalsError }, { data: marks, error: marksError }, { data: lastTagEvent, error: lastTagError }] = await Promise.all([
         admin.from("council_fto_transactions")
-          .select("id,job_card_number,reference_number,transaction_date,processed_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
+          .select("id,job_card_number,reference_number,transaction_date,applicant_name,primary_account_holder,amount_to_be_credited,credit_amount,government_status,normalized_status,rejection_reason,first_imported_at,updated_at")
           .eq("village_council_id", tenantId).eq("fto_id", ftoId).order("transaction_date", { ascending: true }),
         admin.from("council_co_tags").select("id,name,is_archived,created_at")
           .eq("village_council_id", tenantId).order("created_at", { ascending: false }),
@@ -152,7 +241,7 @@ Deno.serve(async (req: Request) => {
       let latestCalculation = null, latestItems: unknown[] = [];
       if (fto.latest_co_calculation_id) {
         const { data: calculation, error: calcError } = await admin.from("council_fto_co_calculations")
-          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by")
+          .select("id,version,tag_id,tag_name_snapshot,divisor,multiplier,transaction_count,total_credit_amount,total_co_amount,exempt_count,chargeable_count,created_at,created_by,exemption_rule_version")
           .eq("id", fto.latest_co_calculation_id).eq("village_council_id", tenantId).single();
         if (calcError) throw calcError;
         latestCalculation = calculation;
@@ -177,17 +266,15 @@ Deno.serve(async (req: Request) => {
         current.push(interval);
         intervalsByCard.set(interval.job_card_number, current);
       }
-      const markMap = new Map((marks || []).map(mark => [mark.fto_transaction_id, mark]));
       const rows = (transactions || []).map(tx => {
         const interval = isExempt(tx.transaction_date, intervalsByCard.get(tx.job_card_number) || []);
-        const existingMark = markMap.get(tx.id);
-        const exemptionIntervalId = existingMark?.exemption_interval_id || interval?.id || null;
-        const exempt = Boolean(existingMark || interval);
+        const exemptionIntervalId = interval?.id || null;
+        const exempt = Boolean(interval);
         const creditAmount = Number(tx.credit_amount);
         const coAmount = roundMoney((creditAmount / parameters.divisor) * parameters.multiplier);
         return {
           id: tx.id, job_card_number: tx.job_card_number, reference_number: tx.reference_number,
-          transaction_date: tx.transaction_date, processed_date: tx.processed_date,
+          transaction_date: tx.transaction_date,
           applicant_name: tx.applicant_name || tx.primary_account_holder,
           amount_to_be_credited: tx.amount_to_be_credited, credit_amount: tx.credit_amount,
           government_status: tx.government_status, normalized_status: tx.normalized_status,

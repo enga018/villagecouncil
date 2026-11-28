@@ -11,13 +11,13 @@ type CoRow = {
   co_amount: number; is_exempt: boolean;
 };
 type LatestItem = {
-  fto_transaction_id: string; job_card_number: string; applicant_name: string | null;
+  fto_transaction_id: string; job_card_number: string; applicant_name: string | null; transaction_date: string | null;
   credit_amount: number | string; co_amount: number | string; is_exempt: boolean;
 };
 type Calculation = {
   id: string; version: number; tag_id: string; tag_name_snapshot: string; divisor: number; multiplier: number;
   transaction_count: number; total_credit_amount: number; total_co_amount: number;
-  exempt_count: number; chargeable_count: number; created_at: string;
+  exempt_count: number; chargeable_count: number; created_at: string; exemption_rule_version: number;
 };
 type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
@@ -278,6 +278,11 @@ export default function FtoCoAction({
                         <div><p className="text-[10px] text-slate-500">Tag at calculation</p><p className="mt-1 text-sm font-bold text-slate-900">{data.latest_calculation.tag_name_snapshot}</p></div>
                       </div>
                       <p className="mt-3 text-[11px] text-slate-500">Formula: ROUND((Credit Amount ÷ {data.latest_calculation.divisor}) × {data.latest_calculation.multiplier}, 2)</p>
+                      {data.latest_calculation.exemption_rule_version < 2 && (
+                        <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                          This saved calculation uses the previous exemption rule. Recalculate and Apply this FTO to use Government Transaction Date eligibility. New Regular CO Charges will not be created from this legacy calculation until it is recalculated.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -372,13 +377,14 @@ export default function FtoCoAction({
 
                     {/* Desktop: full transaction table */}
                     <div className="hidden overflow-x-auto md:block">
-                      <table className="min-w-[760px] w-full divide-y divide-slate-200 text-xs">
+                      <table className="min-w-[860px] w-full divide-y divide-slate-200 text-xs">
                         <thead className="bg-white text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
-                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
+                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Transaction Date</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
                           {showPreview ? previewRows.map(row => <tr key={row.id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
+                            <td className="px-3 py-3 whitespace-nowrap text-slate-600">{date(row.transaction_date)}</td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             {isRecalculation ? <>
                               <td className="px-3 py-3 tabular-nums text-slate-600">{row.previous_co_amount == null ? "New" : money(row.previous_co_amount)}</td>
@@ -389,6 +395,7 @@ export default function FtoCoAction({
                             <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Non-exempt</span>}</td>
                           </tr>) : savedRows.map(row => <tr key={row.fto_transaction_id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
+                            <td className="px-3 py-3 whitespace-nowrap text-slate-600">{date(row.transaction_date)}</td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
                             <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span></td>
@@ -406,6 +413,7 @@ export default function FtoCoAction({
                             <div className="min-w-0">
                               <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
                               <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                              <p className="mt-1 text-[10px] text-slate-400">Transaction date: {date(row.transaction_date)}</p>
                             </div>
                             <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.normalized_status)}`}>{statusLabel(row.normalized_status)}</span>
                           </div>
@@ -423,6 +431,7 @@ export default function FtoCoAction({
                             <div className="min-w-0">
                               <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
                               <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                              <p className="mt-1 text-[10px] text-slate-400">Transaction date: {date(row.transaction_date)}</p>
                             </div>
                             <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span>
                           </div>

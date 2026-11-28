@@ -2,6 +2,12 @@ begin;
 
 -- Use Government Processed Date for exemption eligibility in CO calculations.
 -- This supersedes permanent first-import exemption marks as an eligibility rule.
+-- The legacy transaction-mark trigger is no longer part of eligibility.
+-- Keep historical mark rows intact, but do not let new mark inserts affect charges.
+drop trigger if exists council_fto_transaction_sync_regular_charge_after_exempt_mark
+  on public.council_co_exempt_transactions;
+drop function if exists public.sync_council_regular_co_charge_after_exempt_mark();
+
 alter table public.council_fto_co_calculation_items
   add column if not exists processed_date date;
 

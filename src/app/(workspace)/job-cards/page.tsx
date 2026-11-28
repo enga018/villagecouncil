@@ -113,7 +113,9 @@ export default function JobCardsPage() {
     return groups;
   }, [applicants]);
 
+  const totalCards = jobCards.filter(card => card.status !== "deleted").length;
   const activeCards = jobCards.filter(card => card.status === "active").length;
+  const totalApplicants = applicants.filter(person => person.status !== "deleted").length;
   const activeApplicants = applicants.filter(person => person.status === "active").length;
   const filteredCards = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -144,9 +146,9 @@ export default function JobCardsPage() {
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
       <section aria-label="Job Card register summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <MiniKpi label="Total Job Cards" value={loading ? null : jobCards.length} context="All household records"  />
+        <MiniKpi label="Total Job Cards" value={loading ? null : totalCards} context="All household records"  />
         <MiniKpi label="Active Job Cards" value={loading ? null : activeCards} context="Currently active records"  tone="blue" />
-        <MiniKpi label="Total Applicants" value={loading ? null : applicants.length} context="People in the register"  />
+        <MiniKpi label="Total Applicants" value={loading ? null : totalApplicants} context="People in the register"  />
         <MiniKpi label="Active Applicants" value={loading ? null : activeApplicants} context="Currently active applicants"  tone="blue" />
       </section>
 
@@ -188,7 +190,7 @@ export default function JobCardsPage() {
                         <div className="min-w-0">
                           <p className="break-all text-[13px] font-bold text-slate-950">{card.job_card_number}</p>
                           <p className="mt-1 truncate text-xs font-medium text-slate-600">{card.head_of_household}</p>
-                          <p className="mt-2 text-[10px] text-slate-600">{people.length} applicants · {activePeople} active</p>
+                          <p className="mt-2 text-[10px] text-slate-600">{people.filter(person => person.status !== "deleted").length} applicants · {activePeople} active</p>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
                       </div>
@@ -216,10 +218,10 @@ export default function JobCardsPage() {
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${card.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{card.status}</span>
                   </div>
                   <div className="mb-4 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Total applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.length}</p></div>
+                    <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Total applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.filter(person => person.status !== "deleted").length}</p></div>
                     <div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-500">Active applicants</p><p className="mt-1 text-lg font-bold text-slate-950">{people.filter(person => person.status === "active").length}</p></div>
                   </div>
-                  <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Applicants</h4><span className="text-[10px] text-slate-600">{people.length} total</span></div>
+                  <div className="mb-2 flex items-center justify-between"><h4 className="text-xs font-bold uppercase tracking-wide text-slate-500">Applicants</h4><span className="text-[10px] text-slate-600">{people.filter(person => person.status !== "deleted").length} total</span></div>
                   {people.length > 0 ? <>
                     <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
                       <table className="w-full min-w-[700px] text-left">

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase";
 
 type CoTag = { id: string; name: string; is_archived: boolean };
 type CoRow = {
-  id: string; job_card_number: string; reference_number: string; transaction_date: string | null; transaction_date: string | null;
+  id: string; job_card_number: string; reference_number: string; transaction_date: string | null;
   applicant_name: string | null; credit_amount: number | string; amount_to_be_credited: number | string | null;
   government_status: string; normalized_status: string; rejection_reason: string | null;
   co_amount: number; is_exempt: boolean;

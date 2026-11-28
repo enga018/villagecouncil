@@ -5,13 +5,13 @@ import { createClient } from "@/lib/supabase";
 
 type CoTag = { id: string; name: string; is_archived: boolean };
 type CoRow = {
-  id: string; job_card_number: string; reference_number: string; transaction_date: string | null;
+  id: string; job_card_number: string; reference_number: string; transaction_date: string | null; processed_date: string | null;
   applicant_name: string | null; credit_amount: number | string; amount_to_be_credited: number | string | null;
   government_status: string; normalized_status: string; rejection_reason: string | null;
   co_amount: number; is_exempt: boolean;
 };
 type LatestItem = {
-  fto_transaction_id: string; job_card_number: string; applicant_name: string | null;
+  fto_transaction_id: string; job_card_number: string; applicant_name: string | null; processed_date: string | null;
   credit_amount: number | string; co_amount: number | string; is_exempt: boolean;
 };
 type Calculation = {
@@ -374,11 +374,12 @@ export default function FtoCoAction({
                     <div className="hidden overflow-x-auto md:block">
                       <table className="min-w-[760px] w-full divide-y divide-slate-200 text-xs">
                         <thead className="bg-white text-left text-[10px] font-bold uppercase tracking-wide text-slate-500"><tr>
-                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
+                          <th className="px-3 py-3">Job Card / Applicant</th><th className="px-3 py-3">Processed Date</th><th className="px-3 py-3">Credit Amount</th>{showPreview && isRecalculation ? <><th className="px-3 py-3">Previous CO</th><th className="px-3 py-3">Proposed CO</th><th className="px-3 py-3">Difference</th></> : <th className="px-3 py-3">CO Amount</th>}<th className="px-3 py-3">Government status</th><th className="px-3 py-3">Calculation</th>
                         </tr></thead>
                         <tbody className="divide-y divide-slate-100">
                           {showPreview ? previewRows.map(row => <tr key={row.id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
+                            <td className="px-3 py-3 whitespace-nowrap text-slate-600">{date(row.processed_date)}</td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             {isRecalculation ? <>
                               <td className="px-3 py-3 tabular-nums text-slate-600">{row.previous_co_amount == null ? "New" : money(row.previous_co_amount)}</td>
@@ -389,6 +390,7 @@ export default function FtoCoAction({
                             <td className="px-3 py-3">{row.is_exempt ? <span className="font-semibold text-amber-700">Exempt</span> : <span className="font-semibold text-emerald-700">Non-exempt</span>}</td>
                           </tr>) : savedRows.map(row => <tr key={row.fto_transaction_id}>
                             <td className="px-3 py-3"><p className="font-bold text-slate-900">{row.job_card_number}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.applicant_name || "—"}</p></td>
+                            <td className="px-3 py-3 whitespace-nowrap text-slate-600">{date(row.processed_date)}</td>
                             <td className="px-3 py-3 tabular-nums text-slate-700">{money(row.credit_amount)}</td>
                             <td className="px-3 py-3 tabular-nums font-semibold text-slate-900">{money(row.co_amount)}</td>
                             <td className="px-3 py-3"><span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.status)}`}>{statusLabel(row.status)}</span></td>
@@ -406,6 +408,7 @@ export default function FtoCoAction({
                             <div className="min-w-0">
                               <p className="break-all text-xs font-bold text-slate-950">{row.job_card_number}</p>
                               <p className="mt-1 text-[11px] text-slate-500">{row.applicant_name || "Applicant not recorded"}</p>
+                              <p className="mt-1 text-[10px] text-slate-400">Processed: {date(row.processed_date)}</p>
                             </div>
                             <span className={`shrink-0 rounded-full border px-2 py-1 text-[10px] font-semibold ${statusClass(row.normalized_status)}`}>{statusLabel(row.normalized_status)}</span>
                           </div>

@@ -31,6 +31,13 @@ function displayDate(value: string | null) {
     ? value.slice(0, 10)
     : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone: "UTC" }).format(date);
 }
+function displayDateTime(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(date);
+}
 function shortActor(value: string | null) {
   return value ? value.slice(0, 8) + "…" : "—";
 }
@@ -224,7 +231,7 @@ export default function ExemptionsPage() {
                   <p className="mt-0.5 text-sm text-slate-600">{item.head_of_household || "Household name not available"}</p>
                   <p className="mt-2 text-xs text-slate-500">Effective from <strong className="font-semibold text-slate-700">{displayDate(item.started_at)}</strong></p>
                   <p className="mt-2 text-sm text-slate-700">{item.add_reason}</p>
-                  <p className="mt-2 text-xs text-slate-400">Added by {actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDate(item.created_at)}</p>
+                  <p className="mt-2 text-xs text-slate-400">Added by {actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p>
                 </div>
                 {removingId === item.id ? (
                   <form onSubmit={removeExemption} className="w-full space-y-2 sm:max-w-sm">
@@ -266,8 +273,8 @@ export default function ExemptionsPage() {
                 <span className="text-xs text-slate-500">{displayDate(item.started_at)} – {displayDate(item.ended_at)}</span>
               </div>
               <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Added</p><p className="mt-1 text-slate-700">{item.add_reason}</p><p className="mt-1 text-xs text-slate-400">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDate(item.created_at)}</p></div>
-                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Removed</p><p className="mt-1 text-slate-700">{item.remove_reason || "—"}</p><p className="mt-1 text-xs text-slate-400">{item.removed_by ? (actorLabels[item.removed_by] || shortActor(item.removed_by)) : "—"} · {item.ended_at ? displayDate(item.ended_at) : "—"}</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Added</p><p className="mt-1 text-slate-700">{item.add_reason}</p><p className="mt-1 text-xs text-slate-400">{actorLabels[item.added_by] || shortActor(item.added_by)} · {displayDateTime(item.created_at)}</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Removed</p><p className="mt-1 text-slate-700">{item.remove_reason || "—"}</p><p className="mt-1 text-xs text-slate-400">{item.removed_by ? (actorLabels[item.removed_by] || shortActor(item.removed_by)) : "—"} · {item.ended_at ? displayDateTime(item.updated_at) : "—"}</p></div>
               </div>
             </article>)}
           </div>}

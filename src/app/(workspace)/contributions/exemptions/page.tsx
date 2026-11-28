@@ -201,9 +201,9 @@ export default function ExemptionsPage() {
           </label>
           <label className="block text-sm font-medium text-slate-700">
             Reason
-            <input required minLength={3} maxLength={1000} value={addReason} onChange={event => setAddReason(event.target.value)}
+            <textarea required minLength={3} maxLength={1000} rows={2} value={addReason} onChange={event => setAddReason(event.target.value)}
               placeholder="Why is this Job Card exempt?"
-              className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+              className="mt-1.5 min-h-11 w-full resize-y rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
           </label>
           <button type="submit" disabled={saving || !jobCardNumber || addReason.trim().length < 3}
             className="min-h-11 rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50">

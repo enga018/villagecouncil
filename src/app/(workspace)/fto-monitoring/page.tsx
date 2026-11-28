@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import FtoImportedRegister, { type FtoAutoIncrement } from "@/components/fto/fto-imported-register";
+import { MiniKpi } from "@/components/app/ModuleCard";
 
 type Progress = { attempted: number; total: number; staged: number };
 type FtoDetailsResponse = {
@@ -273,7 +274,7 @@ export default function FtoMonitoringPage() {
 
 
   return (
-    <div className="mx-auto max-w-6xl space-y-7">
+    <div className="mx-auto w-full space-y-7">
       <section className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[.16em] text-blue-700">Financial operations</p>
@@ -294,25 +295,12 @@ export default function FtoMonitoringPage() {
         </button>
       </section>
 
-      <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {([
-          ["Imported FTOs", summary.ftos, "Active FTOs in this Council's register", "FT", "neutral"],
-          ["Imported transactions", summary.transactions, "Transactions linked to imported FTOs", "TX", "neutral"],
-          ["Processed", statusTotals.processed, "Processed in the register", "PT", "success"],
-          ["Deferred", statusTotals.deferred, "Deferred (status not set yet)", "DR", "warning"],
-          ["Rejected", statusTotals.rejected, "Rejected in the register", "RJ", "danger"],
-        ] as const).map(([label, value, description, mark, tone]) => (
-          <div key={label} className="rounded-2xl border border-slate-300 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-xs font-medium text-slate-600">{label}</p>
-              <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-[9px] font-bold ${tone === "success" ? "bg-emerald-50 text-emerald-700" : tone === "warning" ? "bg-amber-50 text-amber-700" : tone === "danger" ? "bg-rose-50 text-rose-700" : "bg-slate-50 text-slate-500"}`}>{mark}</span>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <p className={`text-2xl font-bold tracking-tight tabular-nums sm:text-[28px] ${tone === "success" ? "text-emerald-700" : tone === "warning" ? "text-amber-700" : tone === "danger" ? "text-rose-700" : "text-slate-900"}`}>{value === null ? "—" : formatNumber(value)}</p>
-            </div>
-            <p className="mt-1.5 text-[10px] text-slate-500">{description}</p>
-          </div>
-        ))}
+      <section aria-label="FTO summary" className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <MiniKpi label="Imported FTOs" value={summary.ftos} context="Active FTOs in this Council's register" />
+        <MiniKpi label="Imported transactions" value={summary.transactions} context="Transactions linked to imported FTOs" />
+        <MiniKpi label="Processed" value={statusTotals.processed} context="Processed in the register" tone="success" />
+        <MiniKpi label="Deferred" value={statusTotals.deferred} context="Deferred (status not set yet)" tone="warning" />
+        <MiniKpi label="Rejected" value={statusTotals.rejected} context="Rejected in the register" tone="danger" />
       </section>
 
       <FtoImportedRegister key={importResult ? "after-import" : "initial"} autoIncrement={importIncrement} />

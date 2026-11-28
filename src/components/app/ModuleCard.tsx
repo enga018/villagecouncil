@@ -44,18 +44,26 @@ export function StatusBadge({ status }: { status: "Available" | "Active" | "Proc
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${styles[status]}`}>{status}</span>;
 }
 
-export function MiniKpi({ label, value, context, tone = "neutral" }: {
+export function MiniKpi({ label, value, context, tone = "neutral", change }: {
   label: string;
   value: number | string | null;
   context: string;
   tone?: Tone;
+  change?: number;
 }) {
   return (
     <div className="min-w-0 rounded-xl border border-[var(--vc-border-subtle)] bg-slate-50 p-3">
       <p className="truncate text-[10px] font-semibold uppercase tracking-[.08em] text-slate-500">{label}</p>
-      <p className={`mt-1.5 text-xl font-bold tracking-tight tabular-nums ${toneStyles[tone]}`}>
-        {value === null ? "—" : typeof value === "number" ? value.toLocaleString("en-IN") : value}
-      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <p className={`text-xl font-bold tracking-tight tabular-nums ${toneStyles[tone]}`}>
+          {value === null ? "—" : typeof value === "number" ? value.toLocaleString("en-IN") : value}
+        </p>
+        {change !== undefined && change !== 0 && (
+          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${change > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+            {change > 0 ? "+" : "−"}{Math.abs(change).toLocaleString("en-IN")}
+          </span>
+        )}
+      </div>
       <p className="mt-1 truncate text-[10px] leading-4 text-slate-500">{context}</p>
     </div>
   );

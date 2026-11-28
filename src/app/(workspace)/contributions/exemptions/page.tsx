@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { MiniKpi } from "@/components/app/ModuleCard";
 
 type JobCard = {
   job_card_number: string;
@@ -184,18 +185,9 @@ export default function ExemptionsPage() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium text-slate-500">Currently exempt</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">{active.length}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium text-slate-500">Previous intervals</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">{history.length}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-xs font-medium text-slate-500">Job Cards in register</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-slate-950">{jobCards.length}</p>
-        </div>
+        <MiniKpi label="Currently exempt" value={active.length} context="Job Cards with an active exemption" tone="blue" />
+        <MiniKpi label="Previous intervals" value={history.length} context="Ended exemption periods" />
+        <MiniKpi label="Job Cards in register" value={jobCards.length} context="All household records" />
       </div>
 
       {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}

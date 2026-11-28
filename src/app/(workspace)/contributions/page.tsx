@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
+import { MiniKpi } from "@/components/app/ModuleCard";
 
 type JobCard = { id: string; job_card_number: string; head_of_household: string; status: string };
 type Charge = {
@@ -226,10 +227,10 @@ export default function ContributionsPage() {
       {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">{error}</p>}
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Active charges</p><p className="mt-2 text-xl font-bold tabular-nums text-blue-700">{loading ? "—" : money(chargeTotal)}</p></div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Allocated payments</p><p className="mt-2 text-xl font-bold tabular-nums text-emerald-700">{loading ? "—" : money(allocatedTotal)}</p></div>
-        <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700">Waived</p><p className="mt-2 text-xl font-bold tabular-nums text-violet-700">{loading ? "—" : money(waiverTotal)}</p></div>
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Outstanding</p><p className="mt-2 text-xl font-bold tabular-nums text-amber-700">{loading ? "—" : money(outstandingTotal)}</p></div>
+        <MiniKpi label="Active charges" value={loading ? null : money(chargeTotal)} context="Total charges" tone="blue" />
+        <MiniKpi label="Allocated payments" value={loading ? null : money(allocatedTotal)} context="Payments applied to charges" tone="success" />
+        <MiniKpi label="Waived" value={loading ? null : money(waiverTotal)} context="Charges waived" tone="indigo" />
+        <MiniKpi label="Outstanding" value={loading ? null : money(outstandingTotal)} context="Total unpaid balance" tone="warning" />
       </section>
       {!loading && <p className="text-[11px] text-slate-500">Payments recorded: {money(paymentTotal)} · Refunds: {money(refundTotal)} · Unallocated credit: {money(creditTotal)} · Job Cards with outstanding balance: {cardsWithOutstanding.toLocaleString("en-IN")}</p>}
 

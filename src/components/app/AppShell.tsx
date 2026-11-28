@@ -125,7 +125,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium text-slate-500 sm:inline-flex">Workspace</span>
         </header>
-        <main className="mx-auto min-h-[calc(100vh-var(--vc-topbar-height))] w-full max-w-[var(--vc-content-width)] p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="mx-auto min-h-[calc(100vh-var(--vc-topbar-height))] w-full p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

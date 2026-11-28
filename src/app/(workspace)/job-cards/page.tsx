@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import WageTransactions from "@/components/job-cards/WageTransactions";
+import { MiniKpi } from "@/components/app/ModuleCard";
 
 type StatusFilter = "all" | "active" | "inactive";
 type JobCard = {
@@ -314,31 +315,10 @@ export default function JobCardsPage() {
       {fetchError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><p className="font-semibold">Register refetch failed</p><p className="mt-1">{fetchError}</p></div>}
 
       <section aria-label="Job Card register summary" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {([
-          ["totalCards", "Total Job Cards", jobCards.length, "All household records", "JC"],
-          ["activeCards", "Active Job Cards", activeCards, "Currently active records", "AC"],
-          ["totalApplicants", "Total Applicants", applicants.length, "People in the register", "AP"],
-          ["activeApplicants", "Active Applicants", activeApplicants, "Currently active applicants", "AA"],
-        ] as const).map(([key, label, value, description, mark]) => {
-          const change = kpiChanges?.[key] ?? 0;
-          return (
-            <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[var(--vc-shadow-card)] sm:p-5">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-xs font-medium text-slate-500">{label}</p>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-[9px] font-bold text-slate-500">{mark}</span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <p className="text-2xl font-bold tracking-tight tabular-nums text-slate-950 sm:text-[28px]">{loading ? "—" : value.toLocaleString("en-IN")}</p>
-                {!loading && kpiChanges !== null && change !== 0 && (
-                  <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${change > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
-                    {change > 0 ? "+" : "−"}{Math.abs(change).toLocaleString("en-IN")}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1.5 text-[10px] text-slate-400">{description}</p>
-            </div>
-          );
-        })}
+        <MiniKpi label="Total Job Cards" value={loading ? null : jobCards.length} context="All household records" change={!loading && kpiChanges ? kpiChanges.totalCards : undefined} />
+        <MiniKpi label="Active Job Cards" value={loading ? null : activeCards} context="Currently active records" change={!loading && kpiChanges ? kpiChanges.activeCards : undefined} tone="blue" />
+        <MiniKpi label="Total Applicants" value={loading ? null : applicants.length} context="People in the register" change={!loading && kpiChanges ? kpiChanges.totalApplicants : undefined} />
+        <MiniKpi label="Active Applicants" value={loading ? null : activeApplicants} context="Currently active applicants" change={!loading && kpiChanges ? kpiChanges.activeApplicants : undefined} tone="blue" />
       </section>
 
 

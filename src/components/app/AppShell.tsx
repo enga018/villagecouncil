@@ -19,6 +19,7 @@ const navigation = [
     items: [
       { href: "/fto-monitoring", label: "FTO Monitoring", mark: "FT" },
       { href: "/contributions", label: "Contributions", mark: "CN" },
+      { href: "/contributions/exemptions", label: "Exemptions", mark: "EX" },
       { href: "/payments", label: "Payments", mark: "PY" },
       { href: "/reports", label: "Reports", mark: "RP" },
     ],

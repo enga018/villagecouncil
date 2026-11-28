@@ -75,7 +75,27 @@ export default function ExemptionsPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let current = true;
+    async function initialLoad() {
+      try {
+        const { data, error: requestError } = await createClient().functions.invoke("council-co-calculation", {
+          body: { action: "exemptions" },
+        });
+        if (requestError) throw requestError;
+        if (!current) return;
+        setJobCards((data?.job_cards || []) as JobCard[]);
+        setIntervals((data?.intervals || []) as Exemption[]);
+        setActorLabels((data?.actor_labels || {}) as Record<string, string>);
+      } catch (cause) {
+        if (current) setError(cause instanceof Error ? cause.message : "Could not load exemption records.");
+      } finally {
+        if (current) setLoading(false);
+      }
+    }
+    void initialLoad();
+    return () => { current = false; };
+  }, []);
 
   const active = useMemo(() => intervals.filter(item => !item.ended_at), [intervals]);
   const history = useMemo(() => intervals.filter(item => item.ended_at), [intervals]);

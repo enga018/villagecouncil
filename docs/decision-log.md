@@ -1,5 +1,7 @@
 # Financial Workflow Decision Log
 
+> **Current exemption rule (2026-11-28):** Determine whether an FTO transaction falls within a Job Card exemption interval by comparing Government `transaction_date` with the interval start and removal dates. Start is inclusive; removal date is exclusive. Do not use `first_imported_at` or a permanent transaction mark to determine exemption eligibility. This latest clarification supersedes earlier exemption timing decisions below.
+
 **Project:** Village Council Platform  
 **Decision baseline:** 2026-11-26  
 **Status:** Agreed decisions captured; open technical details listed at the end

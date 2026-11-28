@@ -252,7 +252,7 @@ export default function ContributionsPage() {
               <button type="button" onClick={() => { setView("all"); setContribPage(1); }} className={`rounded-lg px-3 py-2 text-[11px] font-semibold ${view === "all" ? "bg-blue-50 text-blue-800" : "text-slate-500"}`}>All</button>
             </div>
           </div>
-          <div className="mt-3 max-h-[65vh] space-y-2 overflow-y-auto">
+          <div className="mt-3 space-y-2">
             {loading ? <p className="py-10 text-center text-xs text-slate-500">Loading Job Card accounts…</p>
               : filtered.length === 0 ? <p className="py-10 text-center text-xs text-slate-500">No matching Job Cards.</p>
               : visibleAccounts.map(account => (

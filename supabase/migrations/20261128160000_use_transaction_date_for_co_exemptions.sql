@@ -204,6 +204,7 @@ declare
   v_exemption_started_at timestamptz;
   v_charge_found boolean;
   v_stale_exemption boolean := false;
+  v_current_exempt boolean := false;
 begin
   if p_change_source not in ('co_recalculation', 'government_status') then
     raise exception 'Unsupported Regular CO charge synchronization source.';
@@ -232,7 +233,7 @@ begin
     return;
   end if;
 
-  select i.calculation_id, i.co_amount, i.is_exempt, i.exemption_interval_id, c.created_by, c.created_at
+  select i.calculation_id, i.co_amount, c.created_by, c.created_at, c.exemption_rule_version
   into v_item
   from public.council_fto_co_calculation_items i
   join public.council_fto_co_calculations c
@@ -245,9 +246,22 @@ begin
     return;
   end if;
 
-  -- If an exemption interval changed after this calculation, keep the saved
-  -- calculation stale for transactions whose Government transaction_date falls
-  -- within that interval. This blocks new charges until a fresh Preview → Apply.
+  -- Determine exemption from the Government Transaction Date, never from
+  -- first_imported_at or a legacy permanent transaction mark.
+  select e.started_at into v_exemption_started_at
+  from public.council_co_exemption_intervals e
+  where e.village_council_id = p_village_council_id
+    and e.job_card_number = v_tx.job_card_number
+    and v_tx.transaction_date is not null
+    and v_tx.transaction_date >= e.started_at::date
+    and (e.ended_at is null or v_tx.transaction_date < e.ended_at::date)
+  order by e.started_at desc
+  limit 1;
+  v_current_exempt := found;
+
+  -- If an exemption interval changed after this calculation, a new Preview →
+  -- Apply is required before creating charges for transactions dated on/after
+  -- that interval's start, including transactions dated after its removal.
   select exists (
     select 1
     from public.council_co_exemption_intervals e
@@ -255,12 +269,11 @@ begin
       and e.job_card_number = v_tx.job_card_number
       and v_tx.transaction_date is not null
       and v_tx.transaction_date >= e.started_at::date
-      and (e.ended_at is null or v_tx.transaction_date < e.ended_at::date)
       and e.updated_at > v_item.created_at
   ) into v_stale_exemption;
 
   v_eligible := v_tx.normalized_status = 'processed'
-    and not v_item.is_exempt
+    and not v_current_exempt
     and not v_stale_exemption;
   v_actor := coalesce(p_actor_id, v_item.created_by);
 
@@ -272,23 +285,18 @@ begin
   for update;
   v_charge_found := found;
 
-  if v_charge_found and (v_item.is_exempt or v_stale_exemption) then
-    select e.started_at into v_exemption_started_at
-    from public.council_co_exemption_intervals e
-    where e.village_council_id = p_village_council_id
-      and (
-        e.id = v_item.exemption_interval_id
-        or (
-          v_stale_exemption
-          and e.job_card_number = v_tx.job_card_number
-          and v_tx.transaction_date is not null
-          and v_tx.transaction_date >= e.started_at::date
-          and (e.ended_at is null or v_tx.transaction_date < e.ended_at::date)
-          and e.updated_at > v_item.created_at
-        )
-      )
-    order by e.started_at desc
-    limit 1;
+  if v_charge_found and (v_current_exempt or v_stale_exemption) then
+    if v_stale_exemption and not v_current_exempt then
+      select e.started_at into v_exemption_started_at
+      from public.council_co_exemption_intervals e
+      where e.village_council_id = p_village_council_id
+        and e.job_card_number = v_tx.job_card_number
+        and v_tx.transaction_date is not null
+        and v_tx.transaction_date >= e.started_at::date
+        and e.updated_at > v_item.created_at
+      order by e.started_at desc
+      limit 1;
+    end if;
 
     -- A charge created before the effective interval remains payable.
     if v_exemption_started_at is not null
@@ -301,7 +309,7 @@ begin
   v_new_active := v_eligible;
 
   if not v_charge_found then
-    if not v_eligible then
+    if not v_eligible or v_item.exemption_rule_version < 2 then
       return;
     end if;
 

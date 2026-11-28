@@ -154,7 +154,7 @@ export default function ExemptionsPage() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-950">Job Card Exemptions</h1>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Manage temporary exemption intervals. CO eligibility is evaluated using each FTO transaction’s Government Processed Date.
+            Manage temporary exemption intervals. CO eligibility is evaluated using each FTO transaction’s Government transaction date.
           </p>
         </div>
         <Link href="/contributions" className="text-sm font-semibold text-blue-700 hover:text-blue-900">Back to Contributions</Link>

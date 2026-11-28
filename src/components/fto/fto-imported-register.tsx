@@ -116,6 +116,7 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
   const [inspections, setInspections] = useState<Record<string, Inspection>>({});
   const [inspectionError, setInspectionError] = useState("");
   const [search, setSearch] = useState("");
+  const [coFilter, setCoFilter] = useState<"pending" | "all">("pending");
   const [selectedId, setSelectedId] = useState("");
   const [selectedTab, setSelectedTab] = useState<"details" | "co">("details");
   const [loading, setLoading] = useState(true);
@@ -162,16 +163,18 @@ export default function FtoImportedRegister({ autoIncrement = null }: { autoIncr
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase();
-    if (!term) return records;
-    return records.filter(item =>
-      [item.fto_number, item.fto_status, item.block, item.first_signatory]
-        .some(value => String(value || "").toLocaleLowerCase().includes(term))
-      || item.council_fto_transactions.some(tx =>
-        [tx.job_card_number, tx.reference_number, tx.applicant_name, tx.government_status]
+    return records.filter(item => {
+      const matchesCo = coFilter === "all" || item.co_calculation_version <= 0;
+      const matchesSearch = !term ||
+        [item.fto_number, item.fto_status, item.block, item.first_signatory]
           .some(value => String(value || "").toLocaleLowerCase().includes(term))
-      )
-    );
-  }, [records, search]);
+        || item.council_fto_transactions.some(tx =>
+          [tx.job_card_number, tx.reference_number, tx.applicant_name, tx.government_status]
+            .some(value => String(value || "").toLocaleLowerCase().includes(term))
+        );
+      return matchesCo && matchesSearch;
+    });
+  }, [records, search, coFilter]);
 
   const sortedFiltered = useMemo(() => [...filtered].sort((a, b) => {
     const aChecked = inspections[a.fto_number]?.last_inspected_at;

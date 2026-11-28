@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
       }
       const removalDate = new Date().toISOString().slice(0, 10);
       const { data: interval, error } = await admin.from("council_co_exemption_intervals").update({
-        ended_at: `${removalDate}T00:00:00.000Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
+        ended_at: `${removalDate}T23:59:59.999Z`, remove_reason: reason, removed_by: actorId, updated_at: new Date().toISOString(),
       }).eq("id", intervalId).eq("village_council_id", tenantId).is("ended_at", null)
         .select("id,job_card_number,started_at,ended_at,add_reason,remove_reason,added_by,removed_by,created_at,updated_at").maybeSingle();
       if (error) throw error;
@@ -240,7 +240,6 @@ Deno.serve(async (req: Request) => {
         current.push(interval);
         intervalsByCard.set(interval.job_card_number, current);
       }
-      const markMap = new Map((marks || []).map(mark => [mark.fto_transaction_id, mark]));
       const rows = (transactions || []).map(tx => {
         const interval = isExempt(tx.processed_date, intervalsByCard.get(tx.job_card_number) || []);
         const exemptionIntervalId = interval?.id || null;

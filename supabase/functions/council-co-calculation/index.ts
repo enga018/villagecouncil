@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
       const jobCardNumber = String(body.jobCardNumber || "").trim();
       const startDate = String(body.startDate || "").trim();
       const reason = String(body.reason || "").trim();
-      if (!jobCardNumber || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || reason.length < 3 || reason.length > 1000) {
+      if (!jobCardNumber || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || new Date(`${startDate}T00:00:00.000Z`).toISOString().slice(0, 10) !== startDate || reason.length < 3 || reason.length > 1000) {
         return reply({ error: "Select a Job Card, provide a valid start date, and enter a reason of 3–1000 characters." }, 400, origin);
       }
       const { data: jobCard, error: jobCardError } = await admin.from("council_job_cards")

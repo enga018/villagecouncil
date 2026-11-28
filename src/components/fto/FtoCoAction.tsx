@@ -17,7 +17,7 @@ type LatestItem = {
 type Calculation = {
   id: string; version: number; tag_id: string; tag_name_snapshot: string; divisor: number; multiplier: number;
   transaction_count: number; total_credit_amount: number; total_co_amount: number;
-  exempt_count: number; chargeable_count: number; created_at: string;
+  exempt_count: number; chargeable_count: number; created_at: string; exemption_rule_version: number;
 };
 type PreviewData = {
   fto: { id: string; fto_number: string; current_co_tag_id: string | null; co_calculation_version: number };
@@ -278,6 +278,11 @@ export default function FtoCoAction({
                         <div><p className="text-[10px] text-slate-500">Tag at calculation</p><p className="mt-1 text-sm font-bold text-slate-900">{data.latest_calculation.tag_name_snapshot}</p></div>
                       </div>
                       <p className="mt-3 text-[11px] text-slate-500">Formula: ROUND((Credit Amount ÷ {data.latest_calculation.divisor}) × {data.latest_calculation.multiplier}, 2)</p>
+                      {data.latest_calculation.exemption_rule_version < 2 && (
+                        <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                          This saved calculation uses the previous exemption rule. Recalculate and Apply this FTO to use Government Transaction Date eligibility. New Regular CO Charges will not be created from this legacy calculation until it is recalculated.
+                        </p>
+                      )}
                     </div>
                   )}
 
